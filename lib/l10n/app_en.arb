@@ -1,0 +1,870 @@
+{
+  "@@locale": "en",
+  "appTitle": "VoidTunnel",
+  "cancel": "Cancel",
+  "save": "Save",
+  "delete": "Delete",
+  "done": "Done",
+  "add": "Add",
+  "edit": "Edit",
+  "create": "Create",
+  "clear": "Clear",
+  "retry": "Retry",
+  "append": "Append",
+  "replace": "Replace",
+  "loading": "Loading…",
+  "unavailable": "Unavailable",
+  "more": "More",
+  "yes": "Yes",
+  "no": "No",
+  "untitled": "Untitled",
+  "keepPrefix": "Keep: {label}",
+  "@keepPrefix": {
+    "placeholders": {
+      "label": {"type": "String"}
+    }
+  },
+  "levelsSelectedNone": "No levels selected — {retention}",
+  "@levelsSelectedNone": {
+    "placeholders": {
+      "retention": {"type": "String"}
+    }
+  },
+  "levelsSelectedSome": "{levels} — {retention}",
+  "@levelsSelectedSome": {
+    "placeholders": {
+      "levels": {"type": "String"},
+      "retention": {"type": "String"}
+    }
+  },
+  "applicationSettingsTitle": "Application settings",
+  "themeSection": "Theme",
+  "themeLight": "Light",
+  "themeDark": "Dark",
+  "appLanguageTitle": "App language",
+  "appLanguageSubtitle": "Choose the interface language.",
+  "appLanguageAuto": "Auto",
+  "appLanguageEnglish": "English",
+  "appLanguageRussian": "Русский",
+  "autoConnectOnLaunchTitle": "Auto-connect on launch",
+  "autoConnectOnLaunchSubtitle": "May not work on some devices.",
+  "restartOnSettingsChangeTitle": "Restart on changes",
+  "showSpeedInNotificationTitle": "Show connection speed in notifications",
+  "keepAwakeTitle": "Keep VPN awake",
+  "keepAwakeSubtitle": "Hold a partial wake lock while connected. Uses more battery.",
+  "verboseXrayLogsTitle": "Verbose Xray logs",
+  "verboseXrayLogsSubtitle": "Capture xray-core info-level errors (dial failures, Reality auth, ALPN) and dump the generated config once at startup. Use only for diagnostics; sensitive fields are masked.",
+  "applicationSettingsPingTargetTitle": "Ping server",
+  "applicationSettingsPingTargetDefault": "Node address",
+  "applicationSettingsPingTargetDialogTitle": "Ping server",
+  "applicationSettingsPingTargetFieldLabel": "Host or URL",
+  "applicationSettingsPingTargetHint": "example.com:443",
+  "applicationSettingsPingTargetInvalid": "Enter a host, URL, or host:port.",
+  "applicationSettingsPingTargetReset": "Use node address",
+  "logSettingsTitle": "Log options",
+  "logSettingsDialogTitle": "Log options",
+  "logLevelsLabel": "Levels",
+  "logStorageTimeLabel": "Storage time",
+  "logStorageTimeTooltip": "Storage time",
+  "applicationSettingsShowGlobalProxyTitle": "Split/Global widget",
+  "applicationSettingsGlobalProxySubtitle": "Show the full-tunnel button on the home screen.",
+  "applicationSettingsAutoSortServersByPingTitle": "Sort by ping",
+  "applicationSettingsAutoSortServersByPingSubtitle": "Put faster servers higher after a latency scan.",
+  "profileExportTitle": "Export profile",
+  "profileExportSubtitle": "Save manual nodes, subscriptions, and routing presets as a JSON file.",
+  "profileExportedText": "Profile exported.",
+  "profileExportProtectedSubscriptionsSkipped": "Profile exported. Protected subscriptions cannot be exported.",
+  "profileExportProtectedSubscriptionsEncrypted": "Profile exported. Protected subscriptions are stored as encrypted codes.",
+  "profileExportFailed": "Failed to export profile: {error}",
+  "@profileExportFailed": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "profileImportTitle": "Import profile",
+  "profileImportSubtitle": "Load a VoidTunnel profile JSON file.",
+  "profileImportModeTitle": "Import profile",
+  "profileImportModeBody": "Replace current manual nodes, subscriptions, and routing presets, or append this profile to the current data?",
+  "profileImportFileEmpty": "Profile file is empty.",
+  "profileImportReadFailed": "Failed to read profile file.",
+  "profileImportReadFailedDetail": "Failed to read profile file: {error}",
+  "@profileImportReadFailedDetail": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "profileImportFailed": "Failed to import profile: {error}",
+  "@profileImportFailed": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "profileImportInvalidJson": "Profile JSON is malformed.",
+  "profileImportUnsupportedFormat": "File is not a VoidTunnel profile.",
+  "profileImportUnsupportedVersion": "Profile version is not supported.",
+  "profileImportEmptyProfile": "Profile does not contain importable data.",
+  "profileImportedText": "Profile imported: {manualNodes} manual, {subscriptions} subscriptions, {presets} presets.",
+  "@profileImportedText": {
+    "placeholders": {
+      "manualNodes": {"type": "int"},
+      "subscriptions": {"type": "int"},
+      "presets": {"type": "int"}
+    }
+  },
+  "profileImportedWithProtectedFailures": "Profile imported: {manualNodes} manual, {subscriptions} subscriptions, {presets} presets. Failed protected subscriptions: {failed}.",
+  "@profileImportedWithProtectedFailures": {
+    "placeholders": {
+      "manualNodes": {"type": "int"},
+      "subscriptions": {"type": "int"},
+      "presets": {"type": "int"},
+      "failed": {"type": "int"}
+    }
+  },
+  "profileImportedAppRoutingMissingSuffix": " Skipped {dropped} per-app entries for apps not installed on this device.",
+  "@profileImportedAppRoutingMissingSuffix": {
+    "placeholders": {
+      "dropped": {"type": "int"}
+    }
+  },
+  "serverMenuEdit": "Edit",
+  "serverMenuInDevelopment": "In development",
+  "serverMenuAddFavorite": "Add to favorites",
+  "serverMenuRemoveFavorite": "Remove from favorites",
+  "favoriteMenuMove": "Move",
+  "serverMenuSetExitNode": "Exit Tunnel",
+  "serverMenuResetExitNode": "Reset exit tunnel",
+  "serverExitNodeLabel": "EXIT",
+  "serverMenuRulePreset": "Rule preset",
+  "editServerTitle": "Edit Server",
+  "addServerTitle": "Add Server",
+  "editServerSave": "Save",
+  "editServerDelete": "Delete server",
+  "editServerDeleteConfirmTitle": "Delete this server?",
+  "editServerDeleteConfirmBody": "It will be removed from your list.",
+  "editServerDeleteCancel": "Cancel",
+  "editServerDeleteConfirmAction": "Delete",
+  "editServerAliasLabel": "Alias",
+  "editServerAddressLabel": "Server address",
+  "editServerPortLabel": "Port",
+  "editServerUuidLabel": "UUID / Password",
+  "editServerPasswordLabel": "Password / Auth",
+  "editServerProtocolLabel": "Protocol",
+  "editServerTransportLabel": "Transport type",
+  "editServerSecurityLabel": "Security",
+  "editServerSniLabel": "SNI",
+  "editServerPathLabel": "Path",
+  "editServerServiceNameLabel": "Service name",
+  "editServerHostLabel": "Host header",
+  "editServerShortIdLabel": "Short ID",
+  "editServerPublicKeyLabel": "Public key",
+  "editServerAlpnLabel": "ALPN",
+  "editServerAllowInsecureLabel": "Allow insecure TLS",
+  "editServerObfsPasswordLabel": "Obfs password",
+  "editServerHopPortsLabel": "Port hopping",
+  "editServerAliasRequired": "Alias is required",
+  "editServerAddressRequired": "Address is required",
+  "editServerPortRequired": "Port is required",
+  "editServerPortInvalid": "Port must be between 1 and 65535",
+  "editServerPasswordRequired": "Password is required",
+  "editServerNameDuplicate": "Server name already exists",
+  "editServerNotFound": "Server not found",
+  "editServerSectionPrimary": "Primary settings",
+  "editServerSectionTransport": "Transport",
+  "editServerSectionTls": "TLS / Reality",
+  "editServerFingerprintLabel": "uTLS fingerprint",
+  "editServerFingerprintHelper": "Default: chrome for XHTTP, none otherwise",
+  "editServerFingerprintAuto": "Auto (none)",
+  "editServerXhttpSubheading": "XHTTP tuning",
+  "editServerXhttpModeLabel": "Mode",
+  "editServerXhttpModeHelper": "Default: stream-up (lowest DPI signature)",
+  "editServerXhttpModeAuto": "Auto (recommended)",
+  "editServerXhttpPaddingLabel": "Padding range (xPaddingBytes)",
+  "editServerXhttpPaddingHelper": "Default: 100-1000",
+  "editServerXhttpMaxPostLabel": "Max POST bytes (scMaxEachPostBytes)",
+  "editServerXhttpMaxPostHelper": "Default: 500000-1000000 (packet-up only)",
+  "editServerXhttpMinIntervalLabel": "Min POST interval ms (scMinPostsIntervalMs)",
+  "editServerXhttpMinIntervalHelper": "Default: 10-50 (packet-up only)",
+  "protocolVless": "VLESS",
+  "protocolHysteria2": "Hysteria2",
+  "transportTcp": "TCP",
+  "transportUdp": "UDP",
+  "transportWs": "WebSocket",
+  "transportGrpc": "gRPC",
+  "transportHttp": "HTTP",
+  "transportHttpUpgrade": "HTTP Upgrade",
+  "transportXhttp": "XHTTP",
+  "securityNone": "None",
+  "securityTls": "TLS",
+  "securityReality": "Reality",
+  "settingsConfigTitle": "CONFIG",
+  "settingsSectionsHeading": "SECTIONS",
+  "settingsRoutingTitle": "Routing",
+  "settingsRoutingSubtitle": "Presets · rules · app routing",
+  "settingsTunnelTitle": "Tunnel",
+  "settingsTunnelSubtitle": "Fragment · multiplex · network",
+  "settingsSubscriptionsTitle": "Subscriptions",
+  "settingsSubscriptionsSubtitle": "Auto-update · request policy",
+  "settingsApplicationTitle": "Application",
+  "settingsApplicationSubtitle": "Theme · language · launch · logs",
+  "settingsLogJournalSubtitle": "Captured runtime logs",
+  "settingsAboutHeading": "ABOUT",
+  "settingsVersionLabel": "Version",
+  "settingsHwidLabel": "HWID",
+  "settingsProtocolLabel": "Protocol",
+  "settingsProtocolValue": "VLESS · Hysteria2",
+  "settingsXrayCoreLabel": "xray-core",
+  "settingsLibboxLabel": "libbox (sing-box)",
+  "logJournalTitle": "Log journal",
+  "logsEmptyText": "No logs captured yet.",
+  "logsNoCopyText": "No logs to copy.",
+  "logsCopiedText": "Logs copied.",
+  "logsNoExportText": "No logs to export.",
+  "logsExportedText": "Logs exported.",
+  "logsClearedText": "Logs cleared.",
+  "logsCopyTooltip": "Copy",
+  "logsExportTooltip": "Export TXT",
+  "logsClearTooltip": "Clear",
+  "homeServerCopied": "Server copied.",
+  "homeNodePresetTitle": "Node preset",
+  "homeNodePresetCleared": "Node preset cleared.",
+  "homeNodePresetSelected": "Preset \"{name}\" selected for node.",
+  "@homeNodePresetSelected": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "homeSubscriptionUpdated": "Subscription \"{name}\" updated.",
+  "@homeSubscriptionUpdated": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "homeDeleteSubscriptionTitle": "Delete \"{name}\"?",
+  "@homeDeleteSubscriptionTitle": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "homeDeleteSubscriptionBody": "All nodes from this subscription will be removed.",
+  "homeSubscriptionDeleted": "Subscription \"{name}\" deleted.",
+  "@homeSubscriptionDeleted": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "sectionFavorites": "FAVORITES",
+  "sectionNodes": "NODES",
+  "sectionNodesManualCount": "{count} MANUAL",
+  "@sectionNodesManualCount": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "homeNoNodesTitle": "NO NODES YET",
+  "homeNoNodesSubtitle": "Tap ADD on the dock below to import a node.",
+  "tooltipUpdateSubscription": "Update subscription",
+  "tooltipScanPing": "Scan ping",
+  "statusIdle": "IDLE",
+  "statusNegotiating": "NEGOTIATING",
+  "statusSecure": "SECURE",
+  "statusClosing": "CLOSING",
+  "statusError": "ERROR",
+  "statusStripLabel": "STATUS",
+  "statusDurationPlaceholder": "— : —",
+  "ipPlaceholder": "———.———.———.———",
+  "nodeLabelDash": "—",
+  "pingMsSuffix": " ms",
+  "scanning": "SCANNING",
+  "scan": "SCAN",
+  "subscriptionMetaLine": "{expiry} · {count} NODES",
+  "@subscriptionMetaLine": {
+    "placeholders": {
+      "expiry": {"type": "String"},
+      "count": {"type": "int"}
+    }
+  },
+  "subscriptionExpiryUnknown": "EXPIRY UNKNOWN",
+  "subscriptionExpired": "EXPIRED {date}",
+  "@subscriptionExpired": {
+    "placeholders": {
+      "date": {"type": "String"}
+    }
+  },
+  "subscriptionExpires": "EXPIRES {date}",
+  "@subscriptionExpires": {
+    "placeholders": {
+      "date": {"type": "String"}
+    }
+  },
+  "dockHub": "HUB",
+  "dockAdd": "ADD",
+  "dockRoute": "ROUTE",
+  "dockConfig": "CONFIG",
+  "globalProxySplitLabel": "SPLIT",
+  "globalProxySplitHint": "ROUTING RULES",
+  "globalProxyGlobalLabel": "GLOBAL",
+  "globalProxyGlobalHint": "ALL TRAFFIC",
+  "addNodeSheetTitle": "ADD NODE",
+  "addNodeScanQr": "Scan QR code",
+  "addNodeFromClipboard": "From clipboard",
+  "addNodeFromJsonFile": "From JSON file",
+  "addNodeManualInput": "Manual input",
+  "ipStatusNotConnected": "Not Connected",
+  "ipStatusResolving": "Resolving",
+  "ipStatusUnavailable": "Unavailable",
+  "subscriptionNotFound": "Subscription not found.",
+  "subscriptionNameRequired": "Subscription name is required.",
+  "subscriptionInvalidUrl": "Enter a valid HTTP or HTTPS subscription URL.",
+  "presetNameRequired": "Enter a preset name.",
+  "presetNameDuplicate": "Preset with this name already exists.",
+  "presetNotFound": "Preset not found.",
+  "presetMainCannotRename": "Main preset cannot be renamed.",
+  "presetMainCannotDelete": "Main preset cannot be deleted.",
+  "vpnNoServerSelected": "No server selected",
+  "vpnPermissionDenied": "VPN permission denied",
+  "vpnPlatformError": "Platform error",
+  "vpnFailedToStop": "Failed to stop VPN",
+  "vpnFailedToReconnect": "Failed to reconnect VPN",
+  "vpnUnknownError": "Unknown VPN error",
+  "vpnConnectionTimedOut": "VPN connection timed out",
+  "vpnEventChannelError": "Event channel error: {error}",
+  "@vpnEventChannelError": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "subImportInvalidUrl": "Enter a valid HTTP or HTTPS subscription URL",
+  "subImportTimeout": "Subscription request timed out",
+  "subImportEmpty": "Subscription is empty",
+  "subImportNoNodes": "Subscription does not contain supported nodes",
+  "subImportUnsupportedJson": "Unsupported subscription JSON",
+  "subImportHttpStatus": "Subscription returned HTTP {code}",
+  "@subImportHttpStatus": {
+    "placeholders": {
+      "code": {"type": "int"}
+    }
+  },
+  "subImportTooLarge": "Subscription response is too large",
+  "subImportRequestFailed": "Subscription request failed: {detail}",
+  "@subImportRequestFailed": {
+    "placeholders": {
+      "detail": {"type": "String"}
+    }
+  },
+  "subImportGenericDetail": "{detail}",
+  "@subImportGenericDetail": {
+    "placeholders": {
+      "detail": {"type": "String"}
+    }
+  },
+  "appRoutingTitle": "App routing",
+  "appRoutingViaProxy": "Via proxy",
+  "appRoutingBypass": "Bypass",
+  "appRoutingHideSystemApps": "Hide system apps",
+  "appRoutingSearchHint": "Search apps",
+  "appRoutingClearTooltip": "Clear",
+  "appRoutingLoadFailed": "Failed to load apps: {error}",
+  "@appRoutingLoadFailed": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "appRoutingNoUserApps": "No user apps found.",
+  "appRoutingNoAppList": "System returned no app list.",
+  "appRoutingNoMatchingApps": "No matching apps.",
+  "routingScreenTitle": "ROUTE",
+  "routingTooltipAdd": "Add",
+  "routingTooltipGeoFiles": "Geo files",
+  "routingMenuImportClipboard": "Import from clipboard",
+  "routingMenuImportFile": "Import from file",
+  "routingMenuExportClipboard": "Export to clipboard",
+  "routingMenuClearRules": "Clear rules",
+  "routingClipboardEmpty": "Clipboard is empty.",
+  "routingReadFileFailed": "Failed to read file: {error}",
+  "@routingReadFileFailed": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "routingFileEmpty": "File is empty.",
+  "routingParseFailed": "Failed to parse rules: {error}",
+  "@routingParseFailed": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "routingNoRulesInSource": "No rules found in source.",
+  "routingImportRulesTitle": "Import rules",
+  "routingImportRulesBody": "Currently saved rules: {count}. Replace them with imported rules or append to the end?",
+  "@routingImportRulesBody": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "routingNoRulesToExport": "No rules to export.",
+  "routingCopiedRules": "Copied rules to clipboard: {count}.",
+  "@routingCopiedRules": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "routingRulesAlreadyEmpty": "Rules list is already empty.",
+  "routingClearRulesTitle": "Clear rules?",
+  "routingClearRulesBody": "All custom rules will be removed.",
+  "routingDeleteRuleTitle": "Delete rule?",
+  "routingSlidableDelete": "Delete",
+  "routingRestartingMessage": "Routing changed. Restarting connection to apply it.",
+  "routingPresetsHeading": "Presets",
+  "routingCustomRulesHeading": "Custom rules",
+  "routingNoCustomRulesYet": "No custom rules yet.",
+  "routingTileAppRouting": "App routing",
+  "routingSelectPresetTooltip": "Select preset",
+  "routingPresetActionsTooltip": "Preset actions",
+  "routingCreatePresetMenu": "Create preset",
+  "routingRenamePresetMenu": "Rename preset",
+  "routingDeletePresetMenu": "Delete preset",
+  "routingNewPresetDialogTitle": "New preset",
+  "routingRenamePresetDialogTitle": "Rename preset",
+  "routingPresetNameLabel": "Preset name",
+  "routingDeletePresetTitle": "Delete preset?",
+  "logLevelDebug": "Debug",
+  "logLevelInfo": "Info",
+  "logLevelWarning": "Warnings",
+  "logLevelError": "Errors",
+  "logRetentionOneHour": "1 hour",
+  "logRetentionOneDay": "1 day",
+  "logRetentionOneWeek": "1 week",
+  "logRetentionForever": "Never delete",
+  "journalLoadFailed": "Failed to load logs: {error}",
+  "@journalLoadFailed": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "journalExportFailed": "Failed to export logs: {error}",
+  "@journalExportFailed": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "journalClearFailed": "Failed to clear logs: {error}",
+  "@journalClearFailed": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "journalAppBarTitle": "LOG JOURNAL",
+  "routingDeleteRuleBody": "“{name}”",
+  "@routingDeleteRuleBody": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "editSubscriptionTitle": "Edit subscription",
+  "editSubscriptionSectionTitle": "Subscription",
+  "editSubscriptionDeleteTooltip": "Delete subscription",
+  "editSubscriptionSaveTooltip": "Save",
+  "editSubscriptionAutoUpdateIntervalLabel": "Auto-update interval",
+  "editServerCopyTooltip": "Copy server config",
+  "editServerCopyAsUrl": "URL",
+  "editServerCopyAsJson": "JSON config",
+  "providerSettingsTitle": "Provider settings",
+  "providerSubscriptionsHeading": "Subscriptions",
+  "providerAutoUpdateIntervalTitle": "Auto-update interval",
+  "providerAutoUpdateIntervalSubtitle": "Refresh all saved provider subscriptions at the selected interval while VoidTunnel is running.",
+  "providerAutoUpdateIntervalTooltip": "Auto-update interval",
+  "providerPingAfterUpdateTitle": "Ping after update",
+  "providerPingAfterUpdateSubtitle": "Run a latency scan for provider nodes after a subscription refresh completes.",
+  "providerUpdateOnLaunchTitle": "Update on launch",
+  "providerUpdateOnLaunchSubtitle": "Refresh saved provider subscriptions once after the app starts.",
+  "providerSendHwidTitle": "Send HWID",
+  "providerSendHwidSubtitle": "Attach this device HWID to provider requests as the X-HWID header when required by the provider.",
+  "providerAllowInsecureTitle": "Skip TLS errors",
+  "providerAllowInsecureSubtitle": "Ignore TLS certificate validation errors during subscription downloads. Use only for trusted private providers.",
+  "providerProtectSubscriptionsTitle": "Protect subscriptions",
+  "providerProtectSubscriptionsSubtitle": "Disable editing of subscription nodes and export subscriptions only as encrypted codes.",
+  "subscriptionShareEncrypted": "Share encrypted code",
+  "subscriptionShareEncryptedCopied": "Encrypted subscription code copied to clipboard.",
+  "subscriptionShareEncryptedFailed": "Failed to generate encrypted code.",
+  "subscriptionImportEncryptedFailed": "Invalid or corrupted encrypted code.",
+  "subscriptionIntervalOneHour": "1 hour",
+  "subscriptionIntervalThreeHours": "3 hours",
+  "subscriptionIntervalSixHours": "6 hours",
+  "subscriptionIntervalTwelveHours": "12 hours",
+  "subscriptionIntervalDefault": "Default",
+  "geoFilesAppBarTitle": "Geo files",
+  "geoUpdateFileTitle": "Update {fileName}",
+  "@geoUpdateFileTitle": {
+    "placeholders": {
+      "fileName": {"type": "String"}
+    }
+  },
+  "geoFileUrlLabel": "File URL",
+  "geoFileUrlHint": "https://example.com/{fileName}",
+  "@geoFileUrlHint": {
+    "placeholders": {
+      "fileName": {"type": "String"}
+    }
+  },
+  "geoUrlInvalid": "Enter a valid HTTP or HTTPS URL.",
+  "geoLoadFailed": "Failed to load geo files: {error}",
+  "@geoLoadFailed": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "geoNoSavedUrl": "No saved URL. Use “Update by URL” first.",
+  "geoUpdateFileFailed": "Failed to update {fileName}: {error}",
+  "@geoUpdateFileFailed": {
+    "placeholders": {
+      "fileName": {"type": "String"},
+      "error": {"type": "String"}
+    }
+  },
+  "geoFileUpdated": "{fileName} updated.",
+  "@geoFileUpdated": {
+    "placeholders": {
+      "fileName": {"type": "String"}
+    }
+  },
+  "geoFileImported": "{fileName} imported.",
+  "@geoFileImported": {
+    "placeholders": {
+      "fileName": {"type": "String"}
+    }
+  },
+  "geoUpdateByUrl": "Update by URL",
+  "geoLoadFromDevice": "Load from device",
+  "geoRefreshTooltip": "Refresh",
+  "geoMetaSource": "Source",
+  "geoMetaUpdated": "Updated",
+  "geoMetaSize": "Size",
+  "geoStatusInstalled": "Installed",
+  "geoStatusMissing": "Missing",
+  "geoNeverUpdated": "Never",
+  "geoSourceUnknown": "Unknown",
+  "geoSourceBundled": "Bundled",
+  "geoSourceUrl": "URL",
+  "geoSourceDevice": "Device",
+  "routingRuleEditorTitle": "Rule",
+  "routingRuleSaveTooltip": "Save",
+  "routingRuleMatcherRequired": "Add at least one domain, IP, port, network, or protocol.",
+  "routingRuleNameLabel": "Name",
+  "routingRuleEnabledLabel": "Enabled",
+  "routingRuleConnectionLabel": "Connection",
+  "routingRuleDomainLabel": "Domain",
+  "routingRuleIpLabel": "IP",
+  "routingRulePortLabel": "Port",
+  "routingRuleNetworkLabel": "Network",
+  "routingRuleProtocolLabel": "Protocol",
+  "routingRuleDomainHint": "geosite:youtube, domain:example.com",
+  "routingRuleIpHint": "geoip:private, 1.1.1.1/32",
+  "routingRulePortHint": "443, 1000-2000",
+  "protocolChipHttp": "HTTP",
+  "protocolChipTls": "TLS",
+  "protocolChipBittorrent": "BITTORRENT",
+  "qrScanTitle": "SCAN QR",
+  "qrScanAlignHint": "ALIGN QR · INSIDE FRAME",
+  "qrFlashlightOn": "Turn flashlight on",
+  "qrFlashlightOff": "Turn flashlight off",
+  "qrPermissionMessage": "Camera access is required to scan QR codes. Grant the permission in system settings to continue.",
+  "qrUnsupportedMessage": "QR scanning is not supported on this device.",
+  "qrCameraFailedCode": "Camera failed to start ({code}).",
+  "@qrCameraFailedCode": {
+    "placeholders": {
+      "code": {"type": "String"}
+    }
+  },
+  "qrCameraFailedDetail": "Camera failed to start: {detail}",
+  "@qrCameraFailedDetail": {
+    "placeholders": {
+      "detail": {"type": "String"}
+    }
+  },
+  "importReadJsonFailed": "Failed to read JSON file",
+  "importQrPayloadEmpty": "QR code is empty",
+  "importReadJsonFailedDetail": "Failed to read JSON file: {error}",
+  "@importReadJsonFailedDetail": {
+    "placeholders": {
+      "error": {"type": "String"}
+    }
+  },
+  "importJsonMalformed": "JSON is malformed",
+  "importClipboardUnsupported": "Clipboard does not contain a supported server config",
+  "importQrUnsupportedConfig": "QR code does not contain a supported server config",
+  "importFileUnsupportedConfig": "File does not contain a supported server config",
+  "importClipboardNoVless": "Clipboard does not contain a vless:// link or JSON config",
+  "importQrNoVless": "QR code does not contain a vless:// link or JSON config",
+  "importFileNoVless": "File does not contain a vless:// link or JSON config",
+  "importClipboardNoHy2": "Clipboard does not contain a supported server link or JSON config",
+  "importQrNoHy2": "QR code does not contain a supported server link or JSON config",
+  "importFileNoHy2": "File does not contain a supported server link or JSON config",
+  "importHy2MalformedUri": "Hysteria2 link is malformed",
+  "importHy2MissingAuth": "Hysteria2 password is missing",
+  "importHy2MissingHost": "Hysteria2 host is missing",
+  "importHy2InvalidPort": "Hysteria2 port is out of range",
+  "importHy2UnsupportedObfs": "Only Salamander obfuscation is supported for Hysteria2",
+  "importHy2MissingObfsPassword": "Salamander obfuscation password is missing",
+  "importVlessMalformedUri": "Link is malformed",
+  "importVlessMissingUuid": "UUID is missing in link",
+  "importVlessInvalidUuid": "UUID is not a valid RFC 4122 identifier",
+  "importVlessMissingHost": "Host is missing",
+  "importVlessInvalidPort": "Port is out of range",
+  "importVlessUnsupportedTransport": "Transport is not supported",
+  "importVlessUnsupportedSecurity": "Security is not supported (none/tls/reality only)",
+  "importedOneServer": "Imported 1 server.",
+  "importedNServers": "Imported {count} servers.",
+  "@importedNServers": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "importedSubscriptionOne": "Imported \"{name}\" with 1 server.",
+  "@importedSubscriptionOne": {
+    "placeholders": {
+      "name": {"type": "String"}
+    }
+  },
+  "importedSubscriptionMany": "Imported \"{name}\" with {count} servers.",
+  "@importedSubscriptionMany": {
+    "placeholders": {
+      "name": {"type": "String"},
+      "count": {"type": "int"}
+    }
+  },
+  "show": "Show",
+  "hide": "Hide",
+  "decrease": "Decrease",
+  "increase": "Increase",
+  "tunnelSettingsTitle": "Tunnel settings",
+  "tunnelUseLocalDns": "Use local DNS",
+  "tunnelEnableServerResolving": "Server DNS",
+  "tunnelPacketAnalysis": "Packet analysis",
+  "tunnelNetworkStack": "Network stack",
+  "tunnelMtu": "MTU",
+  "tunnelMtuHint": "1500",
+  "tunnelIpMode": "IP mode",
+  "tunnelNetStackSystem": "System",
+  "tunnelNetStackGvisor": "gVisor",
+  "tunnelNetStackMixed": "Mixed",
+  "tunnelIpModeIpv4": "IPv4",
+  "tunnelIpModeIpv6": "IPv6",
+  "tunnelIpModeMixed": "Mixed",
+  "tunnelBlockUdp": "Block UDP",
+  "tunnelBlockUdpDescription": "Blocks app UDP traffic in the tunnel. DNS is handled separately.",
+  "tunnelXrayTun": "Xray TUN",
+  "tunnelXrayTunDescription": "Fullcone UDP supported. Experimental. May increase battery consumption",
+  "tunnelEnableDnsForTun": "Enable DNS for TUN",
+  "tunnelTunDnsLabel": "TUN DNS",
+  "tunnelTunDnsHint": "1.1.1.1",
+  "tunnelCustomSocksTitle": "Custom SOCKS5 credentials",
+  "tunnelCustomSocksOnDescription": "Using credentials from this screen.",
+  "tunnelCustomSocksOffDescription": "Off — fresh credentials are auto-generated for every session.",
+  "tunnelProxyUserLabel": "User",
+  "tunnelProxyPasswordLabel": "Password",
+  "tunnelProxyInboundHelp": "Use these credentials when connecting external apps to the local SOCKS5 (127.0.0.1:10808) or HTTP (127.0.0.1:10809) inbounds.",
+  "tunnelRegenerate": "Regenerate",
+  "tunnelFragmentEnable": "Enable fragmentation",
+  "tunnelFragmentOnDescription": "Settings are applied to Xray outbound traffic.",
+  "tunnelFragmentOffDescription": "Off — traffic goes through the proxy directly.",
+  "tunnelFragmentPackets": "Fragment packets",
+  "tunnelFragmentLength": "Fragment length (min-max)",
+  "tunnelFragmentInterval": "Fragment interval (min-max)",
+  "tunnelFragmentMaxSplit": "Fragment max split (min-max)",
+  "tunnelNoiseSettings": "Noise settings",
+  "tunnelNoiseType": "Noise type",
+  "tunnelNoisePacketLengthRange": "Packet length range",
+  "tunnelNoisePacket": "Noise packet",
+  "tunnelNoiseDelay": "Noise delay (min-max)",
+  "tunnelNoiseApplyTo": "Apply to",
+  "tunnelNoiseTypeRandom": "Random",
+  "tunnelNoiseTypeString": "String",
+  "tunnelNoiseTypeHex": "Hex",
+  "tunnelNoiseTypeBase64": "Base64",
+  "tunnelNoiseApplyIp": "IP",
+  "tunnelNoiseApplyIpv4": "IPv4",
+  "tunnelNoiseApplyIpv6": "IPv6",
+  "tunnelMuxEnable": "Enable multiplexing",
+  "tunnelMuxOnDescription": "Multiplexing options are configured below.",
+  "tunnelMuxOffDescription": "Off — each stream uses its own direct tunnel connection.",
+  "tunnelMuxTcpConnections": "TCP connections (-1 to 128)",
+  "tunnelMuxXudpConnections": "XUDP connections (-1 to 1024)",
+  "tunnelMuxQuicBehavior": "QUIC in MUX",
+  "tunnelMuxQuicReject": "Reject",
+  "tunnelMuxQuicAllow": "Allow",
+  "tunnelMuxQuicPassthrough": "Passthrough",
+
+  "tvSectionConnect": "CONNECT",
+  "tvSectionNodes": "NODES",
+  "tvNodesCount": "{count, plural, =0{NO NODES} =1{1 NODE} other{{count} NODES}}",
+  "@tvNodesCount": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
+  "tvEmptyNodes": "No servers yet — open the app on your phone to import a subscription.",
+  "tvGroupManual": "Manual",
+  "tvExitDevPreview": "Exit preview",
+
+  "tvStatusIdle": "Idle",
+  "tvStatusNegotiating": "Negotiating…",
+  "tvStatusSecure": "Secure",
+  "tvStatusError": "Error",
+
+  "tvHubLabelOff": "CONNECT",
+  "tvHubLabelConnecting": "NEGOTIATING",
+  "tvHubLabelOn": "ACTIVE",
+  "tvHubLabelError": "RETRY",
+  "tvHubSubOff": "OK / SELECT",
+  "tvHubSubConnecting": "PLEASE WAIT",
+  "tvHubSubOn": "OK TO DISCONNECT",
+  "tvHubSubError": "OK / SELECT",
+
+  "tvKvExitNode": "EXIT NODE",
+  "tvKvExitIp": "EXIT IP",
+  "tvKvRegion": "REGION",
+  "tvKvDown": "↓ DOWN",
+  "tvKvUp": "↑ UP",
+  "tvKvExpires": "Expires",
+  "tvKvNodes": "Nodes",
+
+  "tvSideSplit": "SPLIT",
+  "tvSideSplitSub": "ROUTING RULES",
+  "tvSideGlobal": "GLOBAL",
+  "tvSideGlobalSub": "ALL TRAFFIC",
+  "tvSidePreset": "PRESET",
+  "tvSidePresetSub": "STREAMING",
+
+  "tvActionConnect": "CONNECT",
+  "tvActionDisconnect": "DISCONNECT",
+  "tvActionCancel": "CANCEL",
+  "tvActionToggle": "TOGGLE",
+  "tvActionSelectNode": "SELECT NODE",
+  "tvActionSelect": "SELECT",
+  "tvActionRetry": "RETRY",
+  "tvActionExit": "EXIT",
+  "tvActionClose": "CLOSE",
+  "tvActionNodeOptions": "NODE OPTIONS",
+  "tvActionSubscriptions": "SUBSCRIPTIONS",
+  "tvActionPingScan": "PING SCAN",
+  "tvActionBackKey": "BACK",
+  "tvActionMenuKey": "MENU",
+  "tvActionPlayPauseKey": "PLAY/PAUSE",
+
+  "tvHintRemoteFooter": "D-PAD · NAVIGATE  ·  HOLD OK FOR DETAILS",
+
+  "tvOverlaySubscriptionsTitle": "SUBSCRIPTIONS",
+  "tvOverlaySubscriptionsSubtitle": "Select to expand · MENU for actions",
+  "tvOverlaySubscriptionsEmpty": "No subscriptions imported yet.",
+  "tvOverlayPresetTitle": "NODE PRESET",
+  "tvOverlayPresetSubtitleGlobal": "Choose routing behaviour",
+  "tvOverlayPresetSubtitleForNode": "{server} · choose routing behaviour",
+  "@tvOverlayPresetSubtitleForNode": {
+    "placeholders": {
+      "server": {"type": "String"}
+    }
+  },
+  "tvOverlayFooter": "BACK · CLOSE   ·   OK · SELECT",
+  "tvPresetCurrentChip": "CURRENT",
+  "tvPresetMainDescription": "Default routing rules — applies to every node.",
+  "tvPresetSummary": "{rules, plural, =0{No rules} =1{1 rule} other{{rules} rules}} · {apps, plural, =0{no apps} =1{1 app} other{{apps} apps}}",
+  "@tvPresetSummary": {
+    "placeholders": {
+      "rules": {"type": "int"},
+      "apps": {"type": "int"}
+    }
+  },
+
+  "tvRefreshedUnknown": "—",
+  "tvRefreshedJustNow": "↓ Just now",
+  "tvRefreshedMinutesAgo": "↓ Refreshed {minutes}m ago",
+  "@tvRefreshedMinutesAgo": {
+    "placeholders": {
+      "minutes": {"type": "int"}
+    }
+  },
+  "tvRefreshedHoursAgo": "↓ Refreshed {hours}h ago",
+  "@tvRefreshedHoursAgo": {
+    "placeholders": {
+      "hours": {"type": "int"}
+    }
+  },
+  "tvRefreshedDaysAgo": "↓ Refreshed {days}d ago",
+  "@tvRefreshedDaysAgo": {
+    "placeholders": {
+      "days": {"type": "int"}
+    }
+  },
+
+  "tvLayoutSectionTitle": "Interface layout",
+  "tvLayoutSectionSubtitle": "Choose the phone layout, the horizontal TV layout, or allow rotation.",
+  "tvLayoutVertical": "Vertical",
+  "tvLayoutHorizontal": "Horizontal",
+  "tvLayoutAutoRotate": "Auto",
+
+  "settingsFaqLabel": "FAQ",
+  "telegramOpenFailed": "Couldn't open Telegram link.",
+  "faqTitle": "FAQ",
+  "faqSubtitle": "Common questions",
+  "faqHint": "Tap a question to expand the answer.",
+
+  "faqQ1": "Why can't I pick an XHTTP server as the exit node in a two-hop chain?",
+  "faqA1": "In a two-hop setup the exit node's outbound is dialled through the entry via sockopt.dialerProxy. XHTTP is an HTTP/2 transport with its own TLS/REALITY wrapper, and its handshake doesn't reach across the entry tunnel cleanly — the connection comes up, but nothing flows. XHTTP servers are therefore hidden in the exit-node picker. Use such a server as the primary (entry) node, and pick a VLESS-TCP / WS / REALITY server as the exit.",
+
+  "faqQ2": "What's the difference between the libbox and Xray TUN engines?",
+  "faqA2": "**libbox** (sing-box) is the default — stable, plays well with the system, and easier on the battery. **Xray TUN** is experimental: it pushes packets straight through the Xray core. Use it only if you need Xray-specific behaviour or if libbox misbehaves on your device. Leave it on libbox unless you have a reason.",
+
+  "faqQ3": "Why do I need «Global proxy» if the VPN is already on?",
+  "faqA3": "Without it your routing preset is in charge (per-app, domains, IP, geosite/geoip) — some traffic may stay direct. «Global proxy» temporarily overrides the rules and routes everything technically possible through the tunnel. Handy as a sanity check («does my traffic reach the server at all?») or when you want a full tunnel right now. The button can be hidden in settings.",
+
+  "faqQ4": "What are routing presets and per-node presets?",
+  "faqA4": "**Main** is the default rule set, applied to any node without its own preset. Extra presets can be bound to specific servers from the node menu → «Routing preset». Rules are Xray-style: outbound `proxy` / `direct` / `block` by domains, IP/CIDR, `geoip:` / `geosite:`, ports, network (tcp/udp), or protocols.",
+
+  "faqQ5": "What is an «Exit node» (EXIT)?",
+  "faqA5": "A two-hop setup: the **entry** node is the one you connect to with the main button; the **exit** is a separate server the traffic egresses through (entry → exit). Useful when you want to separate «where you knock» from «where you appear on the internet». Entry and exit must be different servers — otherwise the chain collapses into an ordinary single-hop connection.",
+
+  "faqQ6": "I changed tunnel settings, but they didn't take effect — why?",
+  "faqA6": "Some parameters (TUN engine, DNS, stack, MTU, fragmentation, multiplex, …) only apply on the next tunnel start. In tunnel settings there's a **«Restart tunnel on settings change»** toggle — with it on, the app re-establishes the connection when you leave the settings screen. Otherwise disconnect and reconnect by hand.",
+
+  "faqQ7": "What is HWID and why does my subscription send it?",
+  "faqA7": "HWID is a stable per-device identifier, computed locally (visible in «About»). It is sent in an HTTP header on the subscription request **only when the provider explicitly asks for it** via the subscription URL. Providers use it for «one subscription — N devices» quotas. HWID is not sent anywhere else.",
+
+  "faqQ8": "What's the slim build, and do I have to download GeoData?",
+  "faqA8": "The standard build ships `geoip.dat` / `geosite.dat` (~28 MB) inside the APK — rules like `geosite:netflix` work out of the box. The slim build omits those files and downloads them on first launch from «Settings → GeoData». If you don't use geo-based routing rules, you can skip the GeoData download entirely.",
+
+  "faqQ9": "Per-app routing doesn't apply to Push / Play Services / system apps — is that normal?",
+  "faqA9": "Yes. Android refuses to route some system processes through a VPN (parts of Google Mobile Services, push, system updates). This is a `VpnService` platform limit, not the app — it can't be worked around without root. Their traffic will bypass the tunnel even when whitelisted.",
+
+  "faqQ10": "Network stack: system / gVisor / mixed — which one?",
+  "faqA10": "**system** is the fastest — uses the kernel TCP stack, but a few exotic networks cause it to drop.\n**gVisor** is a user-space TCP stack; more reliable on «odd» networks (certain mobile carriers), slightly slower and warmer.\n**mixed** is the compromise: gVisor for TCP, system for UDP.\nIf **system** works, stay on **system**.",
+
+  "faqQ11": "The ping to the server and the ping via the local proxy differ a lot — what shows what?",
+  "faqA11": "**Endpoint ping** is a plain TCP ping to the server's IP:port (how quickly the network reaches it). **Proxy ping** is a real HTTP request through the established proxy connection (includes TLS handshake, reverse proxy, routing). The second is always larger; it reflects how the internet actually feels. A large gap usually means your ISP is throttling the proxy itself, not the network.",
+
+  "faqQ12": "My subscription doesn't update, or updates but the node list doesn't change — what should I check?",
+  "faqA12": "First — the auto-refresh interval (1 hour by default) and the «refresh on launch» toggle. To force it, hit refresh on the subscription page. If the content still doesn't change, your provider returned the same node set. If the «protect subscriptions» switch is on, manual edits inside subscription nodes are overwritten on the next refresh.",
+
+  "faqQ13": "Calls / games / streaming are slow over the VPN — what can I try?",
+  "faqA13": "Most of those apps run over UDP / QUIC. Check:\n1. Stack — try **mixed** (gVisor for TCP, system for UDP).\n2. **Multiplex → QUIC** — set `passthrough` or `reject`; `allow` wraps QUIC over mux and adds latency.\n3. If your protocol is Hysteria2, the carrier itself is UDP — make sure your ISP doesn't throttle UDP traffic to the server.",
+
+  "faqQ14": "What does «Multiplex: QUIC — reject / allow / passthrough» mean?",
+  "faqA14": "Multiplex packs many logical streams into a single TCP/XUDP connection. QUIC rides on UDP, and its handling is configured separately:\n**reject** — block QUIC, apps fall back to TCP/HTTPS on their own (safe default).\n**passthrough** — QUIC bypasses mux on its own UDP channel (faster, but no multiplexing).\n**allow** — QUIC is wrapped into mux (exotic, for pattern hiding; usually slower).",
+
+  "faqQ15": "Why does the screen show «———» instead of an external IP?",
+  "faqA15": "The external IP is looked up after the tunnel comes up — through a separate HTTPS request via the local proxy. If the network is unstable or the lookup is blocked, the app falls back to «Unavailable». That doesn't mean the tunnel itself is broken — it can still be working.",
+
+  "faqQ16": "Why doesn't auto-connect on launch fire?",
+  "faqA16": "The toggle lives in **Settings → Application**, but on a number of Android skins the OS battery policy blocks background service auto-start. Disable battery optimisation for VoidTunnel, and consider Android's system **Always-on VPN** (Settings → Network → VPN → VoidTunnel) — it brings the tunnel up reliably at boot.",
+
+  "faqQ17": "Can I point another app at the local proxy?",
+  "faqA17": "Yes — while the tunnel is up the app listens on **SOCKS5** `127.0.0.1:10808` and **HTTP** `127.0.0.1:10809`. By default the username and password are regenerated every session. To pin your own, go to **Settings → Tunnel → SOCKS5 credentials** — flip the switch and enter (or generate) a fixed pair.",
+
+  "faqQ18": "Is there a built-in kill switch?",
+  "faqA18": "There's no dedicated «kill switch» toggle in the UI. If the VPN drops, traffic may leak directly until you reconnect. For hard blocking of unprotected traffic, use Android's system **Always-on VPN** in the OS settings — the same screen lets you turn on «Block connections without VPN».",
+
+  "faqQ19": "Where are my data and logs stored — is that safe?",
+  "faqA19": "Nodes, subscriptions, presets, and the journal are all local on the device; nothing leaves it except subscription requests and the traffic going through your chosen server. The journal can be cleared from «Settings → Journal». In verbose mode the log will contain sensitive fields (UUIDs, hosts, keys) — **don't publish verbose dumps as-is.** The app itself is not an anonymiser; the privacy level depends on your servers and your rules.",
+
+  "faqQ20": "Is there TV and iOS support?",
+  "faqA20": "**Android TV / Google TV** — yes, a dedicated full-screen UI with D-pad support; the nodes and subscriptions are shared with the mobile version. **iOS / iPadOS** — a full client is in development."
+}

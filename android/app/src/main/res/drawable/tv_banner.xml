@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Leanback launcher banner. 320 dp × 180 dp is the canonical aspect Google
+    TV / Android TV expects; using a vector keeps the image crisp on every
+    panel density without bundling four raster variants.
+
+    Composition mirrors the in-app branding: dark background, hollow
+    triangle glyph echoing the connect hub, GEIST-style wordmark.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="320dp"
+    android:height="180dp"
+    android:viewportWidth="320"
+    android:viewportHeight="180">
+
+    <!-- Background -->
+    <path
+        android:pathData="M0,0 L320,0 L320,180 L0,180 Z"
+        android:fillColor="#08090B" />
+
+    <!-- Subtle bottom border accent -->
+    <path
+        android:pathData="M0,178 L320,178 L320,180 L0,180 Z"
+        android:fillColor="#1A1E25" />
+
+    <!-- Triangle glyph (rounded) -->
+    <path
+        android:pathData="M62,38 L106,128 L18,128 Z"
+        android:strokeColor="#C8E6FF"
+        android:strokeWidth="3"
+        android:strokeLineJoin="round"
+        android:fillColor="#00000000" />
+
+    <!-- Centre slashes inside the triangle, echoing the hub glyph -->
+    <path
+        android:pathData="M52,108 L66,82 M62,108 L76,82"
+        android:strokeColor="#C8E6FF"
+        android:strokeWidth="3"
+        android:strokeLineCap="round"
+        android:fillColor="#00000000" />
+
+    <!-- Wordmark: VOIDTUNNEL — drawn as outlined glyphs so the vector
+         doesn't need a font dependency at install time. -->
+    <group android:translateX="138" android:translateY="74">
+        <!-- V -->
+        <path
+            android:pathData="M0,0 L8,28 L16,0"
+            android:strokeColor="#E9EAEB"
+            android:strokeWidth="3.4"
+            android:strokeLineJoin="round"
+            android:strokeLineCap="round"
+            android:fillColor="#00000000" />
+        <!-- O -->
+        <path
+            android:pathData="M22,0 L36,0 L36,28 L22,28 Z"
+            android:strokeColor="#E9EAEB"
+            android:strokeWidth="3.4"
+            android:strokeLineJoin="round"
+            android:fillColor="#00000000" />
+        <!-- I -->
+        <path
+            android:pathData="M44,0 L44,28"
+            android:strokeColor="#E9EAEB"
+            android:strokeWidth="3.4"
+            android:strokeLineCap="round"
+            android:fillColor="#00000000" />
+        <!-- D -->
+        <path
+            android:pathData="M52,0 L62,0 C68,0 68,4 68,14 C68,24 68,28 62,28 L52,28 Z"
+            android:strokeColor="#E9EAEB"
+            android:strokeWidth="3.4"
+            android:strokeLineJoin="round"
+            android:fillColor="#00000000" />
+        <!-- T -->
+        <path
+            android:pathData="M78,0 L94,0 M86,0 L86,28"
+            android:strokeColor="#E9EAEB"
+            android:strokeWidth="3.4"
+            android:strokeLineCap="round"
+            android:fillColor="#00000000" />
+        <!-- U -->
+        <path
+            android:pathData="M102,0 L102,22 C102,28 116,28 116,22 L116,0"
+            android:strokeColor="#E9EAEB"
+            android:strokeWidth="3.4"
+            android:strokeLineJoin="round"
+            android:strokeLineCap="round"
+            android:fillColor="#00000000" />
+        <!-- N -->
+        <path
+            android:pathData="M124,28 L124,0 L138,28 L138,0"
+            android:strokeColor="#E9EAEB"
+            android:strokeWidth="3.4"
+            android:strokeLineJoin="round"
+            android:strokeLineCap="round"
+            android:fillColor="#00000000" />
+        <!-- N -->
+        <path
+            android:pathData="M146,28 L146,0 L160,28 L160,0"
+            android:strokeColor="#E9EAEB"
+            android:strokeWidth="3.4"
+            android:strokeLineJoin="round"
+            android:strokeLineCap="round"
+            android:fillColor="#00000000" />
+        <!-- E -->
+        <path
+            android:pathData="M168,0 L182,0 M168,14 L180,14 M168,28 L182,28 M168,0 L168,28"
+            android:strokeColor="#E9EAEB"
+            android:strokeWidth="3.4"
+            android:strokeLineJoin="round"
+            android:strokeLineCap="round"
+            android:fillColor="#00000000" />
+        <!-- L -->
+        <path
+            android:pathData="M190,0 L190,28 L204,28"
+            android:strokeColor="#E9EAEB"
+            android:strokeWidth="3.4"
+            android:strokeLineJoin="round"
+            android:strokeLineCap="round"
+            android:fillColor="#00000000" />
+    </group>
+
+    <!-- Sub-label TV · 10-FOOT -->
+    <group android:translateX="138" android:translateY="118">
+        <path
+            android:pathData="M0,0 L8,0 M4,0 L4,8"
+            android:strokeColor="#8BB7D9"
+            android:strokeWidth="2"
+            android:strokeLineCap="round"
+            android:fillColor="#00000000" />
+        <path
+            android:pathData="M14,0 L18,8 L22,0"
+            android:strokeColor="#8BB7D9"
+            android:strokeWidth="2"
+            android:strokeLineJoin="round"
+            android:strokeLineCap="round"
+            android:fillColor="#00000000" />
+        <!-- Divider dot -->
+        <path
+            android:pathData="M30,4 L31,4"
+            android:strokeColor="#8BB7D9"
+            android:strokeWidth="2"
+            android:strokeLineCap="round"
+            android:fillColor="#00000000" />
+        <!-- TEN-FOOT marker -->
+        <path
+            android:pathData="M40,0 L48,0 M44,0 L44,8 M54,0 L54,8 L62,8"
+            android:strokeColor="#8BB7D9"
+            android:strokeWidth="2"
+            android:strokeLineCap="round"
+            android:strokeLineJoin="round"
+            android:fillColor="#00000000" />
+    </group>
+</vector>

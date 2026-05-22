@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="quick_settings_tile_label">VoidTunnel</string>
+    <string name="widget_description">VoidTunnel connection widget</string>
+    <string name="widget_label_compact">VoidTunnel 1x1</string>
+    <string name="widget_label_global_proxy">VoidTunnel Global 1x1</string>
+    <string name="widget_label_wide">VoidTunnel 4x2</string>
+    <string name="widget_action_toggle">Toggle VoidTunnel VPN</string>
+    <string name="widget_action_global_toggle">Toggle Global Proxy</string>
+    <string name="widget_action_split">Use split routing</string>
+    <string name="widget_action_global">Use global proxy routing</string>
+</resources>

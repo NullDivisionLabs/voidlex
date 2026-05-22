@@ -1,0 +1,5 @@
+storePassword=your-keystore-password
+keyPassword=your-key-password
+keyAlias=upload
+# Path is resolved relative to the android/ directory.
+storeFile=upload-keystore.jks
