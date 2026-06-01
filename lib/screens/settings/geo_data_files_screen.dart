@@ -176,7 +176,19 @@ class _GeoDataFilesScreenState extends State<_GeoDataFilesScreen> {
   }) async {
     return showDialog<String>(
       context: context,
-      builder: (_) => _GeoDataUrlDialog(status: status, initialUrl: initialUrl),
+      builder: (dialogContext) {
+        final useTvChrome = _useTvSettingsChrome(
+          controller: widget.controller,
+          requested: widget.useTvChrome,
+          allowInAutoRotate: widget.allowTvChromeInAutoRotate,
+          orientation: MediaQuery.orientationOf(dialogContext),
+        );
+        return _GeoDataUrlDialog(
+          status: status,
+          initialUrl: initialUrl,
+          useTvChrome: useTvChrome,
+        );
+      },
     );
   }
 
@@ -209,6 +221,7 @@ class _GeoDataFilesScreenState extends State<_GeoDataFilesScreen> {
         child: _GeoDataFilesBody(
           loading: _loading,
           error: _error,
+          useTvChrome: useTvChrome,
           busyKinds: widget.controller.busyGeoDataKinds,
           progressByKind: widget.controller.geoDataProgressByKind,
           statusFor: _statusFor,
@@ -224,10 +237,15 @@ class _GeoDataFilesScreenState extends State<_GeoDataFilesScreen> {
 }
 
 class _GeoDataUrlDialog extends StatefulWidget {
-  const _GeoDataUrlDialog({required this.status, this.initialUrl});
+  const _GeoDataUrlDialog({
+    required this.status,
+    this.initialUrl,
+    this.useTvChrome = false,
+  });
 
   final GeoDataFileStatus status;
   final String? initialUrl;
+  final bool useTvChrome;
 
   @override
   State<_GeoDataUrlDialog> createState() => _GeoDataUrlDialogState();
@@ -280,6 +298,10 @@ class _GeoDataUrlDialogState extends State<_GeoDataUrlDialog> {
   Widget build(BuildContext context) {
     final fileName = widget.status.fileName;
     final l = AppLocalizations.of(context);
+    final screen = MediaQuery.sizeOf(context);
+    const horizontalInset = 24.0;
+    final contentWidth =
+        (screen.width - horizontalInset * 2).clamp(280.0, 560.0);
     final presetButtonStyle = OutlinedButton.styleFrom(
       minimumSize: const Size(0, 36),
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -287,41 +309,51 @@ class _GeoDataUrlDialogState extends State<_GeoDataUrlDialog> {
       visualDensity: VisualDensity.compact,
     );
     return AlertDialog(
+      insetPadding: const EdgeInsets.symmetric(
+        horizontal: horizontalInset,
+        vertical: 24,
+      ),
       title: Text(l.geoUpdateFileTitle(fileName)),
-      content: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            TextFormField(
-              controller: _controller,
-              autofocus: true,
-              keyboardType: TextInputType.url,
-              textInputAction: TextInputAction.done,
-              decoration: InputDecoration(
-                labelText: l.geoFileUrlLabel,
-                hintText: l.geoFileUrlHint(fileName),
-              ),
-              validator: _validateUrl,
-              onFieldSubmitted: (_) => _submit(),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 6,
-              runSpacing: 8,
-              children: [
-                for (final preset in _GeoDataUrlPresets.forKind(
-                  widget.status.kind,
-                ))
-                  OutlinedButton(
-                    style: presetButtonStyle,
-                    onPressed: () => _applyPreset(preset.url),
-                    child: Text(preset.label),
+      content: SizedBox(
+        width: contentWidth,
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _geoUrlField(
+                useTvChrome: widget.useTvChrome,
+                child: TextFormField(
+                  controller: _controller,
+                  autofocus: true,
+                  keyboardType: TextInputType.url,
+                  textInputAction: TextInputAction.done,
+                  decoration: InputDecoration(
+                    labelText: l.geoFileUrlLabel,
+                    hintText: l.geoFileUrlHint(fileName),
                   ),
-              ],
-            ),
-          ],
+                  validator: _validateUrl,
+                  onFieldSubmitted: (_) => _submit(),
+                ),
+              ),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 6,
+                runSpacing: 8,
+                children: [
+                  for (final preset in _GeoDataUrlPresets.forKind(
+                    widget.status.kind,
+                  ))
+                    OutlinedButton(
+                      style: presetButtonStyle,
+                      onPressed: () => _applyPreset(preset.url),
+                      child: Text(preset.label),
+                    ),
+                ],
+              ),
+            ],
+          ),
         ),
       ),
       actions: [
@@ -375,10 +407,15 @@ class _GeoDataUrlPresets {
   }
 }
 
+Widget _geoUrlField({required bool useTvChrome, required Widget child}) {
+  return useTvChrome ? tvDpadEscapeTextField(child) : child;
+}
+
 class _GeoDataFilesBody extends StatelessWidget {
   const _GeoDataFilesBody({
     required this.loading,
     required this.error,
+    required this.useTvChrome,
     required this.busyKinds,
     required this.progressByKind,
     required this.statusFor,
@@ -391,6 +428,7 @@ class _GeoDataFilesBody extends StatelessWidget {
 
   final bool loading;
   final String? error;
+  final bool useTvChrome;
   final Set<GeoDataKind> busyKinds;
   final Map<GeoDataKind, int?> progressByKind;
   final GeoDataFileStatus Function(GeoDataKind kind) statusFor;
@@ -410,20 +448,25 @@ class _GeoDataFilesBody extends StatelessWidget {
       onRefresh: onRefresh,
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(),
-        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+        clipBehavior: Clip.none,
+        padding: useTvChrome
+            ? tvSettingsFocusScrollPadding
+            : const EdgeInsets.fromLTRB(20, 12, 20, 24),
         children: [
           for (final kind in GeoDataKind.values) ...[
             _GeoDataFileTile(
               status: statusFor(kind),
               busy: busyKinds.contains(kind),
               progressPercent: progressByKind[kind],
+              useTvChrome: useTvChrome,
+              autofocus: useTvChrome && kind == GeoDataKind.values.first,
               onUpdateByUrl: () => onUpdateByUrl(kind),
               onRefreshFromSavedUrl: canRefreshFromSavedUrl(statusFor(kind))
                   ? () => onRefreshFromSavedUrl(kind)
                   : null,
               onLoadFromDevice: () => onLoadFromDevice(kind),
             ),
-            const SizedBox(height: 12),
+            SizedBox(height: useTvChrome ? 16 : 12),
           ],
           if (error != null)
             Text(
@@ -447,6 +490,8 @@ class _GeoDataFileTile extends StatelessWidget {
     required this.onUpdateByUrl,
     this.onRefreshFromSavedUrl,
     required this.onLoadFromDevice,
+    this.useTvChrome = false,
+    this.autofocus = false,
   });
 
   final GeoDataFileStatus status;
@@ -455,14 +500,27 @@ class _GeoDataFileTile extends StatelessWidget {
   final VoidCallback onUpdateByUrl;
   final VoidCallback? onRefreshFromSavedUrl;
   final VoidCallback onLoadFromDevice;
+  final bool useTvChrome;
+  final bool autofocus;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final l = AppLocalizations.of(context);
+    final updateUrlButton = OutlinedButton.icon(
+      onPressed: busy ? null : onUpdateByUrl,
+      icon: const Icon(Icons.link_rounded, size: 18),
+      label: Text(l.geoUpdateByUrl),
+    );
+    final loadFromDeviceButton = FilledButton.icon(
+      onPressed: busy ? null : onLoadFromDevice,
+      icon: const Icon(Icons.upload_file_rounded, size: 18),
+      label: Text(l.geoLoadFromDevice),
+    );
     return Material(
       color: theme.cardColor,
       borderRadius: BorderRadius.circular(14),
+      clipBehavior: Clip.none,
       child: Ink(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
@@ -488,10 +546,12 @@ class _GeoDataFileTile extends StatelessWidget {
                   ),
                 ),
                 if (onRefreshFromSavedUrl != null)
-                  IconButton(
-                    onPressed: busy ? null : onRefreshFromSavedUrl,
-                    tooltip: l.geoRefreshTooltip,
-                    icon: const Icon(Icons.refresh_rounded),
+                  TvSettingsNonFocusTrailing(
+                    child: IconButton(
+                      onPressed: busy ? null : onRefreshFromSavedUrl,
+                      tooltip: l.geoRefreshTooltip,
+                      icon: const Icon(Icons.refresh_rounded),
+                    ),
                   ),
                 SizedBox(
                   width: 88,
@@ -551,22 +611,63 @@ class _GeoDataFileTile extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 14),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                OutlinedButton.icon(
-                  onPressed: busy ? null : onUpdateByUrl,
-                  icon: const Icon(Icons.link_rounded, size: 18),
-                  label: Text(l.geoUpdateByUrl),
+            if (useTvChrome) ...[
+              if (onRefreshFromSavedUrl != null) ...[
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TvCompactFocusRow(
+                    autofocus: autofocus,
+                    enabled: !busy,
+                    onActivate: onRefreshFromSavedUrl!,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: TvSettingsNonFocusTrailing(
+                        child: OutlinedButton.icon(
+                          onPressed: busy ? null : onRefreshFromSavedUrl,
+                          icon: const Icon(Icons.refresh_rounded, size: 18),
+                          label: Text(l.geoRefreshTooltip),
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
-                FilledButton.icon(
-                  onPressed: busy ? null : onLoadFromDevice,
-                  icon: const Icon(Icons.upload_file_rounded, size: 18),
-                  label: Text(l.geoLoadFromDevice),
-                ),
+                const SizedBox(height: 8),
               ],
-            ),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TvCompactFocusRow(
+                  autofocus: autofocus && onRefreshFromSavedUrl == null,
+                  enabled: !busy,
+                  onActivate: onUpdateByUrl,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: TvSettingsNonFocusTrailing(child: updateUrlButton),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TvCompactFocusRow(
+                  enabled: !busy,
+                  onActivate: onLoadFromDevice,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: TvSettingsNonFocusTrailing(
+                      child: loadFromDeviceButton,
+                    ),
+                  ),
+                ),
+              ),
+            ] else
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  updateUrlButton,
+                  loadFromDeviceButton,
+                ],
+              ),
           ],
         ),
       ),

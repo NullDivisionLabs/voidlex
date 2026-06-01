@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/material.dart';
@@ -14,12 +15,15 @@ import '../core/app_log.dart';
 import '../core/device_identity.dart';
 import '../core/geo_data.dart';
 import '../core/installed_apps.dart';
+import '../core/connection_policy_settings.dart';
 import '../core/multiplex_settings.dart';
+import '../core/run_mode.dart';
 import '../core/profile_file_exporter.dart';
 import '../core/profile_importer.dart';
 import '../core/routing_preset.dart';
 import '../core/routing_rule.dart';
 import '../core/server_latency_probe.dart';
+import '../core/secure_storage.dart';
 import '../core/server_repository.dart';
 import '../core/subscription_provider_settings.dart';
 import '../core/text_file_picker.dart';
@@ -30,7 +34,9 @@ import '../core/tun_engine_mode.dart';
 import '../core/vpn_controller.dart';
 import '../theme.dart';
 import 'tv/widgets/tv_overlay_shell.dart';
+import 'tv/tv_focus_ring.dart';
 import 'tv/widgets/tv_settings_card.dart';
+import 'tv/widgets/tv_settings_focus.dart';
 import 'widgets/bottom_dock.dart';
 import 'widgets/void_dock.dart';
 
@@ -174,22 +180,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
         child: Column(
           children: [
             Expanded(
-              child: SingleChildScrollView(
-                padding: useTvChrome
-                    ? EdgeInsets.zero
-                    : const EdgeInsets.fromLTRB(20, 8, 20, 24),
-                child: useTvChrome
-                    ? _buildTvSections(
-                        l: l,
-                        localePreference: localePreference,
-                        onLocalePreferenceChanged: onLocalePreferenceChanged,
-                      )
-                    : _buildMobileSections(
+              child: useTvChrome
+                  ? TvSettingsScrollView(
+                      child: _buildTvSections(
                         l: l,
                         localePreference: localePreference,
                         onLocalePreferenceChanged: onLocalePreferenceChanged,
                       ),
-              ),
+                    )
+                  : SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                      child: _buildMobileSections(
+                        l: l,
+                        localePreference: localePreference,
+                        onLocalePreferenceChanged: onLocalePreferenceChanged,
+                      ),
+                    ),
             ),
             if (showBottomDock)
               VoidDock(
@@ -273,6 +279,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             title: routes[i].title,
             subtitle: routes[i].subtitle,
             onTap: routes[i].onTap,
+            autofocus: i == 0,
           ),
         ],
         const SizedBox(height: 28),

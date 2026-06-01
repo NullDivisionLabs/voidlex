@@ -7,6 +7,7 @@ class _RoutingRuleTile extends StatelessWidget {
     required this.onTap,
     required this.onToggle,
     required this.onDelete,
+    this.useTvChrome = false,
   });
 
   final RoutingRule rule;
@@ -14,10 +15,54 @@ class _RoutingRuleTile extends StatelessWidget {
   final VoidCallback onTap;
   final ValueChanged<bool> onToggle;
   final VoidCallback onDelete;
+  final bool useTvChrome;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    if (useTvChrome) {
+      // Fixed-height row: nested focus rows + CrossAxisAlignment.stretch
+      // collapsed to zero height on some Android TV / armv32 stacks.
+      final tile = Container(
+        constraints: const BoxConstraints(minHeight: 56),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: theme.cardColor,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: theme.dividerColor),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Text(
+                rule.name.isEmpty ? 'Untitled' : rule.name,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(width: 8),
+            _OutboundBadge(outbound: rule.outbound),
+            const SizedBox(width: 10),
+            TvSettingsNonFocusTrailing(
+              child: Switch(
+                value: rule.enabled,
+                onChanged: onToggle,
+              ),
+            ),
+          ],
+        ),
+      );
+      return TvCompactFocusRow(
+        scaleWhenFocused: 1.0,
+        showGlow: false,
+        onActivate: onTap,
+        child: tile,
+      );
+    }
     return Slidable(
       // Reserve only a slim end pane so swipe gestures stay reversible —
       // a long swipe should not commit a delete by accident.

@@ -9,7 +9,7 @@ class AppLocalizationsRu extends AppLocalizations {
   AppLocalizationsRu([String locale = 'ru']) : super(locale);
 
   @override
-  String get appTitle => 'VoidTunnel';
+  String get appTitle => 'Void//Lex';
 
   @override
   String get cancel => 'Отмена';
@@ -211,7 +211,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get profileImportTitle => 'Импорт профиля';
 
   @override
-  String get profileImportSubtitle => 'Загрузить JSON-файл профиля VoidTunnel.';
+  String get profileImportSubtitle => 'Загрузить JSON-файл профиля Void//Lex.';
 
   @override
   String get profileImportModeTitle => 'Импорт профиля';
@@ -241,7 +241,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get profileImportUnsupportedFormat =>
-      'Файл не является профилем VoidTunnel.';
+      'Файл не является профилем Void//Lex.';
 
   @override
   String get profileImportUnsupportedVersion =>
@@ -249,6 +249,53 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get profileImportEmptyProfile => 'В профиле нет данных для импорта.';
+
+  @override
+  String get profileImportTooLarge =>
+      'Файл профиля слишком большой (макс. 4 МБ).';
+
+  @override
+  String get secureStorageWriteFailed =>
+      'Не удалось сохранить пароль в защищённое хранилище. Повторите попытку.';
+
+  @override
+  String get deepLinkVpnControlColdStart =>
+      'Откройте Void//Lex и подключитесь из приложения. Ссылки connect/disconnect при холодном запуске игнорируются.';
+
+  @override
+  String get deepLinkRulesetInvalidUrl =>
+      'URL ruleset должен быть корректным http(s) адресом.';
+
+  @override
+  String get deepLinkRulesetTimeout => 'Превышено время загрузки ruleset.';
+
+  @override
+  String get deepLinkRulesetTooLarge => 'Файл ruleset слишком большой.';
+
+  @override
+  String get deepLinkRulesetEmpty => 'Файл ruleset пуст.';
+
+  @override
+  String get deepLinkRulesetNoRules =>
+      'В файле нет поддерживаемых правил маршрутизации.';
+
+  @override
+  String get deepLinkRulesetInvalidJson => 'Некорректный JSON ruleset.';
+
+  @override
+  String deepLinkRulesetHttpStatus(int code) {
+    return 'Загрузка ruleset вернула HTTP $code';
+  }
+
+  @override
+  String deepLinkRulesetRequestFailed(String detail) {
+    return 'Не удалось загрузить ruleset: $detail';
+  }
+
+  @override
+  String deepLinkRulesetImported(int count) {
+    return 'Импортировано правил из ссылки: $count.';
+  }
 
   @override
   String profileImportedText(int manualNodes, int subscriptions, int presets) {
@@ -627,6 +674,18 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get tooltipScanPing => 'Scan ping';
+
+  @override
+  String get tooltipSearchNodes => 'Поиск нод';
+
+  @override
+  String get tooltipCloseSearch => 'Закрыть поиск';
+
+  @override
+  String get searchNodesHint => 'Поиск по имени';
+
+  @override
+  String get searchNoResults => 'Ничего не найдено';
 
   @override
   String get statusIdle => 'IDLE';
@@ -1045,7 +1104,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get providerAutoUpdateIntervalSubtitle =>
-      'Обновлять все сохранённые подписки провайдера с выбранным интервалом, пока VoidTunnel запущен.';
+      'Обновлять все сохранённые подписки провайдера с выбранным интервалом, пока Void//Lex запущен.';
 
   @override
   String get providerAutoUpdateIntervalTooltip => 'Интервал автообновления';
@@ -1095,6 +1154,12 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get subscriptionShareEncryptedFailed =>
       'Не удалось сгенерировать зашифрованный код.';
+
+  @override
+  String get subscriptionHideNa => 'Не отображать N/A';
+
+  @override
+  String get subscriptionShowNa => 'Отображать N/A';
 
   @override
   String get subscriptionImportEncryptedFailed =>
@@ -1960,7 +2025,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get faqA16 =>
-      'Опция включается в **Настройки → Приложение**, но Android на ряде прошивок ограничивает автозапуск фоновых сервисов политикой батареи. Снимите оптимизацию батареи для VoidTunnel и проверьте системный **«Всегда включённый VPN»** (Android: Настройки → Сеть → VPN → VoidTunnel) — он гарантированно поднимает туннель при загрузке устройства.';
+      'Опция включается в **Настройки → Приложение**, но Android на ряде прошивок ограничивает автозапуск фоновых сервисов политикой батареи. Снимите оптимизацию батареи для Void//Lex и проверьте системный **«Всегда включённый VPN»** (Android: Настройки → Сеть → VPN → Void//Lex) — он гарантированно поднимает туннель при загрузке устройства.';
 
   @override
   String get faqQ17 =>
@@ -1990,4 +2055,116 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get faqA20 =>
       '**Android TV / Google TV** — да, отдельный полноэкранный интерфейс с поддержкой пульта (D-pad), общие с мобильной версией узлы и подписки. **iOS / iPadOS** — полноценный клиент в разработке.';
+
+  @override
+  String get autoConnectOnBootTitle =>
+      'Автоподключение при загрузке устройства';
+
+  @override
+  String get autoConnectOnBootSubtitle =>
+      'Открыть системные настройки «Always-on VPN» — включите «Постоянная VPN» + «Блокировать подключения без VPN», и туннель будет подниматься при загрузке.';
+
+  @override
+  String get killSwitchTitle => 'Kill Switch';
+
+  @override
+  String get killSwitchSubtitle =>
+      'Блокировать интернет при неожиданном падении туннеля. Ручное отключение восстанавливает сеть.';
+
+  @override
+  String get runModeSectionTitle => 'Режим работы';
+
+  @override
+  String get runModeTunTitle => 'VPN-туннель (TUN)';
+
+  @override
+  String get runModeTunSubtitle =>
+      'Стандартный режим. Весь трафик идёт через VPN-сервис; в статусной строке виден значок VPN.';
+
+  @override
+  String get runModeProxyOnlyTitle => 'Скрыть значок (proxy-only)';
+
+  @override
+  String get runModeProxyOnlySubtitle =>
+      'Запускать локальный HTTP/SOCKS5-прокси без значка VPN. Работают только приложения с поддержкой прокси, мобильные данные идут напрямую. Прокси настройте вручную в Wi-Fi / браузере.';
+
+  @override
+  String get httpProxyAuthTitle => 'HTTP-прокси авторизация';
+
+  @override
+  String get httpProxyAuthSubtitle =>
+      'Защитить HTTP-прокси на порту 10809 теми же логином/паролем, что и SOCKS5.';
+
+  @override
+  String get tunnelRouteOnlyTitle => 'Маршрутизация по домену (routeOnly)';
+
+  @override
+  String get tunnelRouteOnlySubtitle =>
+      'Использовать SNI/host из сниффинга только для выбора маршрута, не подменяя адрес соединения. Оставьте включённым, если только сниффинг не мешает работе сети.';
+
+  @override
+  String get connectionPolicySectionTitle => 'Расширенные настройки';
+
+  @override
+  String get connectionPolicySectionSubtitle =>
+      'Таймаут. Количество TCP, UDP-соединений.';
+
+  @override
+  String get connectionPolicyConnectionsGroup => 'Соединения';
+
+  @override
+  String get connectionPolicyIdleTitle => 'Таймаут простоя';
+
+  @override
+  String get connectionPolicyIdleSubtitle =>
+      'Время ожидания для неактивных соединений, секунды.';
+
+  @override
+  String get connectionPolicyMaxTcpTitle => 'TCP соединений';
+
+  @override
+  String get connectionPolicyMaxTcpSubtitle =>
+      'Максимум одновременных TCP-соединений.';
+
+  @override
+  String get connectionPolicyMaxUdpTitle => 'UDP соединений';
+
+  @override
+  String get connectionPolicyMaxUdpSubtitle =>
+      'Максимум одновременных UDP-соединений.';
+
+  @override
+  String get urlSchemesTitle => 'Схемы URL-адресов';
+
+  @override
+  String get urlSchemesSubtitle =>
+      'Автоматизация VoidLex через Shortcuts, Tasker и другие приложения.';
+
+  @override
+  String get urlSchemesNote =>
+      'Используйте эти схемы для автоматизации через Shortcuts, Tasker или другие приложения. Нажмите на схему, чтобы скопировать.';
+
+  @override
+  String get urlSchemesNoteHeader => 'Примечание';
+
+  @override
+  String get urlSchemesStartSection => 'ЗАПУСТИТЬ ТУННЕЛЬ';
+
+  @override
+  String get urlSchemesStopSection => 'ОСТАНОВИТЬ СОЕДИНЕНИЕ';
+
+  @override
+  String get urlSchemesToggleSection => 'ПЕРЕКЛЮЧИТЬ СОЕДИНЕНИЕ';
+
+  @override
+  String get urlSchemesRestartSection => 'ПЕРЕЗАПУСТИТЬ СОЕДИНЕНИЕ';
+
+  @override
+  String get urlSchemesImportSection => 'ДОБАВИТЬ КОНФИГУРАЦИЮ';
+
+  @override
+  String get urlSchemesImportRulesetSection => 'ИМПОРТ ПРАВИЛ';
+
+  @override
+  String get urlSchemeCopied => 'Скопировано в буфер';
 }

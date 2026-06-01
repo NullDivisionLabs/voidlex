@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:voidtunnel/screens/widgets/section_header.dart';
+import 'package:voidlex/screens/widgets/section_header.dart';
 
 void main() {
   testWidgets('busy indicator hides after fixed duration', (tester) async {

@@ -241,6 +241,94 @@ class _RoutingSettingsScreenState extends State<RoutingSettingsScreen> {
     }
   }
 
+  Future<void> _showPresetPicker(BuildContext anchorContext) async {
+    final preset = widget.controller.selectedRoutingPreset;
+    final presets = widget.controller.routingPresets;
+    final box = anchorContext.findRenderObject() as RenderBox?;
+    final selected = await showMenu<String>(
+      context: context,
+      position: box == null
+          ? null
+          : RelativeRect.fromRect(
+              box.localToGlobal(Offset.zero) & box.size,
+              Offset.zero & MediaQuery.sizeOf(context),
+            ),
+      items: [
+        for (final item in presets)
+          CheckedPopupMenuItem<String>(
+            value: item.id,
+            checked: item.id == preset.id,
+            child: Text(item.name),
+          ),
+      ],
+    );
+    if (selected != null) await _selectRoutingPreset(selected);
+  }
+
+  Future<void> _showPresetActionsMenu(
+    BuildContext anchorContext,
+    RoutingPreset preset,
+  ) async {
+    final l = AppLocalizations.of(context);
+    final box = anchorContext.findRenderObject() as RenderBox?;
+    final selected = await showMenu<_RoutingPresetMenuAction>(
+      context: context,
+      position: box == null
+          ? null
+          : RelativeRect.fromRect(
+              box.localToGlobal(Offset.zero) & box.size,
+              Offset.zero & MediaQuery.sizeOf(context),
+            ),
+      items: [
+        PopupMenuItem<_RoutingPresetMenuAction>(
+          value: _RoutingPresetMenuAction.create,
+          child: Text(l.routingCreatePresetMenu),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem<_RoutingPresetMenuAction>(
+          value: _RoutingPresetMenuAction.rename,
+          enabled: !preset.isMain,
+          child: Text(l.routingRenamePresetMenu),
+        ),
+        PopupMenuItem<_RoutingPresetMenuAction>(
+          value: _RoutingPresetMenuAction.delete,
+          enabled: !preset.isMain,
+          child: Text(l.routingDeletePresetMenu),
+        ),
+      ],
+    );
+    if (selected != null) await _onPresetMenuAction(selected, preset);
+  }
+
+  Widget _presetPickerFace(
+    ThemeData theme,
+    RoutingPreset preset,
+  ) {
+    return Container(
+      height: 44,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: theme.dividerColor),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              preset.name,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodyLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const Icon(Icons.expand_more_rounded),
+        ],
+      ),
+    );
+  }
+
   Future<void> _openEditor({RoutingRule? initial}) async {
     final useTvChrome = _useTvSettingsChrome(
       controller: widget.controller,
@@ -468,20 +556,43 @@ class _RoutingSettingsScreenState extends State<RoutingSettingsScreen> {
     _showEditorPresetRestartNoticeIf(wasConnected);
   }
 
-  Widget _buildPresetsBlock(ThemeData theme, AppLocalizations l) {
+  Widget _buildPresetsBlock(
+    ThemeData theme,
+    AppLocalizations l, {
+    required bool useTvChrome,
+  }) {
     final preset = widget.controller.selectedRoutingPreset;
     final presets = widget.controller.routingPresets;
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.cardColor,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: theme.dividerColor),
+    final presetsToggle = TvSettingsNonFocusTrailing(
+      child: Switch(
+        value: _presetsExpanded,
+        onChanged: _setPresetsExpanded,
       ),
-      child: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            child: Row(
+    );
+    final presetsHeader = Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      child: useTvChrome
+          ? TvCompactFocusRow(
+              scaleWhenFocused: 1.0,
+              showGlow: false,
+              onActivate: () => _setPresetsExpanded(!_presetsExpanded),
+              child: Row(
+                children: [
+                  Icon(Icons.tune_rounded, color: theme.colorScheme.primary),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      l.routingPresetsHeading,
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  presetsToggle,
+                ],
+              ),
+            )
+          : Row(
               children: [
                 Icon(Icons.tune_rounded, color: theme.colorScheme.primary),
                 const SizedBox(width: 12),
@@ -493,10 +604,20 @@ class _RoutingSettingsScreenState extends State<RoutingSettingsScreen> {
                     ),
                   ),
                 ),
-                Switch(value: _presetsExpanded, onChanged: _setPresetsExpanded),
+                presetsToggle,
               ],
             ),
-          ),
+    );
+    return Container(
+      clipBehavior: useTvChrome ? Clip.hardEdge : Clip.none,
+      decoration: BoxDecoration(
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: theme.dividerColor),
+      ),
+      child: Column(
+        children: [
+          presetsHeader,
           if (_presetsExpanded) ...[
             Divider(height: 1, color: theme.dividerColor),
             Padding(
@@ -505,77 +626,100 @@ class _RoutingSettingsScreenState extends State<RoutingSettingsScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Row(
-                    children: [
-                      Expanded(
-                        child: PopupMenuButton<String>(
-                          tooltip: l.routingSelectPresetTooltip,
-                          onSelected: _selectRoutingPreset,
-                          itemBuilder: (context) => [
-                            for (final item in presets)
-                              PopupMenuItem<String>(
-                                value: item.id,
-                                child: Row(
-                                  children: [
-                                    Expanded(child: Text(item.name)),
-                                    if (item.id == preset.id)
-                                      Icon(
-                                        Icons.check_rounded,
-                                        color: theme.colorScheme.primary,
-                                      ),
-                                  ],
+                    children: useTvChrome
+                        ? [
+                            Expanded(
+                              child: Builder(
+                                builder: (anchorContext) => TvCompactFocusRow(
+                                  scaleWhenFocused: 1.0,
+                                  onActivate: () => unawaited(
+                                    _showPresetPicker(anchorContext),
+                                  ),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 4,
+                                    ),
+                                    child: _presetPickerFace(theme, preset),
+                                  ),
                                 ),
                               ),
-                          ],
-                          child: Container(
-                            height: 44,
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(10),
-                              border: Border.all(color: theme.dividerColor),
                             ),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    preset.name,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: theme.textTheme.bodyLarge?.copyWith(
-                                      fontWeight: FontWeight.w700,
+                            const SizedBox(width: 8),
+                            Builder(
+                              builder: (anchorContext) => TvCompactFocusRow(
+                                scaleWhenFocused: 1.0,
+                                onActivate: () => unawaited(
+                                  _showPresetActionsMenu(anchorContext, preset),
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 4,
+                                  ),
+                                  child: TvSettingsNonFocusTrailing(
+                                    child: IconButton(
+                                      tooltip: l.routingPresetActionsTooltip,
+                                      onPressed: () => unawaited(
+                                        _showPresetActionsMenu(
+                                          anchorContext,
+                                          preset,
+                                        ),
+                                      ),
+                                      icon: const Icon(Icons.more_vert_rounded),
                                     ),
                                   ),
                                 ),
-                                const Icon(Icons.expand_more_rounded),
-                              ],
+                              ),
                             ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      PopupMenuButton<_RoutingPresetMenuAction>(
-                        tooltip: l.routingPresetActionsTooltip,
-                        onSelected: (action) =>
-                            _onPresetMenuAction(action, preset),
-                        itemBuilder: (context) => [
-                          PopupMenuItem<_RoutingPresetMenuAction>(
-                            value: _RoutingPresetMenuAction.create,
-                            child: Text(l.routingCreatePresetMenu),
-                          ),
-                          const PopupMenuDivider(),
-                          PopupMenuItem<_RoutingPresetMenuAction>(
-                            value: _RoutingPresetMenuAction.rename,
-                            enabled: !preset.isMain,
-                            child: Text(l.routingRenamePresetMenu),
-                          ),
-                          PopupMenuItem<_RoutingPresetMenuAction>(
-                            value: _RoutingPresetMenuAction.delete,
-                            enabled: !preset.isMain,
-                            child: Text(l.routingDeletePresetMenu),
-                          ),
-                        ],
-                        icon: const Icon(Icons.more_vert_rounded),
-                      ),
-                    ],
+                          ]
+                        : [
+                            Expanded(
+                              child: PopupMenuButton<String>(
+                                tooltip: l.routingSelectPresetTooltip,
+                                onSelected: _selectRoutingPreset,
+                                itemBuilder: (context) => [
+                                  for (final item in presets)
+                                    PopupMenuItem<String>(
+                                      value: item.id,
+                                      child: Row(
+                                        children: [
+                                          Expanded(child: Text(item.name)),
+                                          if (item.id == preset.id)
+                                            Icon(
+                                              Icons.check_rounded,
+                                              color: theme.colorScheme.primary,
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                ],
+                                child: _presetPickerFace(theme, preset),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            PopupMenuButton<_RoutingPresetMenuAction>(
+                              tooltip: l.routingPresetActionsTooltip,
+                              onSelected: (action) =>
+                                  _onPresetMenuAction(action, preset),
+                              itemBuilder: (context) => [
+                                PopupMenuItem<_RoutingPresetMenuAction>(
+                                  value: _RoutingPresetMenuAction.create,
+                                  child: Text(l.routingCreatePresetMenu),
+                                ),
+                                const PopupMenuDivider(),
+                                PopupMenuItem<_RoutingPresetMenuAction>(
+                                  value: _RoutingPresetMenuAction.rename,
+                                  enabled: !preset.isMain,
+                                  child: Text(l.routingRenamePresetMenu),
+                                ),
+                                PopupMenuItem<_RoutingPresetMenuAction>(
+                                  value: _RoutingPresetMenuAction.delete,
+                                  enabled: !preset.isMain,
+                                  child: Text(l.routingDeletePresetMenu),
+                                ),
+                              ],
+                              icon: const Icon(Icons.more_vert_rounded),
+                            ),
+                          ],
                   ),
                 ],
               ),
@@ -597,7 +741,9 @@ class _RoutingSettingsScreenState extends State<RoutingSettingsScreen> {
     final theme = Theme.of(context);
     final t = VoidTokens.of(context);
     final l = AppLocalizations.of(context);
-    final rules = widget.controller.routingRules;
+    final rules = List<RoutingRule>.unmodifiable(
+      widget.controller.selectedRoutingPreset.routingRules,
+    );
     final useTvChrome = _useTvSettingsChrome(
       controller: widget.controller,
       requested: widget.useTvChrome,
@@ -614,7 +760,7 @@ class _RoutingSettingsScreenState extends State<RoutingSettingsScreen> {
       IconButton(
         tooltip: l.routingTooltipGeoFiles,
         onPressed: _openGeoFiles,
-        icon: const Icon(Icons.insert_drive_file_rounded),
+        icon: const Icon(Icons.insert_drive_file_outlined),
       ),
       PopupMenuButton<_RoutingMenuAction>(
         tooltip: l.more,
@@ -668,17 +814,62 @@ class _RoutingSettingsScreenState extends State<RoutingSettingsScreen> {
         child: Column(
           children: [
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _buildPresetsBlock(theme, l),
+              child: useTvChrome
+                  ? TvSettingsScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: _routingSettingsScrollChildren(
+                          theme: theme,
+                          l: l,
+                          rules: rules,
+                          useTvChrome: useTvChrome,
+                        ),
+                      ),
+                    )
+                  : SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: _routingSettingsScrollChildren(
+                          theme: theme,
+                          l: l,
+                          rules: rules,
+                          useTvChrome: useTvChrome,
+                        ),
+                      ),
+                    ),
+            ),
+            if (showBottomDock)
+              VoidDock(
+                current: DockItem.route,
+                controller: widget.controller,
+                isDarkTheme:
+                    widget.isDarkTheme ??
+                    Theme.of(context).brightness == Brightness.dark,
+                onThemeModeChanged: widget.onThemeModeChanged ?? ((_) {}),
+                localePreference: widget.localePreference,
+                onLocalePreferenceChanged: widget.onLocalePreferenceChanged,
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _routingSettingsScrollChildren({
+    required ThemeData theme,
+    required AppLocalizations l,
+    required List<RoutingRule> rules,
+    required bool useTvChrome,
+  }) {
+    return [
+                    _buildPresetsBlock(theme, l, useTvChrome: useTvChrome),
                     SizedBox(height: useTvChrome ? 16 : 12),
                     if (useTvChrome)
                       TvSettingsCard(
                         icon: Icons.apps_rounded,
                         title: l.routingTileAppRouting,
+                        autofocus: true,
                         onTap: () async {
                           final shouldShowRestartNotice =
                               await Navigator.of(context).push<bool>(
@@ -727,6 +918,7 @@ class _RoutingSettingsScreenState extends State<RoutingSettingsScreen> {
                     const SizedBox(height: 10),
                     if (rules.isEmpty)
                       Container(
+                        clipBehavior: Clip.none,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 14,
                           vertical: 16,
@@ -740,6 +932,25 @@ class _RoutingSettingsScreenState extends State<RoutingSettingsScreen> {
                           l.routingNoCustomRulesYet,
                           style: theme.textTheme.bodyMedium,
                         ),
+                      )
+                    else if (useTvChrome)
+                      ListView.separated(
+                        shrinkWrap: true,
+                        primary: false,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: rules.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 12),
+                        itemBuilder: (context, index) {
+                          final rule = rules[index];
+                          return _RoutingRuleTile(
+                            rule: rule,
+                            index: index,
+                            useTvChrome: true,
+                            onTap: () => _openEditor(initial: rule),
+                            onToggle: (value) => _toggleRule(rule, value),
+                            onDelete: () => _confirmDelete(rule),
+                          );
+                        },
                       )
                     else
                       ReorderableListView.builder(
@@ -776,24 +987,6 @@ class _RoutingSettingsScreenState extends State<RoutingSettingsScreen> {
                           );
                         },
                       ),
-                  ],
-                ),
-              ),
-            ),
-            if (showBottomDock)
-              VoidDock(
-                current: DockItem.route,
-                controller: widget.controller,
-                isDarkTheme:
-                    widget.isDarkTheme ??
-                    Theme.of(context).brightness == Brightness.dark,
-                onThemeModeChanged: widget.onThemeModeChanged ?? ((_) {}),
-                localePreference: widget.localePreference,
-                onLocalePreferenceChanged: widget.onLocalePreferenceChanged,
-              ),
-          ],
-        ),
-      ),
-    );
+    ];
   }
 }

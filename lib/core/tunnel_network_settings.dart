@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'bounded_json.dart';
+
 class TunnelNetworkSettings {
   const TunnelNetworkSettings({
     this.useLocalDns = false,
@@ -120,7 +122,7 @@ class TunnelNetworkSettings {
   static TunnelNetworkSettings decode(String? raw) {
     if (raw == null || raw.isEmpty) return defaults;
     try {
-      final decoded = jsonDecode(raw);
+      final decoded = tryDecodeJson(raw, maxBytes: JsonPayloadLimits.settingsBlob);
       if (decoded is! Map<String, dynamic>) return defaults;
       return TunnelNetworkSettings(
         useLocalDns: decoded['useLocalDns'] as bool? ?? defaults.useLocalDns,

@@ -147,14 +147,26 @@ class ServerLatencyProbe {
       if (addresses.isEmpty) return 'ERR';
 
       Socket? socket;
+      addressLoop:
       for (final address in addresses) {
         for (var attempt = 0; attempt < attemptsPerAddress; attempt++) {
+          // Keep the whole probe within totalTimeout. Without a budget the
+          // worst-case cost is addresses x attemptsPerAddress x
+          // perAddressTimeout, which can run several times past the advertised
+          // ceiling during a latency scan. Clamp each connect to whatever time
+          // is left so measure() never overshoots by more than one in-flight
+          // handshake.
+          final remaining = totalTimeout - stopwatch.elapsed;
+          if (remaining <= Duration.zero) break addressLoop;
+          final connectTimeout = remaining < perAddressTimeout
+              ? remaining
+              : perAddressTimeout;
           var retryable = false;
           try {
             socket = await Socket.connect(
               address,
               endpoint.port,
-              timeout: perAddressTimeout,
+              timeout: connectTimeout,
             );
             final elapsed = stopwatch.elapsedMilliseconds;
             return '$elapsed ms';

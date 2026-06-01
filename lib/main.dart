@@ -20,7 +20,7 @@ void main() async {
   await controller.bootstrap();
   final tvMode = await TvModeDetector.detect();
   runApp(
-    VoidTunnelApp(
+    VoidLexApp(
       controller: controller,
       repository: repository,
       tvMode: tvMode,
@@ -28,8 +28,8 @@ void main() async {
   );
 }
 
-class VoidTunnelApp extends StatefulWidget {
-  const VoidTunnelApp({
+class VoidLexApp extends StatefulWidget {
+  const VoidLexApp({
     super.key,
     required this.controller,
     required this.repository,
@@ -41,10 +41,10 @@ class VoidTunnelApp extends StatefulWidget {
   final TvModeDetector tvMode;
 
   @override
-  State<VoidTunnelApp> createState() => _VoidTunnelAppState();
+  State<VoidLexApp> createState() => _VoidLexAppState();
 }
 
-class _VoidTunnelAppState extends State<VoidTunnelApp>
+class _VoidLexAppState extends State<VoidLexApp>
     with WidgetsBindingObserver {
   static const Duration _autoPingScanCooldown = Duration(minutes: 1);
 

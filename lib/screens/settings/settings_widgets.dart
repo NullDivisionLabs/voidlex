@@ -375,7 +375,7 @@ class _AboutBrandFooter extends StatelessWidget {
   /// Project Telegram channel — opens via `url_launcher` with the platform
   /// default handler (will switch to the Telegram app if it's installed,
   /// otherwise the system browser).
-  static final Uri _telegramUri = Uri.parse('https://t.me/voidtun');
+  static final Uri _telegramUri = Uri.parse('https://t.me/voidlexapp');
 
   Future<void> _openTelegram(BuildContext context) async {
     final l = AppLocalizations.of(context);

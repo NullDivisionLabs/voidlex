@@ -7,7 +7,7 @@ import 'routing_preset.dart';
 class ProfileExporter {
   const ProfileExporter._();
 
-  static const format = 'voidtunnel.profile';
+  static const format = 'voidlex.profile';
   // v1 (subscriptions cleared when protected) → v2 (encrypted
   // protectedSubscriptions field carries the originals). Bump invalidates no
   // imports: a v2 reader can still consume v1 files.

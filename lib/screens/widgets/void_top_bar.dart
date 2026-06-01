@@ -25,7 +25,7 @@ class VoidTopBar extends StatelessWidget {
       child: Row(
         children: [
           Text(
-            'VOID//TUNNEL',
+            'VOID//LEX',
             style: VoidType.mono(
               fontSize: 11,
               fontWeight: FontWeight.w700,

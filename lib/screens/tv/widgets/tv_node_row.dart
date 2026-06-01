@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../theme.dart';
-import '../../widgets/node_row.dart' show NodePingTone;
-
 /// Single row in the TV node list. Mirrors the JSX `TVNodeRow` —
 /// triangle indicator + name/region + protocol/transport pills + EXIT /
 /// preset chips + signal bars + large ping number.
@@ -13,7 +11,7 @@ class TvNodeRow extends StatelessWidget {
     required this.region,
     required this.protocol,
     required this.transport,
-    required this.pingRaw,
+    required this.pingSlot,
     this.selected = false,
     this.exit = false,
     this.preset,
@@ -25,7 +23,7 @@ class TvNodeRow extends StatelessWidget {
   final String region;
   final String protocol;
   final String transport;
-  final String pingRaw;
+  final Widget pingSlot;
   final bool selected;
   final bool exit;
   final String? preset;
@@ -39,10 +37,6 @@ class TvNodeRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = VoidTokens.of(context);
-    final tone = NodePingTone.fromRaw(pingRaw);
-    final toneColor = tone.colorIn(t);
-    final ping = NodePingTone.shortLabel(pingRaw);
-    final showMs = RegExp(r'\d').hasMatch(ping);
 
     final body = AnimatedContainer(
       duration: const Duration(milliseconds: 200),
@@ -132,41 +126,7 @@ class TvNodeRow extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 18),
-          SizedBox(
-            width: 160,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                CustomPaint(
-                  size: const Size(16, 14),
-                  painter: _SignalBars(color: toneColor),
-                ),
-                const SizedBox(width: 10),
-                Text(
-                  ping,
-                  style: VoidType.mono(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: -0.5,
-                    color: toneColor,
-                    fontFeatures: const [FontFeature.tabularFigures()],
-                  ),
-                ),
-                if (showMs) ...[
-                  const SizedBox(width: 4),
-                  Text(
-                    'MS',
-                    style: VoidType.mono(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w500,
-                      letterSpacing: 1.8,
-                      color: t.fg3,
-                    ),
-                  ),
-                ],
-              ],
-            ),
-          ),
+          SizedBox(width: 160, child: pingSlot),
         ],
       ),
     );
@@ -271,22 +231,3 @@ class _NodeRowGlyph extends CustomPainter {
       oldDelegate.color != color || oldDelegate.filled != filled;
 }
 
-class _SignalBars extends CustomPainter {
-  _SignalBars({required this.color});
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final base = Paint()..color = color;
-    final dim = Paint()..color = color.withValues(alpha: 0.55);
-    final faint = Paint()..color = color.withValues(alpha: 0.25);
-    canvas.drawRect(const Rect.fromLTWH(0, 10, 3, 4), base);
-    canvas.drawRect(const Rect.fromLTWH(4, 6, 3, 8), base);
-    canvas.drawRect(const Rect.fromLTWH(8, 3, 3, 11), dim);
-    canvas.drawRect(const Rect.fromLTWH(12, 0, 3, 14), faint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _SignalBars oldDelegate) =>
-      oldDelegate.color != color;
-}

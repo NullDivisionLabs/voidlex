@@ -8,7 +8,7 @@ class SecureStorage {
   const SecureStorage();
 
   static const MethodChannel _channel = MethodChannel(
-    'org.voidtunnel.vpn/service',
+    'org.voidlex.vpn/service',
   );
 
   Future<String?> readString(String key) async {
@@ -30,10 +30,15 @@ class SecureStorage {
         'value': value,
       });
     } on MissingPluginException {
-      // No native bridge available — silently drop. Better than crashing.
-    } on PlatformException {
-      // Same — the secret remains unwritten; UI surfaces this through whatever
-      // call site triggered the write.
+      throw const SecureStorageException(
+        SecureStorageError.unavailable,
+        'Secure storage is not available on this platform',
+      );
+    } on PlatformException catch (e) {
+      throw SecureStorageException(
+        SecureStorageError.writeFailed,
+        e.message ?? 'Secure storage write failed',
+      );
     }
   }
 
@@ -43,8 +48,23 @@ class SecureStorage {
       await _channel.invokeMethod<void>('secureRemove', key);
     } on MissingPluginException {
       return;
-    } on PlatformException {
-      return;
+    } on PlatformException catch (e) {
+      throw SecureStorageException(
+        SecureStorageError.writeFailed,
+        e.message ?? 'Secure storage remove failed',
+      );
     }
   }
+}
+
+enum SecureStorageError { unavailable, writeFailed }
+
+class SecureStorageException implements Exception {
+  const SecureStorageException(this.code, this.message);
+
+  final SecureStorageError code;
+  final String message;
+
+  @override
+  String toString() => 'SecureStorageException($code): $message';
 }

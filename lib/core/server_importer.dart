@@ -1,8 +1,8 @@
-import 'dart:convert';
-
+import 'bounded_json.dart';
 import 'hysteria2_parser.dart';
 import 'models/server_config.dart';
 import 'models/server_subscription.dart';
+import 'server_link_parse_utils.dart';
 import 'vless_parser.dart';
 
 enum ServerImportError {
@@ -148,7 +148,12 @@ class ServerImporter {
   ServerImportResult _parseJson(String raw, Set<String> existingNames) {
     final dynamic decoded;
     try {
-      decoded = jsonDecode(raw);
+      decoded = decodeJson(raw, maxBytes: JsonPayloadLimits.serverCatalog);
+    } on JsonPayloadTooLargeException {
+      return ServerImportResult.fail(
+        ServerImportError.invalidJson,
+        'JSON payload is too large',
+      );
     } on FormatException catch (e) {
       return ServerImportResult.fail(ServerImportError.invalidJson, e.message);
     }
@@ -174,7 +179,11 @@ class ServerImporter {
       final fallback = config.isHysteria2
           ? 'Imported Hysteria2'
           : 'Imported VLESS';
-      final name = _ensureUniqueName(config.name, names, fallback: fallback);
+      final name = ensureUniqueServerName(
+        config.name,
+        names,
+        fallback: fallback,
+      );
       configs.add(config.copyWith(name: name));
       names.add(name);
     }
@@ -636,20 +645,6 @@ class ServerImporter {
       };
     }
     return null;
-  }
-
-  String _ensureUniqueName(
-    String baseName,
-    Set<String> existingNames, {
-    String fallback = 'Imported VLESS',
-  }) {
-    final normalized = baseName.trim().isEmpty ? fallback : baseName.trim();
-    if (!existingNames.contains(normalized)) return normalized;
-    var index = 2;
-    while (existingNames.contains('$normalized ($index)')) {
-      index++;
-    }
-    return '$normalized ($index)';
   }
 }
 

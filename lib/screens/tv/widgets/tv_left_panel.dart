@@ -22,8 +22,8 @@ class TvLeftPanel extends StatelessWidget {
     required this.exitNodeName,
     required this.exitIpLabel,
     required this.regionLabel,
-    required this.downValueLabel,
-    required this.upValueLabel,
+    required this.downHistory,
+    required this.upHistory,
     this.onHubTap,
   });
 
@@ -34,8 +34,10 @@ class TvLeftPanel extends StatelessWidget {
   final String exitNodeName;
   final String exitIpLabel;
   final String regionLabel;
-  final String downValueLabel;
-  final String upValueLabel;
+  // Per-second throughput history (bytes/sec, oldest → newest) coming
+  // from the live VPN service. Rendered by the throughput sparkline.
+  final List<double> downHistory;
+  final List<double> upHistory;
   final VoidCallback? onHubTap;
 
   static const Alignment _hubInfoAlignment = Alignment(0, 0.08);
@@ -69,10 +71,13 @@ class TvLeftPanel extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _HubColumn(
-                    focused: hubFocused,
-                    connectionState: connectionState,
-                    onHubTap: onHubTap,
+                  ClipRect(
+                    clipBehavior: Clip.none,
+                    child: _HubColumn(
+                      focused: hubFocused,
+                      connectionState: connectionState,
+                      onHubTap: onHubTap,
+                    ),
                   ),
                   const SizedBox(width: 40),
                   Expanded(
@@ -125,18 +130,16 @@ class TvLeftPanel extends StatelessWidget {
                               Expanded(
                                 child: TvThroughputSparkline(
                                   label: l.tvKvDown,
-                                  valueLabel: downValueLabel,
+                                  history: downHistory,
                                   live: live,
-                                  seed: 3,
                                 ),
                               ),
                               const SizedBox(width: 20),
                               Expanded(
                                 child: TvThroughputSparkline(
                                   label: l.tvKvUp,
-                                  valueLabel: upValueLabel,
+                                  history: upHistory,
                                   live: live,
-                                  seed: 7,
                                 ),
                               ),
                             ],

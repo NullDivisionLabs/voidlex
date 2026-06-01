@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:voidtunnel/screens/widgets/exit_info_bar.dart';
-import 'package:voidtunnel/screens/widgets/global_proxy_pill.dart';
-import 'package:voidtunnel/theme.dart';
+import 'package:voidlex/screens/widgets/exit_info_bar.dart';
+import 'package:voidlex/screens/widgets/global_proxy_pill.dart';
+import 'package:voidlex/theme.dart';
 
 void main() {
   setUpAll(() {

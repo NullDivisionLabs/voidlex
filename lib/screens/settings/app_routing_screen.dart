@@ -229,52 +229,30 @@ class _AppRoutingScreenState extends State<_AppRoutingScreen> {
                               ),
                             ),
                           ),
-                          Switch(
-                            value: _hideSystemApps,
-                            onChanged: (value) {
-                              setState(() => _hideSystemApps = value);
-                            },
+                          TvSettingsNonFocusTrailing(
+                            child: Switch(
+                              value: _hideSystemApps,
+                              onChanged: (value) {
+                                setState(() => _hideSystemApps = value);
+                              },
+                            ),
                           ),
                         ],
                       ),
                     ),
                     const SizedBox(height: 10),
-                    TextField(
-                      controller: _searchController,
-                      onChanged: (_) => setState(() {}),
-                      textInputAction: TextInputAction.search,
-                      autocorrect: false,
-                      decoration: InputDecoration(
-                        isDense: true,
-                        hintText: l.appRoutingSearchHint,
-                        prefixIcon: const Icon(Icons.search_rounded, size: 22),
-                        suffixIcon: _searchController.text.isEmpty
-                            ? null
-                            : IconButton(
-                                tooltip: l.appRoutingClearTooltip,
-                                onPressed: () {
-                                  _searchController.clear();
-                                  setState(() {});
-                                },
-                                icon: const Icon(Icons.close_rounded, size: 20),
-                              ),
-                        filled: true,
-                        fillColor: theme.cardColor,
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: BorderSide(color: theme.dividerColor),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(14),
-                          borderSide: BorderSide(color: theme.dividerColor),
-                        ),
-                      ),
-                    ),
+                    _buildSearchField(theme: theme, l: l, useTvChrome: useTvChrome),
                   ],
                 ),
               ),
               const SizedBox(height: 10),
-              Expanded(child: _buildList(theme, visibleApps)),
+              Expanded(
+                child: _buildList(
+                  theme,
+                  visibleApps,
+                  useTvChrome: useTvChrome,
+                ),
+              ),
             ],
           ),
         ),
@@ -282,7 +260,50 @@ class _AppRoutingScreenState extends State<_AppRoutingScreen> {
     );
   }
 
-  Widget _buildList(ThemeData theme, List<InstalledApp> visibleApps) {
+  Widget _buildSearchField({
+    required ThemeData theme,
+    required AppLocalizations l,
+    required bool useTvChrome,
+  }) {
+    final field = TextField(
+      controller: _searchController,
+      onChanged: (_) => setState(() {}),
+      textInputAction: TextInputAction.search,
+      autocorrect: false,
+      decoration: InputDecoration(
+        isDense: true,
+        hintText: l.appRoutingSearchHint,
+        prefixIcon: const Icon(Icons.search_rounded, size: 22),
+        suffixIcon: _searchController.text.isEmpty
+            ? null
+            : IconButton(
+                tooltip: l.appRoutingClearTooltip,
+                onPressed: () {
+                  _searchController.clear();
+                  setState(() {});
+                },
+                icon: const Icon(Icons.close_rounded, size: 20),
+              ),
+        filled: true,
+        fillColor: theme.cardColor,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: theme.dividerColor),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(14),
+          borderSide: BorderSide(color: theme.dividerColor),
+        ),
+      ),
+    );
+    return useTvChrome ? tvDpadEscapeTextField(field) : field;
+  }
+
+  Widget _buildList(
+    ThemeData theme,
+    List<InstalledApp> visibleApps, {
+    required bool useTvChrome,
+  }) {
     final l = AppLocalizations.of(context);
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
@@ -324,15 +345,26 @@ class _AppRoutingScreenState extends State<_AppRoutingScreen> {
     }
 
     return ListView.separated(
-      padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+      padding: useTvChrome
+          ? const EdgeInsets.fromLTRB(8, 16, 8, 20)
+          // Keep a small gap under the search field.
+          // Without it, oversized tiles / shadows from the first row can
+          // visually overlap the header area while scrolling.
+          : const EdgeInsets.fromLTRB(20, 16, 20, 20),
+      // TV tiles may render focus rings / glows outside their own bounds.
+      // Keep them clipped to the list viewport so they can't overlap the
+      // header area (search field) while scrolling.
+      clipBehavior: Clip.hardEdge,
       itemCount: visibleApps.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 8),
+      separatorBuilder: (_, _) => SizedBox(height: useTvChrome ? 10 : 8),
       itemBuilder: (context, index) {
         final app = visibleApps[index];
         final selected = _selectedForMode.contains(app.packageName);
         return _AppRoutingTile(
           app: app,
           selected: selected,
+          tvFocusable: useTvChrome,
+          autofocus: useTvChrome && index == 0,
           onChanged: (value) => _onPackageToggled(app.packageName, value),
         );
       },
@@ -340,21 +372,32 @@ class _AppRoutingScreenState extends State<_AppRoutingScreen> {
   }
 }
 
-class _AppRoutingTile extends StatelessWidget {
+class _AppRoutingTile extends StatefulWidget {
   const _AppRoutingTile({
     required this.app,
     required this.selected,
     required this.onChanged,
+    this.tvFocusable = false,
+    this.autofocus = false,
   });
 
   final InstalledApp app;
   final bool selected;
   final ValueChanged<bool> onChanged;
+  final bool tvFocusable;
+  final bool autofocus;
+
+  @override
+  State<_AppRoutingTile> createState() => _AppRoutingTileState();
+}
+
+class _AppRoutingTileState extends State<_AppRoutingTile> {
+  bool _focused = false;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
+    final tile = Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: theme.cardColor,
@@ -363,14 +406,14 @@ class _AppRoutingTile extends StatelessWidget {
       ),
       child: Row(
         children: [
-          _AppIcon(app: app, theme: theme),
+          _AppIcon(app: widget.app, theme: theme),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  app.name,
+                  widget.app.name,
                   style: theme.textTheme.bodyLarge?.copyWith(
                     fontWeight: FontWeight.w600,
                   ),
@@ -378,7 +421,7 @@ class _AppRoutingTile extends StatelessWidget {
                   overflow: TextOverflow.ellipsis,
                 ),
                 Text(
-                  app.packageName,
+                  widget.app.packageName,
                   style: theme.textTheme.bodySmall,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -386,8 +429,35 @@ class _AppRoutingTile extends StatelessWidget {
               ],
             ),
           ),
-          Switch(value: selected, onChanged: onChanged),
+          TvSettingsNonFocusTrailing(
+            child: Switch(
+              value: widget.selected,
+              onChanged: widget.onChanged,
+            ),
+          ),
         ],
+      ),
+    );
+
+    if (!widget.tvFocusable) return tile;
+    return TvFocusRing(
+      focused: _focused,
+      radius: 12,
+      // Keep row geometry stable in per-app list: only draw ring/glow.
+      // Scaling here makes the focused tile look taller than the card slot.
+      scaleWhenFocused: 1.0,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          autofocus: widget.autofocus,
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => widget.onChanged(!widget.selected),
+          onFocusChange: (value) {
+            if (_focused == value) return;
+            setState(() => _focused = value);
+          },
+          child: tile,
+        ),
       ),
     );
   }

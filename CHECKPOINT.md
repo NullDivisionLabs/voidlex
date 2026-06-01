@@ -1,8 +1,42 @@
-# VoidTunnel Checkpoint
+# Void//Lex Checkpoint
 
-Date: 2026-05-21
+Date: 2026-05-23
 
 ## Current Status
+
+`armeabi-v7a` is now a first-class shipped ABI alongside `arm64-v8a` and
+`x86_64`, primarily so the app installs and runs the VPN core on 32-bit
+Android TV devices.
+
+## Added In This Checkpoint
+
+- `armeabi-v7a` `libxray.so` rebuilt from upstream Xray-core `v26.5.9` with the
+  same toolchain documented for arm64/amd64 (NDK `r28c`, Go `1.26.2`).
+  SHA-256 and the armv7 build command are recorded in
+  `THIRD_PARTY_NOTICES.md`.
+- `libbox.aar` rebuilt from upstream sing-box `v1.14.0-alpha.24` for
+  `android/arm,android/arm64,android/amd64`. New AAR SHA-256 is recorded in
+  `THIRD_PARTY_NOTICES.md`; build is otherwise byte-for-byte the same provenance
+  (Temurin `17.0.19+10`, gomobile/gobind `v0.1.12`, NDK `r28c`).
+- `android/app/build.gradle.kts`: `shippedAbis` extended to include
+  `armeabi-v7a`, the `excludes += "lib/armeabi-v7a/**"` packaging filter
+  removed, and the policy comments updated to reflect the new three-ABI set.
+
+## Verified
+
+- `.\gradlew.bat :app:testDebugUnitTest` → `BUILD SUCCESSFUL`
+- `flutter build apk --debug` → `app-debug.apk` contains
+  `lib/arm64-v8a`, `lib/armeabi-v7a`, and `lib/x86_64`, each with both
+  `libxray.so` and `libbox.so`.
+
+## Remaining Risks
+
+- Live install/run on a real 32-bit Android TV (or armv7 emulator image) has
+  not yet been exercised. The APK now ships the binaries, but the Xray TUN
+  readiness check, libbox restart behavior, and DNS routing should still be
+  spot-checked on armv7 hardware before a public release.
+
+## Previous Checkpoint (2026-05-21)
 
 This checkpoint captures the main-branch stabilization after adding the
 libbox/Xray TUN engine selector and the refreshed UI.

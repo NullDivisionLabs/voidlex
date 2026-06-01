@@ -39,7 +39,7 @@
         android:strokeLineCap="round"
         android:fillColor="#00000000" />
 
-    <!-- Wordmark: VOIDTUNNEL — drawn as outlined glyphs so the vector
+    <!-- Wordmark: VOID//LEX — drawn as outlined glyphs so the vector
          doesn't need a font dependency at install time. -->
     <group android:translateX="138" android:translateY="74">
         <!-- V -->

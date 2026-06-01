@@ -4,7 +4,7 @@ class DeviceIdentityBridge {
   const DeviceIdentityBridge();
 
   static const MethodChannel _channel = MethodChannel(
-    'org.voidtunnel.vpn/service',
+    'org.voidlex.vpn/service',
   );
 
   Future<String> getHwid() async {

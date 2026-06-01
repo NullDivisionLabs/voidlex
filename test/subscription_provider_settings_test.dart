@@ -1,10 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:voidtunnel/core/models/server_config.dart';
-import 'package:voidtunnel/core/models/server_subscription.dart';
-import 'package:voidtunnel/core/server_repository.dart';
-import 'package:voidtunnel/core/subscription_provider_settings.dart';
-import 'package:voidtunnel/core/vpn_controller.dart';
+import 'package:voidlex/core/models/server_config.dart';
+import 'package:voidlex/core/models/server_subscription.dart';
+import 'package:voidlex/core/server_repository.dart';
+import 'package:voidlex/core/subscription_provider_settings.dart';
+import 'package:voidlex/core/vpn_controller.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -14,7 +14,7 @@ void main() {
 
     expect(defaults.pingOnUpdate, isTrue);
     expect(defaults.sendHwid, isTrue);
-    expect(defaults.protectSubscriptions, isTrue);
+    expect(defaults.protectSubscriptions, isFalse);
     expect(defaults.updateOnLaunch, isFalse);
     expect(defaults.allowInsecureTls, isFalse);
   });

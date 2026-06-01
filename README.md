@@ -1,4 +1,4 @@
-# VoidTunnel
+# Void//Lex
 
 [English](#english) · [Русский](#russian)
 
@@ -14,7 +14,7 @@ Supports **VLESS** and **Hysteria2**, flexible routing (per-app, domains, IP), p
 
 ### About
 
-VoidTunnel is a full VPN client with its own UI — not a thin shell over a static config. Connection state, server list, routing presets, and tunnel settings are stored locally and managed from the home screen and Settings.
+Void//Lex is a full VPN client with its own UI — not a thin shell over a static config. Connection state, server list, routing presets, and tunnel settings are stored locally and managed from the home screen and Settings.
 
 On Android it uses the system `VpnService`: traffic (all apps or a selected subset, depending on policy) goes through a local TUN, then into the Xray/libbox core with your routing rules.
 
@@ -39,7 +39,7 @@ On Android it uses the system `VpnService`: traffic (all apps or a selected subs
 | VLESS security | none, TLS, **REALITY**, **XTLS-Vision** flow |
 | **Hysteria2** | Salamander obfuscation, **port hopping** |
 
-Add servers manually, from clipboard, QR, file, `voidtunnel://…` deep links, or subscriptions. **Edit**, **duplicate**, **share** as a link, or **delete**. Full **profile** import/export (servers, subscriptions, routing presets).
+Add servers manually, from clipboard, QR, file, `voidlex://…` deep links, or subscriptions. **Edit**, **duplicate**, **share** as a link, or **delete**. Full **profile** import/export (servers, subscriptions, routing presets).
 
 #### Servers & subscriptions
 
@@ -96,7 +96,7 @@ Add servers manually, from clipboard, QR, file, `voidtunnel://…` deep links, o
 | `lib/` | Dart UI, controllers, parsers, repositories. |
 | `lib/core/vpn_controller.dart` | VPN state machine — single source of truth for the UI. |
 | `lib/screens/` | Home, server/subscription editor, QR, settings, TV. |
-| `android/app/src/main/kotlin/com/voidtunnel/voidtunnel/` | VPN service, libbox/Xray runtimes, MethodChannel. |
+| `android/app/src/main/kotlin/com/voidlex/voidlex/` | VPN service, libbox/Xray runtimes, MethodChannel. |
 | `android/app/src/main/cpp/xray_process.cpp` | JNI launcher for Xray TUN mode. |
 | `android/app/src/main/jniLibs/` | Pre-built `libxray.so` per ABI. |
 | `android/app/src/main/assets/xray/` | `geoip.dat` / `geosite.dat` (exclude with `-PslimGeoData=true`). |
@@ -115,7 +115,7 @@ VPN-клиент для Android на Flutter. Трафик устройства 
 
 ### О приложении
 
-VoidTunnel — полноценный VPN-клиент с собственным UI, а не оболочка над готовым конфигом. Состояние подключения, список узлов, пресеты маршрутизации и настройки туннеля хранятся локально и управляются с главного экрана и из «Настроек».
+Void//Lex — полноценный VPN-клиент с собственным UI, а не оболочка над готовым конфигом. Состояние подключения, список узлов, пресеты маршрутизации и настройки туннеля хранятся локально и управляются с главного экрана и из «Настроек».
 
 На Android используется системный `VpnService`: весь трафик (или выбранные приложения — по политике) проходит через локальный TUN, затем в ядро Xray/libbox с вашими правилами маршрутизации.
 
@@ -140,7 +140,7 @@ VoidTunnel — полноценный VPN-клиент с собственным
 | Безопасность VLESS | без TLS, TLS, **REALITY**, flow **XTLS-Vision** |
 | **Hysteria2** | обфускация Salamander, **port hopping** |
 
-Узлы добавляются вручную, из буфера, QR, файла, deep link `voidtunnel://…` или из подписки. **Редактирование**, **дублирование**, **экспорт** в share-ссылку, **удаление**. Импорт/экспорт **полного профиля** (узлы, подписки, пресеты).
+Узлы добавляются вручную, из буфера, QR, файла, deep link `voidlex://…` или из подписки. **Редактирование**, **дублирование**, **экспорт** в share-ссылку, **удаление**. Импорт/экспорт **полного профиля** (узлы, подписки, пресеты).
 
 #### Узлы и подписки
 
@@ -197,7 +197,7 @@ VoidTunnel — полноценный VPN-клиент с собственным
 | `lib/` | Dart: UI, контроллеры, парсеры, репозитории. |
 | `lib/core/vpn_controller.dart` | Машина состояний VPN — единый источник правды для UI. |
 | `lib/screens/` | Домой, редактор узла/подписки, QR, настройки, TV. |
-| `android/app/src/main/kotlin/com/voidtunnel/voidtunnel/` | VPN-сервис, libbox/Xray, MethodChannel. |
+| `android/app/src/main/kotlin/com/voidlex/voidlex/` | VPN-сервис, libbox/Xray, MethodChannel. |
 | `android/app/src/main/cpp/xray_process.cpp` | JNI-запуск Xray в режиме TUN. |
 | `android/app/src/main/jniLibs/` | `libxray.so` по ABI. |
 | `android/app/src/main/assets/xray/` | `geoip.dat` / `geosite.dat` (исключить: `-PslimGeoData=true`). |
@@ -260,6 +260,6 @@ flutter test                                  # Dart
 
 ## License · Лицензия
 
-**EN:** VoidTunnel application code is licensed under **GPL-3.0-or-later**; see `LICENSE`. Bundled and integrated third-party components remain under their own upstream licenses, including Xray-core under MPL-2.0 and sing-box/libbox under GPL-3.0-or-later; see `THIRD_PARTY_NOTICES.md`.
+**EN:** Void//Lex application code is licensed under **GPL-3.0-or-later**; see `LICENSE`. Bundled and integrated third-party components remain under their own upstream licenses, including Xray-core under MPL-2.0 and sing-box/libbox under GPL-3.0-or-later; see `THIRD_PARTY_NOTICES.md`.
 
-**RU:** Код приложения VoidTunnel лицензируется по **GPL-3.0-or-later**; см. `LICENSE`. Встроенные и интегрированные сторонние компоненты остаются под своими upstream-лицензиями, включая Xray-core под MPL-2.0 и sing-box/libbox под GPL-3.0-or-later; см. `THIRD_PARTY_NOTICES.md`.
+**RU:** Код приложения Void//Lex лицензируется по **GPL-3.0-or-later**; см. `LICENSE`. Встроенные и интегрированные сторонние компоненты остаются под своими upstream-лицензиями, включая Xray-core под MPL-2.0 и sing-box/libbox под GPL-3.0-or-later; см. `THIRD_PARTY_NOTICES.md`.

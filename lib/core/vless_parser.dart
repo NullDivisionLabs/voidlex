@@ -1,4 +1,5 @@
 import 'models/server_config.dart';
+import 'server_link_parse_utils.dart';
 
 class VlessParseException implements Exception {
   const VlessParseException(this.code, this.message);
@@ -66,6 +67,27 @@ class VlessParser {
       );
     }
 
+    // Reading uri.queryParameters (and decoding components) can throw on
+    // malformed percent-encoding, e.g. an incomplete UTF-8 escape like
+    // `?sni=%E0%A4%A`. Untrusted input from QR codes, the clipboard, or
+    // subscriptions must degrade to a graceful failure here rather than
+    // crashing the import — mirroring Hysteria2Parser's defensive style.
+    try {
+      return _parseValidated(uri, existingNames);
+    } on FormatException {
+      return VlessParseResult.fail(
+        VlessParseError.malformedUri,
+        'URI contains invalid percent-encoding',
+      );
+    } on ArgumentError {
+      return VlessParseResult.fail(
+        VlessParseError.malformedUri,
+        'URI contains invalid percent-encoding',
+      );
+    }
+  }
+
+  VlessParseResult _parseValidated(Uri uri, Set<String> existingNames) {
     final uuid = uri.userInfo.trim();
     if (uuid.isEmpty) {
       return VlessParseResult.fail(
@@ -117,7 +139,11 @@ class VlessParser {
     final baseName = uri.fragment.isNotEmpty
         ? Uri.decodeComponent(uri.fragment)
         : 'Imported VLESS';
-    final name = _ensureUniqueName(baseName, existingNames);
+    final name = ensureUniqueServerName(
+      baseName,
+      existingNames,
+      fallback: 'Imported VLESS',
+    );
 
     final transportHost =
         _firstQueryValue(uri, const ['host', 'authority']) ?? '';
@@ -220,25 +246,6 @@ class VlessParser {
     return null;
   }
 
-  bool? _boolQueryValue(Uri uri, List<String> keys) {
-    final raw = _firstQueryValue(uri, keys)?.trim().toLowerCase();
-    if (raw == null) return null;
-    return switch (raw) {
-      '1' || 'true' || 'yes' => true,
-      '0' || 'false' || 'no' => false,
-      _ => null,
-    };
-  }
-
-  String _ensureUniqueName(String baseName, Set<String> existingNames) {
-    final normalized = baseName.trim().isEmpty
-        ? 'Imported VLESS'
-        : baseName.trim();
-    if (!existingNames.contains(normalized)) return normalized;
-    var index = 2;
-    while (existingNames.contains('$normalized ($index)')) {
-      index++;
-    }
-    return '$normalized ($index)';
-  }
+  bool? _boolQueryValue(Uri uri, List<String> keys) =>
+      parseQueryBoolFlag(_firstQueryValue(uri, keys));
 }

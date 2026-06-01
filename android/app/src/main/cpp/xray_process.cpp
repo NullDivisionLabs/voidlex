@@ -83,7 +83,7 @@ void clearCloseOnExec(int fd) {
 } // namespace
 
 extern "C" JNIEXPORT jintArray JNICALL
-Java_com_voidtunnel_voidtunnel_XrayNativeProcess_start(
+Java_com_voidlex_voidlex_XrayNativeProcess_start(
     JNIEnv *env,
     jclass,
     jstring binaryPath,
@@ -164,7 +164,7 @@ Java_com_voidtunnel_voidtunnel_XrayNativeProcess_start(
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
-Java_com_voidtunnel_voidtunnel_XrayNativeProcess_isAlive(JNIEnv *, jclass, jint pid) {
+Java_com_voidlex_voidlex_XrayNativeProcess_isAlive(JNIEnv *, jclass, jint pid) {
     if (pid <= 0) {
         return JNI_FALSE;
     }
@@ -178,7 +178,7 @@ Java_com_voidtunnel_voidtunnel_XrayNativeProcess_isAlive(JNIEnv *, jclass, jint 
 }
 
 extern "C" JNIEXPORT void JNICALL
-Java_com_voidtunnel_voidtunnel_XrayNativeProcess_terminate(
+Java_com_voidlex_voidlex_XrayNativeProcess_terminate(
     JNIEnv *,
     jclass,
     jint pid,

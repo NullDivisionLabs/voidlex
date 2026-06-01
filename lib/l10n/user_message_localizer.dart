@@ -27,6 +27,21 @@ String localizeUserMessage(BuildContext context, String message) {
       message.substring('subImportGenericDetail:'.length),
     );
   }
+  const rulesetHttpPrefix = 'deepLinkRulesetHttpStatus:';
+  if (message.startsWith(rulesetHttpPrefix)) {
+    final code = int.tryParse(message.substring(rulesetHttpPrefix.length));
+    if (code != null) return l.deepLinkRulesetHttpStatus(code);
+  }
+  if (message.startsWith('deepLinkRulesetRequestFailed:')) {
+    return l.deepLinkRulesetRequestFailed(
+      message.substring('deepLinkRulesetRequestFailed:'.length),
+    );
+  }
+  const rulesetImportedPrefix = 'deepLinkRulesetImported:';
+  if (message.startsWith(rulesetImportedPrefix)) {
+    final count = int.tryParse(message.substring(rulesetImportedPrefix.length));
+    if (count != null) return l.deepLinkRulesetImported(count);
+  }
 
   return switch (message) {
     Msg.editServerNameDuplicate => l.editServerNameDuplicate,
@@ -52,6 +67,13 @@ String localizeUserMessage(BuildContext context, String message) {
     Msg.subImportNoNodes => l.subImportNoNodes,
     Msg.subImportUnsupportedJson => l.subImportUnsupportedJson,
     Msg.subImportTooLarge => l.subImportTooLarge,
+    Msg.deepLinkVpnControlColdStart => l.deepLinkVpnControlColdStart,
+    Msg.deepLinkRulesetInvalidUrl => l.deepLinkRulesetInvalidUrl,
+    Msg.deepLinkRulesetTimeout => l.deepLinkRulesetTimeout,
+    Msg.deepLinkRulesetTooLarge => l.deepLinkRulesetTooLarge,
+    Msg.deepLinkRulesetEmpty => l.deepLinkRulesetEmpty,
+    Msg.deepLinkRulesetNoRules => l.deepLinkRulesetNoRules,
+    Msg.deepLinkRulesetInvalidJson => l.deepLinkRulesetInvalidJson,
     _ => message,
   };
 }

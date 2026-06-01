@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import '../bounded_json.dart';
+
 import '../subscription_provider_settings.dart';
 import 'server_config.dart';
 
@@ -14,6 +16,7 @@ class ServerSubscription {
     this.trafficUsedBytes,
     this.trafficLimitBytes,
     this.updateIntervalOverride,
+    this.hideNaServers = false,
   });
 
   final String id;
@@ -25,6 +28,7 @@ class ServerSubscription {
   final int? trafficUsedBytes;
   final int? trafficLimitBytes;
   final SubscriptionUpdateInterval? updateIntervalOverride;
+  final bool hideNaServers;
 
   ServerSubscription copyWith({
     String? id,
@@ -36,6 +40,7 @@ class ServerSubscription {
     int? trafficUsedBytes,
     int? trafficLimitBytes,
     SubscriptionUpdateInterval? updateIntervalOverride,
+    bool? hideNaServers,
     bool clearUpdatedAt = false,
     bool clearExpiresAt = false,
     bool clearTrafficUsedBytes = false,
@@ -58,6 +63,7 @@ class ServerSubscription {
       updateIntervalOverride: clearUpdateIntervalOverride
           ? null
           : (updateIntervalOverride ?? this.updateIntervalOverride),
+      hideNaServers: hideNaServers ?? this.hideNaServers,
     );
   }
 
@@ -70,6 +76,7 @@ class ServerSubscription {
     'trafficUsedBytes': trafficUsedBytes,
     'trafficLimitBytes': trafficLimitBytes,
     'updateIntervalOverrideHours': updateIntervalOverride?.hours,
+    'hideNaServers': hideNaServers,
     'servers': servers.map((server) => server.toJson()).toList(),
   };
 
@@ -102,6 +109,7 @@ class ServerSubscription {
     final updateIntervalOverride = SubscriptionUpdateInterval.tryParse(
       json['updateIntervalOverrideHours'] ?? json['updateIntervalOverride'],
     );
+    final hideNaServers = json['hideNaServers'] == true;
 
     return ServerSubscription(
       id: id,
@@ -115,13 +123,14 @@ class ServerSubscription {
       trafficUsedBytes: trafficUsedBytes,
       trafficLimitBytes: trafficLimitBytes,
       updateIntervalOverride: updateIntervalOverride,
+      hideNaServers: hideNaServers,
     );
   }
 
   static List<ServerSubscription> decodeList(String? raw) {
     if (raw == null || raw.isEmpty) return const [];
     try {
-      final decoded = jsonDecode(raw);
+      final decoded = decodeJson(raw, maxBytes: JsonPayloadLimits.serverCatalog);
       if (decoded is! List) return const [];
       return decoded
           .whereType<Map<String, dynamic>>()
@@ -129,6 +138,8 @@ class ServerSubscription {
           .whereType<ServerSubscription>()
           .toList();
     } on FormatException {
+      return const [];
+    } on JsonPayloadTooLargeException {
       return const [];
     } on TypeError {
       return const [];

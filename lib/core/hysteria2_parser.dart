@@ -1,4 +1,5 @@
 import 'models/server_config.dart';
+import 'server_link_parse_utils.dart';
 
 class Hysteria2ParseException implements Exception {
   const Hysteria2ParseException(this.code, this.message);
@@ -129,11 +130,12 @@ class Hysteria2Parser {
         'Fragment cannot be decoded',
       );
     }
-    final name = _ensureUniqueName(
+    final name = ensureUniqueServerName(
       rawName == null || rawName.trim().isEmpty
           ? 'Imported Hysteria2'
           : rawName.trim(),
       existingNames,
+      fallback: 'Imported Hysteria2',
     );
 
     return Hysteria2ParseResult.ok(
@@ -294,15 +296,8 @@ class Hysteria2Parser {
     return null;
   }
 
-  bool? _boolQueryValue(Map<String, String> query, List<String> keys) {
-    final raw = _firstQueryValue(query, keys)?.trim().toLowerCase();
-    if (raw == null) return null;
-    return switch (raw) {
-      '1' || 'true' || 'yes' => true,
-      '0' || 'false' || 'no' => false,
-      _ => null,
-    };
-  }
+  bool? _boolQueryValue(Map<String, String> query, List<String> keys) =>
+      parseQueryBoolFlag(_firstQueryValue(query, keys));
 
   String? _decodeComponent(String raw) {
     try {
@@ -312,17 +307,6 @@ class Hysteria2Parser {
     }
   }
 
-  String _ensureUniqueName(String baseName, Set<String> existingNames) {
-    final normalized = baseName.trim().isEmpty
-        ? 'Imported Hysteria2'
-        : baseName.trim();
-    if (!existingNames.contains(normalized)) return normalized;
-    var index = 2;
-    while (existingNames.contains('$normalized ($index)')) {
-      index++;
-    }
-    return '$normalized ($index)';
-  }
 }
 
 class _ParsedHysteria2Link {

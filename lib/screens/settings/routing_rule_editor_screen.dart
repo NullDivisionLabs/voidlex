@@ -111,6 +111,214 @@ class _RoutingRuleEditorScreenState extends State<_RoutingRuleEditorScreen> {
         .toList(growable: false);
   }
 
+  void _cycleOutbound() {
+    final values = RoutingOutbound.values;
+    final index = values.indexOf(_outbound);
+    setState(() => _outbound = values[(index + 1) % values.length]);
+  }
+
+  Widget _buildEditorForm(
+    ThemeData theme,
+    AppLocalizations l,
+    bool useTvChrome,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      decoration: BoxDecoration(
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: theme.dividerColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _RuleField(
+            label: l.routingRuleNameLabel,
+            child: _geoUrlField(
+              useTvChrome: useTvChrome,
+              child: TextField(
+                controller: _nameController,
+                autofocus: useTvChrome,
+                textInputAction: TextInputAction.next,
+                decoration: InputDecoration(
+                  isDense: true,
+                  hintText: l.untitled,
+                ),
+              ),
+            ),
+          ),
+          _RuleField(
+            label: l.routingRuleEnabledLabel,
+            child: Align(
+              alignment: Alignment.centerRight,
+              child: useTvChrome
+                  ? TvCompactFocusRow(
+                      onActivate: () => setState(() => _enabled = !_enabled),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: TvSettingsNonFocusTrailing(
+                          child: Switch(
+                            value: _enabled,
+                            onChanged: (value) =>
+                                setState(() => _enabled = value),
+                          ),
+                        ),
+                      ),
+                    )
+                  : Switch(
+                      value: _enabled,
+                      onChanged: (value) => setState(() => _enabled = value),
+                    ),
+            ),
+          ),
+          _RuleField(
+            label: l.routingRuleConnectionLabel,
+            child: useTvChrome
+                ? TvCompactFocusRow(
+                    onActivate: _cycleOutbound,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              _outbound.displayName,
+                              style: theme.textTheme.bodyLarge?.copyWith(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          Icon(
+                            Icons.expand_more_rounded,
+                            color: theme.textTheme.bodySmall?.color,
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                : DropdownButtonHideUnderline(
+                    child: DropdownButton<RoutingOutbound>(
+                      value: _outbound,
+                      borderRadius: BorderRadius.circular(12),
+                      onChanged: (value) {
+                        if (value == null) return;
+                        setState(() => _outbound = value);
+                      },
+                      items: RoutingOutbound.values
+                          .map(
+                            (outbound) => DropdownMenuItem(
+                              value: outbound,
+                              child: Text(outbound.displayName),
+                            ),
+                          )
+                          .toList(),
+                    ),
+                  ),
+          ),
+          _RuleField(
+            label: l.routingRuleDomainLabel,
+            child: _geoUrlField(
+              useTvChrome: useTvChrome,
+              child: TextField(
+                controller: _domainController,
+                keyboardType: TextInputType.multiline,
+                minLines: 1,
+                maxLines: 4,
+                decoration: InputDecoration(
+                  isDense: true,
+                  hintText: l.routingRuleDomainHint,
+                ),
+              ),
+            ),
+          ),
+          _RuleField(
+            label: l.routingRuleIpLabel,
+            child: _geoUrlField(
+              useTvChrome: useTvChrome,
+              child: TextField(
+                controller: _ipController,
+                keyboardType: TextInputType.multiline,
+                minLines: 1,
+                maxLines: 4,
+                decoration: InputDecoration(
+                  isDense: true,
+                  hintText: l.routingRuleIpHint,
+                ),
+              ),
+            ),
+          ),
+          _RuleField(
+            label: l.routingRulePortLabel,
+            child: _geoUrlField(
+              useTvChrome: useTvChrome,
+              child: TextField(
+                controller: _portController,
+                keyboardType: TextInputType.text,
+                decoration: InputDecoration(
+                  isDense: true,
+                  hintText: l.routingRulePortHint,
+                ),
+              ),
+            ),
+          ),
+          _RuleField(
+            label: l.routingRuleNetworkLabel,
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _ruleFilterChip(
+                  useTvChrome: useTvChrome,
+                  label: l.transportTcp,
+                  selected: _networks.contains('tcp'),
+                  onSelected: (selected) =>
+                      _toggleValue(_networks, 'tcp', selected),
+                ),
+                _ruleFilterChip(
+                  useTvChrome: useTvChrome,
+                  label: l.transportUdp,
+                  selected: _networks.contains('udp'),
+                  onSelected: (selected) =>
+                      _toggleValue(_networks, 'udp', selected),
+                ),
+              ],
+            ),
+          ),
+          _RuleField(
+            label: l.routingRuleProtocolLabel,
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _ruleFilterChip(
+                  useTvChrome: useTvChrome,
+                  label: l.protocolChipHttp,
+                  selected: _protocols.contains('http'),
+                  onSelected: (selected) =>
+                      _toggleValue(_protocols, 'http', selected),
+                ),
+                _ruleFilterChip(
+                  useTvChrome: useTvChrome,
+                  label: l.protocolChipTls,
+                  selected: _protocols.contains('tls'),
+                  onSelected: (selected) =>
+                      _toggleValue(_protocols, 'tls', selected),
+                ),
+                _ruleFilterChip(
+                  useTvChrome: useTvChrome,
+                  label: l.protocolChipBittorrent,
+                  selected: _protocols.contains('bittorrent'),
+                  onSelected: (selected) =>
+                      _toggleValue(_protocols, 'bittorrent', selected),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return OrientationBuilder(
@@ -153,152 +361,36 @@ class _RoutingRuleEditorScreenState extends State<_RoutingRuleEditorScreen> {
         title: l.routingRuleEditorTitle,
         subtitle: l.routingCustomRulesHeading,
         actions: useTvChrome ? [saveAction] : const [],
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: BoxDecoration(
-              color: theme.cardColor,
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: theme.dividerColor),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _RuleField(
-                  label: l.routingRuleNameLabel,
-                  child: TextField(
-                    controller: _nameController,
-                    textInputAction: TextInputAction.next,
-                    decoration: InputDecoration(
-                      isDense: true,
-                      hintText: l.untitled,
-                    ),
-                  ),
-                ),
-                _RuleField(
-                  label: l.routingRuleEnabledLabel,
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: Switch(
-                      value: _enabled,
-                      onChanged: (value) => setState(() => _enabled = value),
-                    ),
-                  ),
-                ),
-                _RuleField(
-                  label: l.routingRuleConnectionLabel,
-                  child: DropdownButtonHideUnderline(
-                    child: DropdownButton<RoutingOutbound>(
-                      value: _outbound,
-                      borderRadius: BorderRadius.circular(12),
-                      onChanged: (value) {
-                        if (value == null) return;
-                        setState(() => _outbound = value);
-                      },
-                      items: RoutingOutbound.values
-                          .map(
-                            (outbound) => DropdownMenuItem(
-                              value: outbound,
-                              child: Text(outbound.displayName),
-                            ),
-                          )
-                          .toList(),
-                    ),
-                  ),
-                ),
-                _RuleField(
-                  label: l.routingRuleDomainLabel,
-                  child: TextField(
-                    controller: _domainController,
-                    keyboardType: TextInputType.multiline,
-                    minLines: 1,
-                    maxLines: 4,
-                    decoration: InputDecoration(
-                      isDense: true,
-                      hintText: l.routingRuleDomainHint,
-                    ),
-                  ),
-                ),
-                _RuleField(
-                  label: l.routingRuleIpLabel,
-                  child: TextField(
-                    controller: _ipController,
-                    keyboardType: TextInputType.multiline,
-                    minLines: 1,
-                    maxLines: 4,
-                    decoration: InputDecoration(
-                      isDense: true,
-                      hintText: l.routingRuleIpHint,
-                    ),
-                  ),
-                ),
-                _RuleField(
-                  label: l.routingRulePortLabel,
-                  child: TextField(
-                    controller: _portController,
-                    keyboardType: TextInputType.text,
-                    decoration: InputDecoration(
-                      isDense: true,
-                      hintText: l.routingRulePortHint,
-                    ),
-                  ),
-                ),
-                _RuleField(
-                  label: l.routingRuleNetworkLabel,
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      FilterChip(
-                        label: Text(l.transportTcp),
-                        selected: _networks.contains('tcp'),
-                        onSelected: (selected) =>
-                            _toggleValue(_networks, 'tcp', selected),
-                      ),
-                      FilterChip(
-                        label: Text(l.transportUdp),
-                        selected: _networks.contains('udp'),
-                        onSelected: (selected) =>
-                            _toggleValue(_networks, 'udp', selected),
-                      ),
-                    ],
-                  ),
-                ),
-                _RuleField(
-                  label: l.routingRuleProtocolLabel,
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      FilterChip(
-                        label: Text(l.protocolChipHttp),
-                        selected: _protocols.contains('http'),
-                        onSelected: (selected) =>
-                            _toggleValue(_protocols, 'http', selected),
-                      ),
-                      FilterChip(
-                        label: Text(l.protocolChipTls),
-                        selected: _protocols.contains('tls'),
-                        onSelected: (selected) =>
-                            _toggleValue(_protocols, 'tls', selected),
-                      ),
-                      FilterChip(
-                        label: Text(l.protocolChipBittorrent),
-                        selected: _protocols.contains('bittorrent'),
-                        onSelected: (selected) =>
-                            _toggleValue(_protocols, 'bittorrent', selected),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+        child: useTvChrome
+            ? TvSettingsScrollView(child: _buildEditorForm(theme, l, true))
+            : SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                child: _buildEditorForm(theme, l, false),
+              ),
       ),
     );
   }
+}
+
+Widget _ruleFilterChip({
+  required bool useTvChrome,
+  required String label,
+  required bool selected,
+  required ValueChanged<bool> onSelected,
+}) {
+  final chip = FilterChip(
+    label: Text(label),
+    selected: selected,
+    onSelected: onSelected,
+  );
+  if (!useTvChrome) return chip;
+  return TvCompactFocusRow(
+    onActivate: () => onSelected(!selected),
+    child: Padding(
+      padding: const EdgeInsets.all(4),
+      child: TvSettingsNonFocusTrailing(child: chip),
+    ),
+  );
 }
 
 class _RuleField extends StatelessWidget {

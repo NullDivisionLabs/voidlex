@@ -167,10 +167,10 @@ class GeoDataBridge {
   const GeoDataBridge();
 
   static const MethodChannel _channel = MethodChannel(
-    'org.voidtunnel.vpn/service',
+    'org.voidlex.vpn/service',
   );
   static const EventChannel _progressChannel = EventChannel(
-    'org.voidtunnel.vpn/geodata_progress',
+    'org.voidlex.vpn/geodata_progress',
   );
 
   Future<List<GeoDataNativeStatus>> getStatus() async {

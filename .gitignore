@@ -48,7 +48,7 @@ app.*.map.json
 lib/core/dev_servers_local.dart
 
 # Design source bundles (kept out of VCS; originals live elsewhere)
-VoidTunnel Design System.zip
+VoidLex Design System.zip
 design-system-zip/
 
 # Local assistant/worktree state

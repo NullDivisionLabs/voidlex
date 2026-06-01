@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:voidtunnel/screens/widgets/node_row.dart';
+import 'package:voidlex/screens/widgets/node_row.dart';
 
 void main() {
   group('NodePingTone.fromRaw', () {

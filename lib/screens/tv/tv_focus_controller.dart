@@ -108,7 +108,13 @@ class TvFocusController extends ChangeNotifier {
         if (_row < sideRailLength - 1) {
           _row += 1;
           notifyListeners();
+          break;
         }
+        // Hand off to node list only from the last side action (Settings).
+        if (_listLength == 0) return;
+        _column = TvFocusColumn.list;
+        _row = 0;
+        notifyListeners();
         break;
       case TvFocusColumn.list:
         // Already at the rightmost column — swallow.

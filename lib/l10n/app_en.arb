@@ -1,6 +1,6 @@
 {
   "@@locale": "en",
-  "appTitle": "VoidTunnel",
+  "appTitle": "Void//Lex",
   "cancel": "Cancel",
   "save": "Save",
   "delete": "Delete",
@@ -82,7 +82,7 @@
     }
   },
   "profileImportTitle": "Import profile",
-  "profileImportSubtitle": "Load a VoidTunnel profile JSON file.",
+  "profileImportSubtitle": "Load a Void//Lex profile JSON file.",
   "profileImportModeTitle": "Import profile",
   "profileImportModeBody": "Replace current manual nodes, subscriptions, and routing presets, or append this profile to the current data?",
   "profileImportFileEmpty": "Profile file is empty.",
@@ -100,9 +100,36 @@
     }
   },
   "profileImportInvalidJson": "Profile JSON is malformed.",
-  "profileImportUnsupportedFormat": "File is not a VoidTunnel profile.",
+  "profileImportUnsupportedFormat": "File is not a Void//Lex profile.",
   "profileImportUnsupportedVersion": "Profile version is not supported.",
   "profileImportEmptyProfile": "Profile does not contain importable data.",
+  "profileImportTooLarge": "Profile file is too large (max 4 MB).",
+  "secureStorageWriteFailed": "Could not save the password to secure storage. Try again.",
+  "deepLinkVpnControlColdStart": "Open Void//Lex and use Connect in the app. VPN control links are ignored on cold start.",
+  "deepLinkRulesetInvalidUrl": "Ruleset URL must be a valid http(s) address.",
+  "deepLinkRulesetTimeout": "Ruleset download timed out.",
+  "deepLinkRulesetTooLarge": "Ruleset file is too large.",
+  "deepLinkRulesetEmpty": "Ruleset file is empty.",
+  "deepLinkRulesetNoRules": "No supported routing rules found in the file.",
+  "deepLinkRulesetInvalidJson": "Ruleset JSON is malformed.",
+  "deepLinkRulesetHttpStatus": "Ruleset download returned HTTP {code}",
+  "@deepLinkRulesetHttpStatus": {
+    "placeholders": {
+      "code": {"type": "int"}
+    }
+  },
+  "deepLinkRulesetRequestFailed": "Ruleset download failed: {detail}",
+  "@deepLinkRulesetRequestFailed": {
+    "placeholders": {
+      "detail": {"type": "String"}
+    }
+  },
+  "deepLinkRulesetImported": "Imported {count} routing rules from link.",
+  "@deepLinkRulesetImported": {
+    "placeholders": {
+      "count": {"type": "int"}
+    }
+  },
   "profileImportedText": "Profile imported: {manualNodes} manual, {subscriptions} subscriptions, {presets} presets.",
   "@profileImportedText": {
     "placeholders": {
@@ -264,6 +291,10 @@
   "homeNoNodesSubtitle": "Tap ADD on the dock below to import a node.",
   "tooltipUpdateSubscription": "Update subscription",
   "tooltipScanPing": "Scan ping",
+  "tooltipSearchNodes": "Search nodes",
+  "tooltipCloseSearch": "Close search",
+  "searchNodesHint": "Search by name",
+  "searchNoResults": "No matches",
   "statusIdle": "IDLE",
   "statusNegotiating": "NEGOTIATING",
   "statusSecure": "SECURE",
@@ -471,7 +502,7 @@
   "providerSettingsTitle": "Provider settings",
   "providerSubscriptionsHeading": "Subscriptions",
   "providerAutoUpdateIntervalTitle": "Auto-update interval",
-  "providerAutoUpdateIntervalSubtitle": "Refresh all saved provider subscriptions at the selected interval while VoidTunnel is running.",
+  "providerAutoUpdateIntervalSubtitle": "Refresh all saved provider subscriptions at the selected interval while Void//Lex is running.",
   "providerAutoUpdateIntervalTooltip": "Auto-update interval",
   "providerPingAfterUpdateTitle": "Ping after update",
   "providerPingAfterUpdateSubtitle": "Run a latency scan for provider nodes after a subscription refresh completes.",
@@ -486,6 +517,8 @@
   "subscriptionShareEncrypted": "Share encrypted code",
   "subscriptionShareEncryptedCopied": "Encrypted subscription code copied to clipboard.",
   "subscriptionShareEncryptedFailed": "Failed to generate encrypted code.",
+  "subscriptionHideNa": "Hide N/A",
+  "subscriptionShowNa": "Show N/A",
   "subscriptionImportEncryptedFailed": "Invalid or corrupted encrypted code.",
   "subscriptionIntervalOneHour": "1 hour",
   "subscriptionIntervalThreeHours": "3 hours",
@@ -854,7 +887,7 @@
   "faqA15": "The external IP is looked up after the tunnel comes up — through a separate HTTPS request via the local proxy. If the network is unstable or the lookup is blocked, the app falls back to «Unavailable». That doesn't mean the tunnel itself is broken — it can still be working.",
 
   "faqQ16": "Why doesn't auto-connect on launch fire?",
-  "faqA16": "The toggle lives in **Settings → Application**, but on a number of Android skins the OS battery policy blocks background service auto-start. Disable battery optimisation for VoidTunnel, and consider Android's system **Always-on VPN** (Settings → Network → VPN → VoidTunnel) — it brings the tunnel up reliably at boot.",
+  "faqA16": "The toggle lives in **Settings → Application**, but on a number of Android skins the OS battery policy blocks background service auto-start. Disable battery optimisation for Void//Lex, and consider Android's system **Always-on VPN** (Settings → Network → VPN → Void//Lex) — it brings the tunnel up reliably at boot.",
 
   "faqQ17": "Can I point another app at the local proxy?",
   "faqA17": "Yes — while the tunnel is up the app listens on **SOCKS5** `127.0.0.1:10808` and **HTTP** `127.0.0.1:10809`. By default the username and password are regenerated every session. To pin your own, go to **Settings → Tunnel → SOCKS5 credentials** — flip the switch and enter (or generate) a fixed pair.",
@@ -866,5 +899,39 @@
   "faqA19": "Nodes, subscriptions, presets, and the journal are all local on the device; nothing leaves it except subscription requests and the traffic going through your chosen server. The journal can be cleared from «Settings → Journal». In verbose mode the log will contain sensitive fields (UUIDs, hosts, keys) — **don't publish verbose dumps as-is.** The app itself is not an anonymiser; the privacy level depends on your servers and your rules.",
 
   "faqQ20": "Is there TV and iOS support?",
-  "faqA20": "**Android TV / Google TV** — yes, a dedicated full-screen UI with D-pad support; the nodes and subscriptions are shared with the mobile version. **iOS / iPadOS** — a full client is in development."
+  "faqA20": "**Android TV / Google TV** — yes, a dedicated full-screen UI with D-pad support; the nodes and subscriptions are shared with the mobile version. **iOS / iPadOS** — a full client is in development.",
+
+  "autoConnectOnBootTitle": "Auto-connect on device boot",
+  "autoConnectOnBootSubtitle": "Open the system \"Always-on VPN\" settings page — enable «Always-on VPN» + «Block connections without VPN» so the tunnel comes up at boot.",
+  "killSwitchTitle": "Kill Switch",
+  "killSwitchSubtitle": "Block internet if the tunnel drops unexpectedly. Manual disconnect still restores the network.",
+  "runModeSectionTitle": "Run mode",
+  "runModeTunTitle": "VPN tunnel (TUN)",
+  "runModeTunSubtitle": "Standard mode. Routes all traffic via the VPN service; the Android key icon is visible in the status bar.",
+  "runModeProxyOnlyTitle": "Hide icon (proxy-only)",
+  "runModeProxyOnlySubtitle": "Run a local HTTP/SOCKS5 proxy without the VPN icon. Only apps that support a proxy will use it; mobile data routes directly. Configure the proxy manually in Wi-Fi / browser.",
+  "httpProxyAuthTitle": "HTTP proxy authorization",
+  "httpProxyAuthSubtitle": "Protect the HTTP proxy on port 10809 with the same username and password as SOCKS5.",
+  "tunnelRouteOnlyTitle": "Domain-only routing (routeOnly)",
+  "tunnelRouteOnlySubtitle": "Use SNI/host from sniffing only for routing — do not rewrite the destination. Keep on unless sniffing breaks the network.",
+  "connectionPolicySectionTitle": "Advanced settings",
+  "connectionPolicySectionSubtitle": "Idle timeout. TCP / UDP connection limits.",
+  "connectionPolicyConnectionsGroup": "Connections",
+  "connectionPolicyIdleTitle": "Idle timeout",
+  "connectionPolicyIdleSubtitle": "Wait time for inactive connections, seconds.",
+  "connectionPolicyMaxTcpTitle": "TCP connections",
+  "connectionPolicyMaxTcpSubtitle": "Maximum concurrent TCP connections.",
+  "connectionPolicyMaxUdpTitle": "UDP connections",
+  "connectionPolicyMaxUdpSubtitle": "Maximum concurrent UDP connections.",
+  "urlSchemesTitle": "URL schemes",
+  "urlSchemesSubtitle": "Automate VoidLex via Shortcuts, Tasker, and other apps.",
+  "urlSchemesNote": "Use these schemes to automate via Shortcuts, Tasker or other apps. Tap a scheme to copy.",
+  "urlSchemesNoteHeader": "Note",
+  "urlSchemesStartSection": "START TUNNEL",
+  "urlSchemesStopSection": "STOP CONNECTION",
+  "urlSchemesToggleSection": "TOGGLE CONNECTION",
+  "urlSchemesRestartSection": "RESTART CONNECTION",
+  "urlSchemesImportSection": "ADD CONFIGURATION",
+  "urlSchemesImportRulesetSection": "IMPORT RULESET",
+  "urlSchemeCopied": "Copied to clipboard"
 }

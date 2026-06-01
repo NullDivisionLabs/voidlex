@@ -57,6 +57,29 @@ class _SubscriptionProviderSettingsScreenState
     return _setSettings(_settings.copyWith(protectSubscriptions: value));
   }
 
+  Future<void> _showUpdateIntervalPicker(BuildContext anchorContext) async {
+    final l = AppLocalizations.of(context);
+    final box = anchorContext.findRenderObject() as RenderBox?;
+    final selected = await showMenu<SubscriptionUpdateInterval>(
+      context: context,
+      position: box == null
+          ? null
+          : RelativeRect.fromRect(
+              box.localToGlobal(Offset.zero) & box.size,
+              Offset.zero & MediaQuery.sizeOf(context),
+            ),
+      items: [
+        for (final interval in SubscriptionUpdateInterval.values)
+          CheckedPopupMenuItem<SubscriptionUpdateInterval>(
+            value: interval,
+            checked: interval == _settings.updateInterval,
+            child: Text(_subscriptionUpdateIntervalLabel(l, interval)),
+          ),
+      ],
+    );
+    if (selected != null) await _setUpdateInterval(selected);
+  }
+
   Widget _row({
     required bool useTvChrome,
     required bool compactWhenNarrow,
@@ -65,6 +88,7 @@ class _SubscriptionProviderSettingsScreenState
     String? subtitle,
     Widget? trailing,
     VoidCallback? onTap,
+    bool autofocus = false,
   }) {
     if (useTvChrome) {
       return TvSettingsCard(
@@ -73,6 +97,7 @@ class _SubscriptionProviderSettingsScreenState
         subtitle: subtitle,
         trailing: trailing,
         onTap: onTap,
+        autofocus: autofocus,
       );
     }
     return _ApplicationSettingTile(
@@ -112,11 +137,7 @@ class _SubscriptionProviderSettingsScreenState
                 final compactWhenNarrow =
                     tvLayoutPreference != TvLayoutPreference.vertical;
                 final gap = useTvChrome ? 14.0 : 10.0;
-                return SingleChildScrollView(
-                  padding: useTvChrome
-                      ? EdgeInsets.zero
-                      : const EdgeInsets.fromLTRB(20, 12, 20, 24),
-                  child: Column(
+                final scrollChild = Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       if (useTvChrome)
@@ -136,6 +157,10 @@ class _SubscriptionProviderSettingsScreenState
                         icon: Icons.update_rounded,
                         title: l.providerAutoUpdateIntervalTitle,
                         subtitle: l.providerAutoUpdateIntervalSubtitle,
+                        onTap: useTvChrome
+                            ? () => unawaited(_showUpdateIntervalPicker(context))
+                            : null,
+                        autofocus: useTvChrome,
                         trailing: PopupMenuButton<SubscriptionUpdateInterval>(
                           initialValue: _settings.updateInterval,
                           tooltip: l.providerAutoUpdateIntervalTooltip,
@@ -246,8 +271,13 @@ class _SubscriptionProviderSettingsScreenState
                         ),
                       ),
                     ],
-                  ),
-                );
+                  );
+                return useTvChrome
+                    ? TvSettingsScrollView(child: scrollChild)
+                    : SingleChildScrollView(
+                        padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                        child: scrollChild,
+                      );
               },
             ),
           ),

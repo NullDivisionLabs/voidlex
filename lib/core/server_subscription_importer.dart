@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'app_message_code.dart';
 import 'hysteria2_parser.dart';
+import 'subscription_client_identity.dart';
 import 'models/server_config.dart';
 import 'models/server_subscription.dart';
 import 'server_importer.dart';
@@ -240,6 +241,7 @@ class ServerSubscriptionImporter {
       final request = await client.getUrl(uri).timeout(_requestTimeout);
       request.followRedirects = true;
       request.maxRedirects = 5;
+      SubscriptionClientIdentity.applyTo(request);
       request.headers.set(
         HttpHeaders.acceptHeader,
         'text/plain, application/json;q=0.9, */*;q=0.8',

@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'bounded_json.dart';
+
 class TunnelFragmentSettings {
   const TunnelFragmentSettings({
     required this.enabled,
@@ -135,7 +137,7 @@ class TunnelFragmentSettings {
   static TunnelFragmentSettings decode(String? raw) {
     if (raw == null || raw.isEmpty) return defaults;
     try {
-      final decoded = jsonDecode(raw);
+      final decoded = tryDecodeJson(raw, maxBytes: JsonPayloadLimits.settingsBlob);
       if (decoded is! Map<String, dynamic>) return defaults;
       return TunnelFragmentSettings(
         enabled: decoded['enabled'] as bool? ?? defaults.enabled,

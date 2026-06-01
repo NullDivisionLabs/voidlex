@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import '../bounded_json.dart';
+
 import '../app_routing.dart';
 import '../routing_rule.dart';
 import '../tun_engine_mode.dart';
@@ -374,7 +376,7 @@ class ServerConfig {
   static List<ServerConfig> decodeList(String raw) {
     if (raw.isEmpty) return const [];
     try {
-      final decoded = jsonDecode(raw);
+      final decoded = decodeJson(raw, maxBytes: JsonPayloadLimits.serverCatalog);
       if (decoded is! List) return const [];
       return decoded
           .whereType<Map<String, dynamic>>()
@@ -382,6 +384,8 @@ class ServerConfig {
           .whereType<ServerConfig>()
           .toList();
     } on FormatException {
+      return const [];
+    } on JsonPayloadTooLargeException {
       return const [];
     } on TypeError {
       return const [];

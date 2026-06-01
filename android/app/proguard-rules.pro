@@ -24,14 +24,14 @@
 # foreground service are entry points for libbox callbacks and Intent
 # routing — both classes of caller bypass the regular Kotlin call graph
 # and would be considered unreachable by R8 without explicit keeps.
--keep class com.voidtunnel.voidtunnel.VoidVpnService { *; }
--keep class com.voidtunnel.voidtunnel.LibboxTunRuntime { *; }
--keep class com.voidtunnel.voidtunnel.LibboxLocalDnsTransport { *; }
--keep class com.voidtunnel.voidtunnel.XrayNativeProcess { *; }
+-keep class com.voidlex.voidlex.VoidVpnService { *; }
+-keep class com.voidlex.voidlex.LibboxTunRuntime { *; }
+-keep class com.voidlex.voidlex.LibboxLocalDnsTransport { *; }
+-keep class com.voidlex.voidlex.XrayNativeProcess { *; }
 
 # The Quick Settings tile is referenced by AndroidManifest only — keep it
 # whole so the OS's TileService binding doesn't NoSuchMethod at runtime.
--keep class com.voidtunnel.voidtunnel.VoidTunnelTileService { *; }
+-keep class com.voidlex.voidlex.VoidLexTileService { *; }
 
 # androidx.security.crypto pulls in Tink (Google's crypto library) which
 # uses reflection-driven keyset parsing. The library publishes its own

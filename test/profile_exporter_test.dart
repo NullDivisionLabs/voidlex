@@ -1,11 +1,11 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:voidtunnel/core/app_routing.dart';
-import 'package:voidtunnel/core/models/server_config.dart';
-import 'package:voidtunnel/core/models/server_subscription.dart';
-import 'package:voidtunnel/core/profile_exporter.dart';
-import 'package:voidtunnel/core/routing_preset.dart';
+import 'package:voidlex/core/app_routing.dart';
+import 'package:voidlex/core/models/server_config.dart';
+import 'package:voidlex/core/models/server_subscription.dart';
+import 'package:voidlex/core/profile_exporter.dart';
+import 'package:voidlex/core/routing_preset.dart';
 
 void main() {
   test('exports full profile with manual nodes subscriptions and presets', () {
@@ -60,7 +60,7 @@ void main() {
           selectedRoutingPresetId: preset.id,
           protectSubscriptions: true,
           protectedSubscriptionLinks: const [
-            'voidtunnel://1/dummy-encrypted-blob',
+            'voidlex://1/dummy-encrypted-blob',
           ],
           exportedAt: DateTime.utc(2026, 5, 14, 10),
         ),
@@ -72,7 +72,7 @@ void main() {
       expect(profile['protectedSubscriptions'], hasLength(1));
       expect(
         (profile['protectedSubscriptions'] as List).single,
-        'voidtunnel://1/dummy-encrypted-blob',
+        'voidlex://1/dummy-encrypted-blob',
       );
 
       final presetJson =

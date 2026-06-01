@@ -101,7 +101,7 @@ abstract class AppLocalizations {
   /// No description provided for @appTitle.
   ///
   /// In en, this message translates to:
-  /// **'VoidTunnel'**
+  /// **'Void//Lex'**
   String get appTitle;
 
   /// No description provided for @cancel.
@@ -467,7 +467,7 @@ abstract class AppLocalizations {
   /// No description provided for @profileImportSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Load a VoidTunnel profile JSON file.'**
+  /// **'Load a Void//Lex profile JSON file.'**
   String get profileImportSubtitle;
 
   /// No description provided for @profileImportModeTitle.
@@ -515,7 +515,7 @@ abstract class AppLocalizations {
   /// No description provided for @profileImportUnsupportedFormat.
   ///
   /// In en, this message translates to:
-  /// **'File is not a VoidTunnel profile.'**
+  /// **'File is not a Void//Lex profile.'**
   String get profileImportUnsupportedFormat;
 
   /// No description provided for @profileImportUnsupportedVersion.
@@ -529,6 +529,78 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Profile does not contain importable data.'**
   String get profileImportEmptyProfile;
+
+  /// No description provided for @profileImportTooLarge.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile file is too large (max 4 MB).'**
+  String get profileImportTooLarge;
+
+  /// No description provided for @secureStorageWriteFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not save the password to secure storage. Try again.'**
+  String get secureStorageWriteFailed;
+
+  /// No description provided for @deepLinkVpnControlColdStart.
+  ///
+  /// In en, this message translates to:
+  /// **'Open Void//Lex and use Connect in the app. VPN control links are ignored on cold start.'**
+  String get deepLinkVpnControlColdStart;
+
+  /// No description provided for @deepLinkRulesetInvalidUrl.
+  ///
+  /// In en, this message translates to:
+  /// **'Ruleset URL must be a valid http(s) address.'**
+  String get deepLinkRulesetInvalidUrl;
+
+  /// No description provided for @deepLinkRulesetTimeout.
+  ///
+  /// In en, this message translates to:
+  /// **'Ruleset download timed out.'**
+  String get deepLinkRulesetTimeout;
+
+  /// No description provided for @deepLinkRulesetTooLarge.
+  ///
+  /// In en, this message translates to:
+  /// **'Ruleset file is too large.'**
+  String get deepLinkRulesetTooLarge;
+
+  /// No description provided for @deepLinkRulesetEmpty.
+  ///
+  /// In en, this message translates to:
+  /// **'Ruleset file is empty.'**
+  String get deepLinkRulesetEmpty;
+
+  /// No description provided for @deepLinkRulesetNoRules.
+  ///
+  /// In en, this message translates to:
+  /// **'No supported routing rules found in the file.'**
+  String get deepLinkRulesetNoRules;
+
+  /// No description provided for @deepLinkRulesetInvalidJson.
+  ///
+  /// In en, this message translates to:
+  /// **'Ruleset JSON is malformed.'**
+  String get deepLinkRulesetInvalidJson;
+
+  /// No description provided for @deepLinkRulesetHttpStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Ruleset download returned HTTP {code}'**
+  String deepLinkRulesetHttpStatus(int code);
+
+  /// No description provided for @deepLinkRulesetRequestFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Ruleset download failed: {detail}'**
+  String deepLinkRulesetRequestFailed(String detail);
+
+  /// No description provided for @deepLinkRulesetImported.
+  ///
+  /// In en, this message translates to:
+  /// **'Imported {count} routing rules from link.'**
+  String deepLinkRulesetImported(int count);
 
   /// No description provided for @profileImportedText.
   ///
@@ -1230,6 +1302,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Scan ping'**
   String get tooltipScanPing;
+
+  /// No description provided for @tooltipSearchNodes.
+  ///
+  /// In en, this message translates to:
+  /// **'Search nodes'**
+  String get tooltipSearchNodes;
+
+  /// No description provided for @tooltipCloseSearch.
+  ///
+  /// In en, this message translates to:
+  /// **'Close search'**
+  String get tooltipCloseSearch;
+
+  /// No description provided for @searchNodesHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Search by name'**
+  String get searchNodesHint;
+
+  /// No description provided for @searchNoResults.
+  ///
+  /// In en, this message translates to:
+  /// **'No matches'**
+  String get searchNoResults;
 
   /// No description provided for @statusIdle.
   ///
@@ -1990,7 +2086,7 @@ abstract class AppLocalizations {
   /// No description provided for @providerAutoUpdateIntervalSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Refresh all saved provider subscriptions at the selected interval while VoidTunnel is running.'**
+  /// **'Refresh all saved provider subscriptions at the selected interval while Void//Lex is running.'**
   String get providerAutoUpdateIntervalSubtitle;
 
   /// No description provided for @providerAutoUpdateIntervalTooltip.
@@ -2076,6 +2172,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Failed to generate encrypted code.'**
   String get subscriptionShareEncryptedFailed;
+
+  /// No description provided for @subscriptionHideNa.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide N/A'**
+  String get subscriptionHideNa;
+
+  /// No description provided for @subscriptionShowNa.
+  ///
+  /// In en, this message translates to:
+  /// **'Show N/A'**
+  String get subscriptionShowNa;
 
   /// No description provided for @subscriptionImportEncryptedFailed.
   ///
@@ -3568,7 +3676,7 @@ abstract class AppLocalizations {
   /// No description provided for @faqA16.
   ///
   /// In en, this message translates to:
-  /// **'The toggle lives in **Settings → Application**, but on a number of Android skins the OS battery policy blocks background service auto-start. Disable battery optimisation for VoidTunnel, and consider Android\'s system **Always-on VPN** (Settings → Network → VPN → VoidTunnel) — it brings the tunnel up reliably at boot.'**
+  /// **'The toggle lives in **Settings → Application**, but on a number of Android skins the OS battery policy blocks background service auto-start. Disable battery optimisation for Void//Lex, and consider Android\'s system **Always-on VPN** (Settings → Network → VPN → Void//Lex) — it brings the tunnel up reliably at boot.'**
   String get faqA16;
 
   /// No description provided for @faqQ17.
@@ -3618,6 +3726,204 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'**Android TV / Google TV** — yes, a dedicated full-screen UI with D-pad support; the nodes and subscriptions are shared with the mobile version. **iOS / iPadOS** — a full client is in development.'**
   String get faqA20;
+
+  /// No description provided for @autoConnectOnBootTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto-connect on device boot'**
+  String get autoConnectOnBootTitle;
+
+  /// No description provided for @autoConnectOnBootSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Open the system \"Always-on VPN\" settings page — enable «Always-on VPN» + «Block connections without VPN» so the tunnel comes up at boot.'**
+  String get autoConnectOnBootSubtitle;
+
+  /// No description provided for @killSwitchTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Kill Switch'**
+  String get killSwitchTitle;
+
+  /// No description provided for @killSwitchSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Block internet if the tunnel drops unexpectedly. Manual disconnect still restores the network.'**
+  String get killSwitchSubtitle;
+
+  /// No description provided for @runModeSectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Run mode'**
+  String get runModeSectionTitle;
+
+  /// No description provided for @runModeTunTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'VPN tunnel (TUN)'**
+  String get runModeTunTitle;
+
+  /// No description provided for @runModeTunSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Standard mode. Routes all traffic via the VPN service; the Android key icon is visible in the status bar.'**
+  String get runModeTunSubtitle;
+
+  /// No description provided for @runModeProxyOnlyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide icon (proxy-only)'**
+  String get runModeProxyOnlyTitle;
+
+  /// No description provided for @runModeProxyOnlySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Run a local HTTP/SOCKS5 proxy without the VPN icon. Only apps that support a proxy will use it; mobile data routes directly. Configure the proxy manually in Wi-Fi / browser.'**
+  String get runModeProxyOnlySubtitle;
+
+  /// No description provided for @httpProxyAuthTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'HTTP proxy authorization'**
+  String get httpProxyAuthTitle;
+
+  /// No description provided for @httpProxyAuthSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Protect the HTTP proxy on port 10809 with the same username and password as SOCKS5.'**
+  String get httpProxyAuthSubtitle;
+
+  /// No description provided for @tunnelRouteOnlyTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Domain-only routing (routeOnly)'**
+  String get tunnelRouteOnlyTitle;
+
+  /// No description provided for @tunnelRouteOnlySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Use SNI/host from sniffing only for routing — do not rewrite the destination. Keep on unless sniffing breaks the network.'**
+  String get tunnelRouteOnlySubtitle;
+
+  /// No description provided for @connectionPolicySectionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Advanced settings'**
+  String get connectionPolicySectionTitle;
+
+  /// No description provided for @connectionPolicySectionSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Idle timeout. TCP / UDP connection limits.'**
+  String get connectionPolicySectionSubtitle;
+
+  /// No description provided for @connectionPolicyConnectionsGroup.
+  ///
+  /// In en, this message translates to:
+  /// **'Connections'**
+  String get connectionPolicyConnectionsGroup;
+
+  /// No description provided for @connectionPolicyIdleTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Idle timeout'**
+  String get connectionPolicyIdleTitle;
+
+  /// No description provided for @connectionPolicyIdleSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Wait time for inactive connections, seconds.'**
+  String get connectionPolicyIdleSubtitle;
+
+  /// No description provided for @connectionPolicyMaxTcpTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'TCP connections'**
+  String get connectionPolicyMaxTcpTitle;
+
+  /// No description provided for @connectionPolicyMaxTcpSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Maximum concurrent TCP connections.'**
+  String get connectionPolicyMaxTcpSubtitle;
+
+  /// No description provided for @connectionPolicyMaxUdpTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'UDP connections'**
+  String get connectionPolicyMaxUdpTitle;
+
+  /// No description provided for @connectionPolicyMaxUdpSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Maximum concurrent UDP connections.'**
+  String get connectionPolicyMaxUdpSubtitle;
+
+  /// No description provided for @urlSchemesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'URL schemes'**
+  String get urlSchemesTitle;
+
+  /// No description provided for @urlSchemesSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Automate VoidLex via Shortcuts, Tasker, and other apps.'**
+  String get urlSchemesSubtitle;
+
+  /// No description provided for @urlSchemesNote.
+  ///
+  /// In en, this message translates to:
+  /// **'Use these schemes to automate via Shortcuts, Tasker or other apps. Tap a scheme to copy.'**
+  String get urlSchemesNote;
+
+  /// No description provided for @urlSchemesNoteHeader.
+  ///
+  /// In en, this message translates to:
+  /// **'Note'**
+  String get urlSchemesNoteHeader;
+
+  /// No description provided for @urlSchemesStartSection.
+  ///
+  /// In en, this message translates to:
+  /// **'START TUNNEL'**
+  String get urlSchemesStartSection;
+
+  /// No description provided for @urlSchemesStopSection.
+  ///
+  /// In en, this message translates to:
+  /// **'STOP CONNECTION'**
+  String get urlSchemesStopSection;
+
+  /// No description provided for @urlSchemesToggleSection.
+  ///
+  /// In en, this message translates to:
+  /// **'TOGGLE CONNECTION'**
+  String get urlSchemesToggleSection;
+
+  /// No description provided for @urlSchemesRestartSection.
+  ///
+  /// In en, this message translates to:
+  /// **'RESTART CONNECTION'**
+  String get urlSchemesRestartSection;
+
+  /// No description provided for @urlSchemesImportSection.
+  ///
+  /// In en, this message translates to:
+  /// **'ADD CONFIGURATION'**
+  String get urlSchemesImportSection;
+
+  /// No description provided for @urlSchemesImportRulesetSection.
+  ///
+  /// In en, this message translates to:
+  /// **'IMPORT RULESET'**
+  String get urlSchemesImportRulesetSection;
+
+  /// No description provided for @urlSchemeCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Copied to clipboard'**
+  String get urlSchemeCopied;
 }
 
 class _AppLocalizationsDelegate

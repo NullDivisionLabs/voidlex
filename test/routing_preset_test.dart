@@ -2,10 +2,10 @@ import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:voidtunnel/core/app_routing.dart';
-import 'package:voidtunnel/core/routing_preset.dart';
-import 'package:voidtunnel/core/routing_rule.dart';
-import 'package:voidtunnel/core/server_repository.dart';
+import 'package:voidlex/core/app_routing.dart';
+import 'package:voidlex/core/routing_preset.dart';
+import 'package:voidlex/core/routing_rule.dart';
+import 'package:voidlex/core/server_repository.dart';
 
 void main() {
   test('encodes server bindings and keeps main as the only default preset', () {

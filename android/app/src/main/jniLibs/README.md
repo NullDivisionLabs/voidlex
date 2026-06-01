@@ -17,7 +17,7 @@ build pipeline:
 
 ### #39 — Slim build with only the protocols this app uses
 
-VoidTunnel only dials `vless` and `hysteria2` outbounds (the latter via
+Void//Lex only dials `vless` and `hysteria2` outbounds (the latter via
 sing-box's libbox, not xray). A custom xray-core build with `-tags` set
 to the actual feature flags we touch drops the binary size from ~36 MB
 to ~14–18 MB:

@@ -3,15 +3,15 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:voidtunnel/core/geo_data.dart';
-import 'package:voidtunnel/core/server_repository.dart';
-import 'package:voidtunnel/core/vpn_controller.dart';
+import 'package:voidlex/core/geo_data.dart';
+import 'package:voidlex/core/server_repository.dart';
+import 'package:voidlex/core/vpn_controller.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  const serviceChannel = MethodChannel('org.voidtunnel.vpn/service');
-  const stateChannel = MethodChannel('org.voidtunnel.vpn/state');
+  const serviceChannel = MethodChannel('org.voidlex.vpn/service');
+  const stateChannel = MethodChannel('org.voidlex.vpn/state');
 
   setUp(() {
     SharedPreferences.setMockInitialValues({});

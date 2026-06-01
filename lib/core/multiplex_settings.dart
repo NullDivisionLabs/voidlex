@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'bounded_json.dart';
+
 class MultiplexSettings {
   const MultiplexSettings({
     this.enabled = false,
@@ -78,7 +80,7 @@ class MultiplexSettings {
   static MultiplexSettings decode(String? raw) {
     if (raw == null || raw.isEmpty) return defaults;
     try {
-      final decoded = jsonDecode(raw);
+      final decoded = tryDecodeJson(raw, maxBytes: JsonPayloadLimits.settingsBlob);
       if (decoded is! Map<String, dynamic>) return defaults;
       return MultiplexSettings(
         enabled: decoded['enabled'] as bool? ?? defaults.enabled,

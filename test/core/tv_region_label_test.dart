@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:voidtunnel/core/tv_region_label.dart';
+import 'package:voidlex/core/tv_region_label.dart';
 
 void main() {
   group('TvRegionLabel.regionFor', () {

@@ -1,5 +1,4 @@
-import 'dart:convert';
-
+import 'bounded_json.dart';
 import 'models/server_config.dart';
 import 'models/server_subscription.dart';
 import 'profile_exporter.dart';
@@ -8,6 +7,7 @@ import 'routing_preset.dart';
 enum ProfileImportError {
   empty,
   invalidJson,
+  payloadTooLarge,
   unsupportedFormat,
   unsupportedVersion,
   emptyProfile,
@@ -55,7 +55,12 @@ class ProfileImportPayload {
 
     final Object? decoded;
     try {
-      decoded = jsonDecode(trimmed);
+      decoded = decodeJson(trimmed, maxBytes: JsonPayloadLimits.profile);
+    } on JsonPayloadTooLargeException {
+      throw const ProfileImportException(
+        ProfileImportError.payloadTooLarge,
+        'Profile file is too large',
+      );
     } on FormatException catch (e) {
       throw ProfileImportException(ProfileImportError.invalidJson, e.message);
     }
@@ -64,7 +69,7 @@ class ProfileImportPayload {
     if (root == null || root['format'] != ProfileExporter.format) {
       throw const ProfileImportException(
         ProfileImportError.unsupportedFormat,
-        'File is not a VoidTunnel profile',
+        'File is not a Void//Lex profile',
       );
     }
 

@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:math';
 
+import 'bounded_json.dart';
+
 enum RoutingOutbound {
   proxy,
   direct,
@@ -211,7 +213,7 @@ class RoutingRule {
   /// `{ "rules": [...] }` form (the file format the user supplied) or a
   /// bare array of field rules.
   static List<RoutingRule> importRulesFromJsonString(String raw) {
-    final decoded = jsonDecode(raw);
+    final decoded = decodeJson(raw, maxBytes: JsonPayloadLimits.routingDocument);
     final list = decoded is Map ? decoded['rules'] : decoded;
     if (list is! List) return const [];
     return list
@@ -223,11 +225,7 @@ class RoutingRule {
   }
 
   static Object? _tryDecode(String raw) {
-    try {
-      return jsonDecode(raw);
-    } on FormatException {
-      return null;
-    }
+    return tryDecodeJson(raw, maxBytes: JsonPayloadLimits.routingDocument);
   }
 
   static String _newId() {

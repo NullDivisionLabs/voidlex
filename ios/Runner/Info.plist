@@ -10,19 +10,19 @@
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>com.voidtunnel.voidtunnel</string>
+			<string>com.voidlex.voidlex</string>
 			<key>CFBundleTypeRole</key>
 			<string>Viewer</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>voidtunnel</string>
+				<string>voidlex</string>
 			</array>
 		</dict>
 	</array>
 	<key>NSCameraUsageDescription</key>
 	<string>Camera access is needed to scan QR codes that contain VPN node configurations.</string>
 	<key>CFBundleDisplayName</key>
-	<string>VoidTunnel</string>
+	<string>Void//Lex</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -30,7 +30,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>VoidTunnel</string>
+	<string>Void//Lex</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>

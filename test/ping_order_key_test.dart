@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:voidtunnel/core/models/server_config.dart';
+import 'package:voidlex/core/models/server_config.dart';
 
 void main() {
   group('ServerConfig.pingOrderKey', () {

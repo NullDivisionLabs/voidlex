@@ -36,4 +36,22 @@ abstract final class Msg {
 
   static String vpnEventChannelError(String detail) =>
       'vpnEventChannelError:$detail';
+
+  static const deepLinkVpnControlColdStart =
+      'deepLinkVpnControlColdStart';
+  static const deepLinkRulesetInvalidUrl = 'deepLinkRulesetInvalidUrl';
+  static const deepLinkRulesetTimeout = 'deepLinkRulesetTimeout';
+  static const deepLinkRulesetTooLarge = 'deepLinkRulesetTooLarge';
+  static const deepLinkRulesetEmpty = 'deepLinkRulesetEmpty';
+  static const deepLinkRulesetNoRules = 'deepLinkRulesetNoRules';
+  static const deepLinkRulesetInvalidJson = 'deepLinkRulesetInvalidJson';
+
+  static String deepLinkRulesetHttpStatus(int code) =>
+      'deepLinkRulesetHttpStatus:$code';
+
+  static String deepLinkRulesetRequestFailed(String? detail) =>
+      'deepLinkRulesetRequestFailed:${detail ?? ''}';
+
+  static String deepLinkRulesetImported(int count) =>
+      'deepLinkRulesetImported:$count';
 }

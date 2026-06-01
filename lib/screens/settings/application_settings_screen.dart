@@ -71,6 +71,7 @@ class _ApplicationSettingsScreenState
   late AppLocalePreference _language;
   TvLayoutPreference _tvLayoutPreference = TvLayoutPreference.vertical;
   bool _autoConnectOnLaunch = false;
+  bool _killSwitchEnabled = false;
   bool _restartOnSettingsChange = false;
   bool _showSpeedInNotification = false;
   bool _keepAwake = false;
@@ -91,6 +92,7 @@ class _ApplicationSettingsScreenState
     _language = widget.localePreference;
     _tvLayoutPreference = widget.repository.loadTvLayoutPreference();
     _autoConnectOnLaunch = widget.controller.autoConnectOnLaunch;
+    _killSwitchEnabled = widget.controller.killSwitchEnabled;
     _restartOnSettingsChange =
         widget.controller.restartConnectionOnSettingsChanges;
     _showGlobalProxyButton = widget.controller.showGlobalProxyButton;
@@ -142,6 +144,46 @@ class _ApplicationSettingsScreenState
     });
   }
 
+  Future<void> _setKillSwitchEnabled(bool value) async {
+    if (_killSwitchEnabled == value) return;
+    setState(() => _killSwitchEnabled = value);
+    await widget.controller.setKillSwitchEnabled(value);
+    if (!mounted) return;
+    setState(() {
+      _killSwitchEnabled = widget.controller.killSwitchEnabled;
+    });
+  }
+
+  Future<void> _openSystemVpnSettings() async {
+    await widget.controller.openSystemVpnSettings();
+  }
+
+  Future<void> _showUrlSchemesSheet() async {
+    final l = AppLocalizations.of(context);
+    final useTvChrome = _useTvSettingsChrome(
+      controller: widget.controller,
+      requested: widget.useTvChrome,
+      allowInAutoRotate: widget.allowTvChromeInAutoRotate,
+      orientation: MediaQuery.of(context).orientation,
+    );
+    if (useTvChrome) {
+      await Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          fullscreenDialog: true,
+          builder: (_) => _UrlSchemesScreen(useTvChrome: true, l: l),
+        ),
+      );
+    } else {
+      await showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        showDragHandle: true,
+        builder: (_) => _UrlSchemesSheet(l: l),
+      );
+    }
+  }
+
   Future<void> _setTvLayoutPreference(TvLayoutPreference value) async {
     if (_tvLayoutPreference == value) return;
     setState(() => _tvLayoutPreference = value);
@@ -150,6 +192,29 @@ class _ApplicationSettingsScreenState
     setState(() {
       _tvLayoutPreference = widget.repository.loadTvLayoutPreference();
     });
+  }
+
+  Future<void> _showTvLayoutPicker(BuildContext anchorContext) async {
+    final l = AppLocalizations.of(context);
+    final box = anchorContext.findRenderObject() as RenderBox?;
+    final selected = await showMenu<TvLayoutPreference>(
+      context: context,
+      position: box == null
+          ? null
+          : RelativeRect.fromRect(
+              box.localToGlobal(Offset.zero) & box.size,
+              Offset.zero & MediaQuery.sizeOf(context),
+            ),
+      items: [
+        for (final preference in TvLayoutPreference.values)
+          CheckedPopupMenuItem<TvLayoutPreference>(
+            value: preference,
+            checked: preference == _tvLayoutPreference,
+            child: Text(_tvLayoutPreferenceLabel(l, preference)),
+          ),
+      ],
+    );
+    if (selected != null) await _setTvLayoutPreference(selected);
   }
 
   Future<void> _setShowGlobalProxyButton(bool value) async {
@@ -403,6 +468,7 @@ class _ApplicationSettingsScreenState
       ProfileImportError.unsupportedVersion =>
         l.profileImportUnsupportedVersion,
       ProfileImportError.emptyProfile => l.profileImportEmptyProfile,
+      ProfileImportError.payloadTooLarge => l.profileImportTooLarge,
     };
   }
 
@@ -411,7 +477,7 @@ class _ApplicationSettingsScreenState
     String two(int value) => value.toString().padLeft(2, '0');
     final date = '${now.year}${two(now.month)}${two(now.day)}';
     final time = '${two(now.hour)}${two(now.minute)}${two(now.second)}';
-    return 'voidtunnel-profile-$date-$time.json';
+    return 'voidlex-profile-$date-$time.json';
   }
 
   Future<void> _showLanguageDialog() async {
@@ -629,6 +695,7 @@ class _ApplicationSettingsScreenState
     String? subtitle,
     Widget? trailing,
     VoidCallback? onTap,
+    bool autofocus = false,
   }) {
     if (useTvChrome) {
       return TvSettingsCard(
@@ -637,6 +704,7 @@ class _ApplicationSettingsScreenState
         subtitle: subtitle,
         trailing: trailing,
         onTap: onTap,
+        autofocus: autofocus,
       );
     }
     return _ApplicationSettingTile(
@@ -670,13 +738,42 @@ class _ApplicationSettingsScreenState
           title: l.applicationSettingsTitle,
           subtitle: l.settingsApplicationSubtitle,
           onBack: _close,
-          child: SingleChildScrollView(
-            padding: useTvChrome
-                ? EdgeInsets.zero
-                : const EdgeInsets.fromLTRB(20, 12, 20, 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
+          child: useTvChrome
+              ? TvSettingsScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: _applicationSettingsColumn(
+                      context: context,
+                      theme: theme,
+                      l: l,
+                      useTvChrome: useTvChrome,
+                    ),
+                  ),
+                )
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: _applicationSettingsColumn(
+                      context: context,
+                      theme: theme,
+                      l: l,
+                      useTvChrome: useTvChrome,
+                    ),
+                  ),
+                ),
+        ),
+      ),
+    );
+  }
+
+  List<Widget> _applicationSettingsColumn({
+    required BuildContext context,
+    required ThemeData theme,
+    required AppLocalizations l,
+    required bool useTvChrome,
+  }) {
+    return [
                 Text(
                   l.themeSection,
                   style: theme.textTheme.titleSmall?.copyWith(
@@ -712,6 +809,7 @@ class _ApplicationSettingsScreenState
                   title: l.appLanguageTitle,
                   subtitle: l.appLanguageSubtitle,
                   onTap: _showLanguageDialog,
+                  autofocus: useTvChrome,
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
@@ -727,25 +825,30 @@ class _ApplicationSettingsScreenState
                     ],
                   ),
                 ),
-                SizedBox(height: useTvChrome ? 14 : 10),
-                _row(
-                  useTvChrome: useTvChrome,
-                  icon: Icons.public_rounded,
-                  title: l.applicationSettingsShowGlobalProxyTitle,
-                  subtitle: l.applicationSettingsGlobalProxySubtitle,
-                  onTap: () =>
-                      _setShowGlobalProxyButton(!_showGlobalProxyButton),
-                  trailing: Switch(
-                    value: _showGlobalProxyButton,
-                    onChanged: _setShowGlobalProxyButton,
+                if (!useTvChrome) ...[
+                  SizedBox(height: useTvChrome ? 14 : 10),
+                  _row(
+                    useTvChrome: useTvChrome,
+                    icon: Icons.public_rounded,
+                    title: l.applicationSettingsShowGlobalProxyTitle,
+                    subtitle: l.applicationSettingsGlobalProxySubtitle,
+                    onTap: () =>
+                        _setShowGlobalProxyButton(!_showGlobalProxyButton),
+                    trailing: Switch(
+                      value: _showGlobalProxyButton,
+                      onChanged: _setShowGlobalProxyButton,
+                    ),
                   ),
-                ),
+                ],
                 SizedBox(height: useTvChrome ? 14 : 10),
                 _row(
                   useTvChrome: useTvChrome,
-                  icon: Icons.view_quilt_rounded,
+                  icon: Icons.view_quilt_outlined,
                   title: l.tvLayoutSectionTitle,
                   subtitle: l.tvLayoutSectionSubtitle,
+                  onTap: useTvChrome
+                      ? () => unawaited(_showTvLayoutPicker(context))
+                      : null,
                   trailing: PopupMenuButton<TvLayoutPreference>(
                     initialValue: _tvLayoutPreference,
                     tooltip: l.tvLayoutSectionTitle,
@@ -797,7 +900,7 @@ class _ApplicationSettingsScreenState
                 SizedBox(height: useTvChrome ? 14 : 10),
                 _row(
                   useTvChrome: useTvChrome,
-                  icon: Icons.power_settings_new_rounded,
+                  icon: Icons.power_settings_new_outlined,
                   title: l.autoConnectOnLaunchTitle,
                   subtitle: l.autoConnectOnLaunchSubtitle,
                   onTap: () => _setAutoConnectOnLaunch(!_autoConnectOnLaunch),
@@ -805,6 +908,38 @@ class _ApplicationSettingsScreenState
                     value: _autoConnectOnLaunch,
                     onChanged: _setAutoConnectOnLaunch,
                   ),
+                ),
+                if (Platform.isAndroid) ...[
+                  SizedBox(height: useTvChrome ? 14 : 10),
+                  _row(
+                    useTvChrome: useTvChrome,
+                    icon: Icons.power_outlined,
+                    title: l.autoConnectOnBootTitle,
+                    subtitle: l.autoConnectOnBootSubtitle,
+                    onTap: _openSystemVpnSettings,
+                    trailing: const Icon(Icons.open_in_new_rounded),
+                  ),
+                ],
+                SizedBox(height: useTvChrome ? 14 : 10),
+                _row(
+                  useTvChrome: useTvChrome,
+                  icon: Icons.shield_outlined,
+                  title: l.killSwitchTitle,
+                  subtitle: l.killSwitchSubtitle,
+                  onTap: () => _setKillSwitchEnabled(!_killSwitchEnabled),
+                  trailing: Switch(
+                    value: _killSwitchEnabled,
+                    onChanged: _setKillSwitchEnabled,
+                  ),
+                ),
+                SizedBox(height: useTvChrome ? 14 : 10),
+                _row(
+                  useTvChrome: useTvChrome,
+                  icon: Icons.link_rounded,
+                  title: l.urlSchemesTitle,
+                  subtitle: l.urlSchemesSubtitle,
+                  onTap: _showUrlSchemesSheet,
+                  trailing: const Icon(Icons.chevron_right_rounded),
                 ),
                 SizedBox(height: useTvChrome ? 14 : 10),
                 _row(
@@ -833,7 +968,7 @@ class _ApplicationSettingsScreenState
                 SizedBox(height: useTvChrome ? 14 : 10),
                 _row(
                   useTvChrome: useTvChrome,
-                  icon: Icons.battery_saver_rounded,
+                  icon: Icons.battery_saver_outlined,
                   title: l.keepAwakeTitle,
                   subtitle: l.keepAwakeSubtitle,
                   onTap: () => _setKeepAwake(!_keepAwake),
@@ -887,12 +1022,7 @@ class _ApplicationSettingsScreenState
                         )
                       : const Icon(Icons.chevron_right_rounded),
                 ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
+    ];
   }
 }
 
@@ -1134,6 +1264,239 @@ class _ApplicationSettingTileCompact extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+class _UrlSchemeEntry {
+  const _UrlSchemeEntry({required this.uri});
+  final String uri;
+}
+
+class _UrlSchemeGroup {
+  const _UrlSchemeGroup({required this.title, required this.entries});
+  final String title;
+  final List<_UrlSchemeEntry> entries;
+}
+
+List<_UrlSchemeGroup> _buildUrlSchemeGroups(AppLocalizations l) {
+  return [
+    _UrlSchemeGroup(
+      title: l.urlSchemesStartSection,
+      entries: const [
+        _UrlSchemeEntry(uri: 'voidlex://connect'),
+        _UrlSchemeEntry(uri: 'voidlex://open'),
+      ],
+    ),
+    _UrlSchemeGroup(
+      title: l.urlSchemesStopSection,
+      entries: const [
+        _UrlSchemeEntry(uri: 'voidlex://disconnect'),
+        _UrlSchemeEntry(uri: 'voidlex://close'),
+      ],
+    ),
+    _UrlSchemeGroup(
+      title: l.urlSchemesToggleSection,
+      entries: const [
+        _UrlSchemeEntry(uri: 'voidlex://toggle'),
+      ],
+    ),
+    _UrlSchemeGroup(
+      title: l.urlSchemesRestartSection,
+      entries: const [
+        _UrlSchemeEntry(uri: 'voidlex://restart'),
+      ],
+    ),
+    _UrlSchemeGroup(
+      title: l.urlSchemesImportSection,
+      entries: const [
+        _UrlSchemeEntry(uri: 'voidlex://import/{base64}'),
+      ],
+    ),
+    _UrlSchemeGroup(
+      title: l.urlSchemesImportRulesetSection,
+      entries: const [
+        _UrlSchemeEntry(uri: 'voidlex://import-ruleset/{URL}'),
+      ],
+    ),
+  ];
+}
+
+Future<void> _copyUrlScheme(BuildContext context, String value) async {
+  await Clipboard.setData(ClipboardData(text: value));
+  if (!context.mounted) return;
+  final l = AppLocalizations.of(context);
+  ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+    SnackBar(content: Text(l.urlSchemeCopied)),
+  );
+}
+
+class _UrlSchemesSheet extends StatelessWidget {
+  const _UrlSchemesSheet({required this.l});
+  final AppLocalizations l;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final groups = _buildUrlSchemeGroups(l);
+    return DraggableScrollableSheet(
+      expand: false,
+      initialChildSize: 0.85,
+      maxChildSize: 0.95,
+      minChildSize: 0.4,
+      builder: (context, controller) {
+        return ListView(
+          controller: controller,
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+          children: [
+            Text(
+              l.urlSchemesTitle,
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary.withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l.urlSchemesNoteHeader,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    l.urlSchemesNote,
+                    style: theme.textTheme.bodyMedium,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+            for (final group in groups) ...[
+              Padding(
+                padding: const EdgeInsets.only(left: 4, bottom: 6, top: 4),
+                child: Text(
+                  group.title,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: theme.colorScheme.outline,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.6,
+                  ),
+                ),
+              ),
+              Card(
+                margin: const EdgeInsets.only(bottom: 14),
+                child: Column(
+                  children: [
+                    for (var i = 0; i < group.entries.length; i++) ...[
+                      if (i > 0) const Divider(height: 1),
+                      ListTile(
+                        title: Text(
+                          group.entries[i].uri,
+                          style: const TextStyle(
+                            fontFamily: 'monospace',
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        trailing: IconButton(
+                          icon: const Icon(Icons.copy_rounded),
+                          onPressed: () => _copyUrlScheme(
+                            context,
+                            group.entries[i].uri,
+                          ),
+                        ),
+                        onTap: () => _copyUrlScheme(
+                          context,
+                          group.entries[i].uri,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _UrlSchemesScreen extends StatelessWidget {
+  const _UrlSchemesScreen({required this.l, required this.useTvChrome});
+  final AppLocalizations l;
+  final bool useTvChrome;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final groups = _buildUrlSchemeGroups(l);
+    final body = SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            l.urlSchemesNote,
+            style: theme.textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 16),
+          for (final group in groups) ...[
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6, top: 6),
+              child: Text(
+                group.title,
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: theme.colorScheme.outline,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.6,
+                ),
+              ),
+            ),
+            for (final entry in group.entries)
+              Card(
+                child: ListTile(
+                  title: Text(
+                    entry.uri,
+                    style: const TextStyle(
+                      fontFamily: 'monospace',
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.copy_rounded),
+                    onPressed: () => _copyUrlScheme(context, entry.uri),
+                  ),
+                  onTap: () => _copyUrlScheme(context, entry.uri),
+                ),
+              ),
+            const SizedBox(height: 8),
+          ],
+        ],
+      ),
+    );
+    if (useTvChrome) {
+      return Scaffold(
+        body: _TvSettingsBody(
+          enabled: true,
+          title: l.urlSchemesTitle,
+          subtitle: l.urlSchemesSubtitle,
+          onBack: () => Navigator.of(context).maybePop(),
+          child: body,
+        ),
+      );
+    }
+    return Scaffold(
+      appBar: AppBar(title: Text(l.urlSchemesTitle)),
+      body: body,
     );
   }
 }

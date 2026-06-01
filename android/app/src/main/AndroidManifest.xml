@@ -42,8 +42,8 @@
     <uses-feature android:name="android.hardware.faketouch" android:required="false" />
 
     <application
-        android:label="VoidTunnel"
-        android:name=".VoidTunnelApplication"
+        android:label="Void//Lex"
+        android:name=".VoidLexApplication"
         android:icon="@mipmap/ic_launcher"
         android:banner="@drawable/tv_banner"
         android:allowBackup="false"
@@ -75,14 +75,14 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER"/>
             </intent-filter>
-            <!-- Encrypted subscription codes: clicking a voidtunnel:// link
+            <!-- Encrypted subscription codes: clicking a voidlex:// link
                  in a browser/messenger opens the app, which decrypts the
                  blob and imports the underlying subscription. -->
             <intent-filter android:autoVerify="false">
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
-                <data android:scheme="voidtunnel"/>
+                <data android:scheme="voidlex"/>
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.
@@ -106,8 +106,37 @@
                 android:name="android.net.VpnService.SUPPORTS_ALWAYS_ON"
                 android:value="true" />
         </service>
+        <!-- Standalone local SOCKS5/HTTP proxy. Runs Xray as a regular
+             foreground service without VpnService.Builder, so Android
+             does not display the system VPN key icon. -->
         <service
-            android:name=".VoidTunnelTileService"
+            android:name=".VoidProxyService"
+            android:foregroundServiceType="specialUse"
+            android:exported="false">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Local SOCKS5/HTTP proxy" />
+        </service>
+        <!--
+            Transparent, no-UI activity that handles widget clicks.
+            Going through an Activity (rather than letting AppWidgetProvider
+            startForegroundService directly from onReceive) ensures the VPN
+            service is started from a foreground context, which is required
+            on some OEM stacks for the new tun0 to be promoted as the
+            default route for other apps. See [WidgetActionActivity] for
+            the full rationale.
+        -->
+        <activity
+            android:name=".WidgetActionActivity"
+            android:theme="@android:style/Theme.NoDisplay"
+            android:exported="false"
+            android:noHistory="true"
+            android:excludeFromRecents="true"
+            android:finishOnTaskLaunch="true"
+            android:launchMode="singleInstance"
+            android:taskAffinity=""/>
+        <service
+            android:name=".VoidLexTileService"
             android:label="@string/quick_settings_tile_label"
             android:icon="@drawable/ic_quick_settings_tile"
             android:permission="android.permission.BIND_QUICK_SETTINGS_TILE"
@@ -120,7 +149,7 @@
                 android:value="true" />
         </service>
         <receiver
-            android:name=".VoidTunnelCompactAppWidgetProvider"
+            android:name=".VoidLexCompactAppWidgetProvider"
             android:exported="false"
             android:label="@string/widget_label_compact">
             <intent-filter>
@@ -128,10 +157,10 @@
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
-                android:resource="@xml/void_tunnel_widget_compact_info" />
+                android:resource="@xml/void_lex_widget_compact_info" />
         </receiver>
         <receiver
-            android:name=".VoidTunnelGlobalProxyAppWidgetProvider"
+            android:name=".VoidLexGlobalProxyAppWidgetProvider"
             android:exported="false"
             android:label="@string/widget_label_global_proxy">
             <intent-filter>
@@ -139,10 +168,10 @@
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
-                android:resource="@xml/void_tunnel_widget_global_proxy_info" />
+                android:resource="@xml/void_lex_widget_global_proxy_info" />
         </receiver>
         <receiver
-            android:name=".VoidTunnelWideAppWidgetProvider"
+            android:name=".VoidLexWideAppWidgetProvider"
             android:exported="false"
             android:label="@string/widget_label_wide">
             <intent-filter>
@@ -150,7 +179,7 @@
             </intent-filter>
             <meta-data
                 android:name="android.appwidget.provider"
-                android:resource="@xml/void_tunnel_widget_info" />
+                android:resource="@xml/void_lex_widget_info" />
         </receiver>
     </application>
     <!-- Required to query activities that can process text, see:

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:voidtunnel/screens/tv/tv_focus_controller.dart';
+import 'package:voidlex/screens/tv/tv_focus_controller.dart';
 
 void main() {
   group('TvFocusController', () {
@@ -55,7 +55,9 @@ void main() {
       expect(c.row, 0);
     });
 
-    test('arrowRight inside a four-item side rail walks all cards', () {
+    test(
+      'arrowRight inside a four-item side rail walks cards then enters list',
+      () {
       final c = TvFocusController(listLength: 1, sideRailLength: 4);
       c.moveDown(); // hub -> side[0]
       c.moveRight();
@@ -64,8 +66,9 @@ void main() {
       expect(c.row, 2);
       c.moveRight();
       expect(c.row, 3);
-      c.moveRight(); // would overflow
-      expect(c.row, 3);
+      c.moveRight(); // settings -> list
+      expect(c.column, TvFocusColumn.list);
+      expect(c.row, 0);
     });
 
     test('arrowUp from the side rail returns to the hub', () {

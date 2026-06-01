@@ -1,4 +1,4 @@
-// Generates the VoidTunnel launcher-icon source PNGs.
+// Generates the VoidLex launcher-icon source PNGs.
 //
 //   source:     assets/icon/app_icon_source.png      user-provided artwork
 //   master:     assets/icon/app_icon.png             1024x1024, solid bg

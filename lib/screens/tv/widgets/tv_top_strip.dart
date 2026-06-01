@@ -36,7 +36,7 @@ class TvTopStrip extends StatelessWidget {
           ),
           const SizedBox(width: 18),
           Text(
-            'VOIDTUNNEL',
+            'VOID//LEX',
             style: VoidType.mono(
               fontSize: 14,
               fontWeight: FontWeight.w700,

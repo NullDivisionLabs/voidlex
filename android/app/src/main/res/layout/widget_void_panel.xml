@@ -113,7 +113,7 @@
                     android:includeFontPadding="false"
                     android:letterSpacing="0.22"
                     android:maxLines="1"
-                    android:text="VOIDTUNNEL"
+                    android:text="VOID//LEX"
                     android:textColor="#E9EAEB"
                     android:textSize="9sp"
                     android:textStyle="bold" />

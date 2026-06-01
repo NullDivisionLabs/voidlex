@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'bounded_json.dart';
+
 class SubscriptionProviderSettings {
   const SubscriptionProviderSettings({
     this.updateInterval = SubscriptionUpdateInterval.sixHours,
@@ -7,7 +9,7 @@ class SubscriptionProviderSettings {
     this.updateOnLaunch = false,
     this.sendHwid = true,
     this.allowInsecureTls = false,
-    this.protectSubscriptions = true,
+    this.protectSubscriptions = false,
   });
 
   final SubscriptionUpdateInterval updateInterval;
@@ -71,7 +73,7 @@ class SubscriptionProviderSettings {
   static SubscriptionProviderSettings decode(String? raw) {
     if (raw == null || raw.isEmpty) return defaults;
     try {
-      final decoded = jsonDecode(raw);
+      final decoded = tryDecodeJson(raw, maxBytes: JsonPayloadLimits.settingsBlob);
       if (decoded is! Map<String, dynamic>) return defaults;
       return SubscriptionProviderSettings(
         updateInterval: SubscriptionUpdateInterval.parse(

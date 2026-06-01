@@ -37,7 +37,7 @@ class InstalledAppsBridge {
   const InstalledAppsBridge();
 
   static const MethodChannel _channel = MethodChannel(
-    'org.voidtunnel.vpn/service',
+    'org.voidlex.vpn/service',
   );
   static final Map<String, Uint8List> _iconCache = <String, Uint8List>{};
   static final Map<String, Future<Uint8List>> _iconFutureCache =

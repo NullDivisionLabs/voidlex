@@ -1,7 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:voidtunnel/core/installed_apps.dart';
+import 'package:voidlex/core/installed_apps.dart';
 
 void main() {
   test('prioritizes selected apps while preserving order within groups', () {

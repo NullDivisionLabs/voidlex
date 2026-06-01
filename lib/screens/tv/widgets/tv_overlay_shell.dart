@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../../l10n/app_localizations.dart';
 import '../../../theme.dart';
+import '../tv_focus_ring.dart';
 
 const tvOverlayChromePadding = EdgeInsets.fromLTRB(80, 60, 80, 60);
 const double tvOverlayHeaderGap = 36;
@@ -98,42 +99,59 @@ class TvOverlayShell extends StatelessWidget {
   }
 }
 
-class TvOverlayBackButton extends StatelessWidget {
+class TvOverlayBackButton extends StatefulWidget {
   const TvOverlayBackButton({super.key, required this.onTap});
 
   final VoidCallback onTap;
 
   @override
+  State<TvOverlayBackButton> createState() => _TvOverlayBackButtonState();
+}
+
+class _TvOverlayBackButtonState extends State<TvOverlayBackButton> {
+  bool _focused = false;
+
+  void _handleFocusChange(bool value) {
+    if (_focused == value) return;
+    setState(() => _focused = value);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final l = AppLocalizations.of(context);
     final t = VoidTokens.of(context);
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(6),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            border: Border.all(color: t.borderStrong),
-            borderRadius: BorderRadius.circular(6),
-            color: t.surface,
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.arrow_back_rounded, size: 18, color: t.fg1),
-              const SizedBox(width: 8),
-              Text(
-                l.tvActionBackKey,
-                style: VoidType.mono(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 2.0,
-                  color: t.fg1,
+    return TvFocusRing(
+      focused: _focused,
+      radius: 6,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: widget.onTap,
+          onFocusChange: _handleFocusChange,
+          borderRadius: BorderRadius.circular(6),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              border: Border.all(color: t.borderStrong),
+              borderRadius: BorderRadius.circular(6),
+              color: t.surface,
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.arrow_back_rounded, size: 18, color: t.fg1),
+                const SizedBox(width: 8),
+                Text(
+                  l.tvActionBackKey,
+                  style: VoidType.mono(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 2.0,
+                    color: t.fg1,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.voidtunnel" "\0"
-            VALUE "FileDescription", "VoidTunnel" "\0"
+            VALUE "CompanyName", "com.voidlex" "\0"
+            VALUE "FileDescription", "Void//Lex" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "voidtunnel" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.voidtunnel. All rights reserved." "\0"
-            VALUE "OriginalFilename", "voidtunnel.exe" "\0"
-            VALUE "ProductName", "VoidTunnel" "\0"
+            VALUE "InternalName", "voidlex" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 com.voidlex. All rights reserved." "\0"
+            VALUE "OriginalFilename", "voidlex.exe" "\0"
+            VALUE "ProductName", "Void//Lex" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

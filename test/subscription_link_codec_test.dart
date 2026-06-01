@@ -1,15 +1,15 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:voidtunnel/core/subscription_link_codec.dart';
+import 'package:voidlex/core/subscription_link_codec.dart';
 
 void main() {
   const codec = SubscriptionLinkCodec();
 
-  test('looksLikeLink recognises voidtunnel scheme', () {
-    expect(SubscriptionLinkCodec.looksLikeLink('voidtunnel://1/abc'), isTrue);
-    expect(SubscriptionLinkCodec.looksLikeLink('VOIDTUNNEL://1/abc'), isTrue);
-    expect(SubscriptionLinkCodec.looksLikeLink('  voidtunnel://1/abc  '), isTrue);
+  test('looksLikeLink recognises voidlex scheme', () {
+    expect(SubscriptionLinkCodec.looksLikeLink('voidlex://1/abc'), isTrue);
+    expect(SubscriptionLinkCodec.looksLikeLink('VOIDLEX://1/abc'), isTrue);
+    expect(SubscriptionLinkCodec.looksLikeLink('  voidlex://1/abc  '), isTrue);
     expect(SubscriptionLinkCodec.looksLikeLink('https://example.com'), isFalse);
     expect(SubscriptionLinkCodec.looksLikeLink(''), isFalse);
   });
@@ -19,7 +19,7 @@ void main() {
       url: 'https://provider.example.com/sub?u=1',
       name: 'My Provider',
     );
-    expect(link, startsWith('voidtunnel://1/'));
+    expect(link, startsWith('voidlex://1/'));
     final decoded = await codec.decode(link);
     expect(decoded.url, 'https://provider.example.com/sub?u=1');
     expect(decoded.name, 'My Provider');
@@ -57,7 +57,7 @@ void main() {
     expect(decoded.name, 'Провайдер №1 🔐');
   });
 
-  test('rejects non-voidtunnel strings as notALink', () async {
+  test('rejects non-voidlex strings as notALink', () async {
     await expectLater(
       codec.decode('https://example.com'),
       throwsA(
@@ -72,7 +72,7 @@ void main() {
 
   test('rejects malformed base64 payload', () async {
     await expectLater(
-      codec.decode('voidtunnel://1/!@#not-base64'),
+      codec.decode('voidlex://1/!@#not-base64'),
       throwsA(
         isA<SubscriptionLinkException>().having(
           (e) => e.code,
@@ -88,7 +88,7 @@ void main() {
 
   test('rejects truncated payload', () async {
     await expectLater(
-      codec.decode('voidtunnel://1/${base64UrlEncode([1, 2, 3])}'),
+      codec.decode('voidlex://1/${base64UrlEncode([1, 2, 3])}'),
       throwsA(
         isA<SubscriptionLinkException>().having(
           (e) => e.code,
@@ -102,7 +102,7 @@ void main() {
   test('rejects unknown version segment', () async {
     final link = await codec.encode(url: 'https://example.com');
     final payload = link.split('/').last;
-    final tampered = 'voidtunnel://99/$payload';
+    final tampered = 'voidlex://99/$payload';
     await expectLater(
       codec.decode(tampered),
       throwsA(
@@ -122,7 +122,7 @@ void main() {
     final mid = payload.length ~/ 2;
     final flipped = payload[mid] == 'A' ? 'B' : 'A';
     final tampered =
-        'voidtunnel://1/${payload.substring(0, mid)}$flipped${payload.substring(mid + 1)}';
+        'voidlex://1/${payload.substring(0, mid)}$flipped${payload.substring(mid + 1)}';
     await expectLater(
       codec.decode(tampered),
       throwsA(

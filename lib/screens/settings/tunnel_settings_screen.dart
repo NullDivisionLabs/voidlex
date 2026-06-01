@@ -156,6 +156,36 @@ class _TunnelSettingsScreenState extends State<_TunnelSettingsScreen> {
     setState(() {});
   }
 
+  Future<void> _setRunMode(RunMode mode) async {
+    await widget.controller.setRunMode(mode);
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  Future<void> _setHttpProxyAuthEnabled(bool enabled) async {
+    await widget.controller.setHttpProxyAuthEnabled(enabled);
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  Future<void> _setSniffingRouteOnly(bool enabled) async {
+    await widget.controller.setSniffingRouteOnly(enabled);
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  Future<void> _setConnectionPolicy(ConnectionPolicySettings settings) async {
+    await widget.controller.setConnectionPolicy(settings);
+    if (!mounted) return;
+    setState(() {});
+  }
+
+  Future<void> _updateConnectionPolicy(
+    ConnectionPolicySettings Function(ConnectionPolicySettings current) update,
+  ) async {
+    await _setConnectionPolicy(update(widget.controller.connectionPolicy));
+  }
+
   Future<void> _setTunnelFragmentSettings(
     TunnelFragmentSettings settings,
   ) async {
@@ -331,7 +361,12 @@ class _TunnelSettingsScreenState extends State<_TunnelSettingsScreen> {
 
   Future<void> _commitProxyPassword(String value) async {
     if (value == widget.controller.customProxyPassword) return;
-    await widget.controller.setCustomProxyPassword(value);
+    try {
+      await widget.controller.setCustomProxyPassword(value);
+    } on SecureStorageException {
+      if (!mounted) return;
+      _showSecureStorageWriteFailure(revertPassword: true);
+    }
   }
 
   Future<void> _regenerateProxyCredentials() async {
@@ -339,10 +374,32 @@ class _TunnelSettingsScreenState extends State<_TunnelSettingsScreen> {
     final password = _randomHex(24);
     _userController.text = user;
     _passwordController.text = password;
-    await widget.controller.setCustomProxyUser(user);
-    await widget.controller.setCustomProxyPassword(password);
+    try {
+      await widget.controller.setCustomProxyUser(user);
+      await widget.controller.setCustomProxyPassword(password);
+    } on SecureStorageException {
+      if (!mounted) return;
+      _syncTextController(_userController, widget.controller.customProxyUser);
+      _showSecureStorageWriteFailure(revertPassword: true);
+      return;
+    }
     if (!mounted) return;
     setState(() {});
+  }
+
+  void _showSecureStorageWriteFailure({required bool revertPassword}) {
+    final l = AppLocalizations.of(context);
+    if (revertPassword) {
+      _syncTextController(
+        _passwordController,
+        widget.controller.customProxyPassword,
+      );
+    }
+    final messenger = ScaffoldMessenger.maybeOf(context);
+    if (messenger == null) return;
+    messenger
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(l.secureStorageWriteFailed)));
   }
 
   static String _randomHex(int byteLength) {
@@ -427,12 +484,52 @@ class _TunnelSettingsScreenState extends State<_TunnelSettingsScreen> {
           title: l.tunnelSettingsTitle,
           subtitle: l.settingsTunnelSubtitle,
           onBack: _close,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
-            child: Column(
+          child: useTvChrome
+              ? TvSettingsScrollView(
+                  child: _tunnelSettingsColumn(
+                    context: context,
+                    theme: theme,
+                    l: l,
+                    useTvChrome: useTvChrome,
+                    engine: engine,
+                    xrayTunEnabled: xrayTunEnabled,
+                    useCustomProxyAuth: useCustomProxyAuth,
+                    fragment: fragment,
+                  ),
+                )
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                  child: _tunnelSettingsColumn(
+                    context: context,
+                    theme: theme,
+                    l: l,
+                    useTvChrome: useTvChrome,
+                    engine: engine,
+                    xrayTunEnabled: xrayTunEnabled,
+                    useCustomProxyAuth: useCustomProxyAuth,
+                    fragment: fragment,
+                  ),
+                ),
+        ),
+      ),
+    );
+  }
+
+  Widget _tunnelSettingsColumn({
+    required BuildContext context,
+    required ThemeData theme,
+    required AppLocalizations l,
+    required bool useTvChrome,
+    required TunEngineMode engine,
+    required bool xrayTunEnabled,
+    required bool useCustomProxyAuth,
+    required TunnelFragmentSettings fragment,
+  }) {
+    return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Container(
+                  clipBehavior: Clip.none,
                   decoration: BoxDecoration(
                     color: theme.cardColor,
                     borderRadius: BorderRadius.circular(14),
@@ -441,10 +538,12 @@ class _TunnelSettingsScreenState extends State<_TunnelSettingsScreen> {
                   child: Column(
                     children: [
                       _CompactToggleRow(
-                        icon: Icons.dns_rounded,
+                        icon: Icons.dns_outlined,
                         title: l.tunnelUseLocalDns,
                         value: _tunnelNetworkSettings.useLocalDns,
                         onChanged: _setUseLocalDns,
+                        tvFocusable: useTvChrome,
+                        autofocus: useTvChrome,
                       ),
                       Divider(height: 1, color: theme.dividerColor),
                       _CompactToggleRow(
@@ -452,17 +551,30 @@ class _TunnelSettingsScreenState extends State<_TunnelSettingsScreen> {
                         title: l.tunnelEnableServerResolving,
                         value: _tunnelNetworkSettings.serverResolvingEnabled,
                         onChanged: _setServerResolvingEnabled,
+                        tvFocusable: useTvChrome,
                       ),
                       Divider(height: 1, color: theme.dividerColor),
                       _CompactToggleRow(
-                        icon: Icons.analytics_rounded,
+                        icon: Icons.analytics_outlined,
                         title: l.tunnelPacketAnalysis,
                         value: _tunnelNetworkSettings.packetAnalysisEnabled,
                         onChanged: _setPacketAnalysisEnabled,
+                        tvFocusable: useTvChrome,
                       ),
+                      if (_tunnelNetworkSettings.packetAnalysisEnabled) ...[
+                        Divider(height: 1, color: theme.dividerColor),
+                        _CompactToggleRow(
+                          icon: Icons.alt_route_rounded,
+                          title: l.tunnelRouteOnlyTitle,
+                          description: l.tunnelRouteOnlySubtitle,
+                          value: widget.controller.sniffingRouteOnly,
+                          onChanged: _setSniffingRouteOnly,
+                          tvFocusable: useTvChrome,
+                        ),
+                      ],
                       Divider(height: 1, color: theme.dividerColor),
                       _CompactValueRow(
-                        icon: Icons.layers_rounded,
+                        icon: Icons.layers_outlined,
                         title: l.tunnelNetworkStack,
                         child: SizedBox(
                           width: 140,
@@ -498,28 +610,54 @@ class _TunnelSettingsScreenState extends State<_TunnelSettingsScreen> {
                         title: l.tunnelMtu,
                         child: SizedBox(
                           width: 96,
-                          child: TextField(
-                            controller: _mtuController,
-                            focusNode: _mtuFocusNode,
-                            keyboardType: TextInputType.number,
-                            inputFormatters: [
-                              FilteringTextInputFormatter.digitsOnly,
-                              LengthLimitingTextInputFormatter(4),
-                            ],
-                            textAlign: TextAlign.center,
-                            textInputAction: TextInputAction.done,
-                            onSubmitted: (_) =>
-                                FocusScope.of(context).unfocus(),
-                            decoration: InputDecoration(
-                              hintText: l.tunnelMtuHint,
-                              border: const OutlineInputBorder(),
-                              isDense: true,
-                              contentPadding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 10,
-                              ),
-                            ),
-                          ),
+                          child: useTvChrome
+                              ? tvDpadEscapeTextField(
+                                  TextField(
+                                    controller: _mtuController,
+                                    focusNode: _mtuFocusNode,
+                                    keyboardType: TextInputType.number,
+                                    inputFormatters: [
+                                      FilteringTextInputFormatter.digitsOnly,
+                                      LengthLimitingTextInputFormatter(4),
+                                    ],
+                                    textAlign: TextAlign.center,
+                                    textInputAction: TextInputAction.done,
+                                    onSubmitted: (_) =>
+                                        FocusScope.of(context).unfocus(),
+                                    decoration: InputDecoration(
+                                      hintText: l.tunnelMtuHint,
+                                      border: const OutlineInputBorder(),
+                                      isDense: true,
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 10,
+                                      ),
+                                    ),
+                                  ),
+                                )
+                              : TextField(
+                                  controller: _mtuController,
+                                  focusNode: _mtuFocusNode,
+                                  keyboardType: TextInputType.number,
+                                  inputFormatters: [
+                                    FilteringTextInputFormatter.digitsOnly,
+                                    LengthLimitingTextInputFormatter(4),
+                                  ],
+                                  textAlign: TextAlign.center,
+                                  textInputAction: TextInputAction.done,
+                                  onSubmitted: (_) =>
+                                      FocusScope.of(context).unfocus(),
+                                  decoration: InputDecoration(
+                                    hintText: l.tunnelMtuHint,
+                                    border: const OutlineInputBorder(),
+                                    isDense: true,
+                                    contentPadding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 10,
+                                    ),
+                                  ),
+                                ),
                         ),
                       ),
                       Divider(height: 1, color: theme.dividerColor),
@@ -627,6 +765,7 @@ class _TunnelSettingsScreenState extends State<_TunnelSettingsScreen> {
                 ),
                 const SizedBox(height: 12),
                 Container(
+                  clipBehavior: Clip.none,
                   decoration: BoxDecoration(
                     color: theme.cardColor,
                     borderRadius: BorderRadius.circular(14),
@@ -640,78 +779,83 @@ class _TunnelSettingsScreenState extends State<_TunnelSettingsScreen> {
                         description: l.tunnelBlockUdpDescription,
                         value: _tunnelNetworkSettings.blockUdp,
                         onChanged: _setBlockUdpEnabled,
-                      ),
-                      Divider(height: 1, color: theme.dividerColor),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 12,
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              xrayTunEnabled
-                                  ? Icons.science_rounded
-                                  : Icons.verified_rounded,
-                              color: theme.colorScheme.primary,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    l.tunnelXrayTun,
-                                    style: theme.textTheme.bodyLarge?.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    l.tunnelXrayTunDescription,
-                                    style: theme.textTheme.bodySmall,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Switch(
-                              value: xrayTunEnabled,
-                              onChanged: _setXrayTunEnabled,
-                            ),
-                          ],
-                        ),
+                        tvFocusable: useTvChrome,
                       ),
                       Divider(height: 1, color: theme.dividerColor),
                       _CompactToggleRow(
-                        icon: Icons.dns_rounded,
+                        icon: Icons.router_outlined,
+                        title: l.tunnelXrayTun,
+                        description: l.tunnelXrayTunDescription,
+                        value: xrayTunEnabled,
+                        onChanged: _setXrayTunEnabled,
+                        tvFocusable: useTvChrome,
+                      ),
+                      Divider(height: 1, color: theme.dividerColor),
+                      _CompactToggleRow(
+                        icon: Icons.dns_outlined,
                         title: l.tunnelEnableDnsForTun,
                         value: _tunnelNetworkSettings.xrayTunDnsEnabled,
                         enabled: xrayTunEnabled,
                         onChanged: _setXrayTunDnsEnabled,
+                        tvFocusable: useTvChrome,
                       ),
                       Divider(height: 1, color: theme.dividerColor),
                       Padding(
                         padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-                        child: TextField(
-                          controller: _xrayTunDnsController,
-                          focusNode: _xrayTunDnsFocusNode,
-                          enabled:
-                              xrayTunEnabled &&
-                              _tunnelNetworkSettings.xrayTunDnsEnabled,
-                          autocorrect: false,
-                          enableSuggestions: false,
-                          keyboardType: TextInputType.text,
-                          textInputAction: TextInputAction.done,
-                          onSubmitted: _commitXrayTunDnsServer,
-                          decoration: InputDecoration(
-                            labelText: l.tunnelTunDnsLabel,
-                            hintText: l.tunnelTunDnsHint,
-                            border: const OutlineInputBorder(),
-                            isDense: true,
-                          ),
-                        ),
+                        child: useTvChrome
+                            ? tvDpadEscapeTextField(
+                                TextField(
+                                  controller: _xrayTunDnsController,
+                                  focusNode: _xrayTunDnsFocusNode,
+                                  enabled: xrayTunEnabled &&
+                                      _tunnelNetworkSettings.xrayTunDnsEnabled,
+                                  autocorrect: false,
+                                  enableSuggestions: false,
+                                  keyboardType: TextInputType.text,
+                                  textInputAction: TextInputAction.done,
+                                  onSubmitted: _commitXrayTunDnsServer,
+                                  decoration: InputDecoration(
+                                    labelText: l.tunnelTunDnsLabel,
+                                    hintText: l.tunnelTunDnsHint,
+                                    border: const OutlineInputBorder(),
+                                    isDense: true,
+                                  ),
+                                  onChanged: _commitXrayTunDnsServer,
+                                ),
+                              )
+                            : TextField(
+                                controller: _xrayTunDnsController,
+                                focusNode: _xrayTunDnsFocusNode,
+                                enabled: xrayTunEnabled &&
+                                    _tunnelNetworkSettings.xrayTunDnsEnabled,
+                                autocorrect: false,
+                                enableSuggestions: false,
+                                keyboardType: TextInputType.text,
+                                textInputAction: TextInputAction.done,
+                                onSubmitted: _commitXrayTunDnsServer,
+                                decoration: InputDecoration(
+                                  labelText: l.tunnelTunDnsLabel,
+                                  hintText: l.tunnelTunDnsHint,
+                                  border: const OutlineInputBorder(),
+                                  isDense: true,
+                                ),
+                                onChanged: _commitXrayTunDnsServer,
+                              ),
                       ),
                     ],
+                  ),
+                ),
+                const SizedBox(height: 12),
+                _ConnectionPolicyCard(
+                  policy: widget.controller.connectionPolicy,
+                  onIdleChanged: (value) => _updateConnectionPolicy(
+                    (current) => current.copyWith(connIdleSeconds: value),
+                  ),
+                  onMaxTcpChanged: (value) => _updateConnectionPolicy(
+                    (current) => current.copyWith(maxTcpConnections: value),
+                  ),
+                  onMaxUdpChanged: (value) => _updateConnectionPolicy(
+                    (current) => current.copyWith(maxUdpConnections: value),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -731,7 +875,7 @@ class _TunnelSettingsScreenState extends State<_TunnelSettingsScreen> {
                         child: Row(
                           children: [
                             Icon(
-                              Icons.lock_rounded,
+                              Icons.vpn_key_outlined,
                               color: theme.colorScheme.primary,
                             ),
                             const SizedBox(width: 12),
@@ -763,6 +907,14 @@ class _TunnelSettingsScreenState extends State<_TunnelSettingsScreen> {
                         ),
                       ),
                       if (useCustomProxyAuth) ...[
+                        Divider(height: 1, color: theme.dividerColor),
+                        _CompactToggleRow(
+                          icon: Icons.https_rounded,
+                          title: l.httpProxyAuthTitle,
+                          description: l.httpProxyAuthSubtitle,
+                          value: widget.controller.httpProxyAuthEnabled,
+                          onChanged: _setHttpProxyAuthEnabled,
+                        ),
                         Divider(height: 1, color: theme.dividerColor),
                         Padding(
                           padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
@@ -827,10 +979,293 @@ class _TunnelSettingsScreenState extends State<_TunnelSettingsScreen> {
                     ],
                   ),
                 ),
+                const SizedBox(height: 12),
+                _RunModeCard(
+                  runMode: widget.controller.runMode,
+                  onRunModeChanged: _setRunMode,
+                ),
+              ],
+    );
+  }
+}
+
+class _RunModeCard extends StatelessWidget {
+  const _RunModeCard({required this.runMode, required this.onRunModeChanged});
+
+  final RunMode runMode;
+  final Future<void> Function(RunMode) onRunModeChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l = AppLocalizations.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: theme.dividerColor),
+      ),
+      child: RadioGroup<RunMode>(
+        groupValue: runMode,
+        onChanged: (v) {
+          if (v != null) onRunModeChanged(v);
+        },
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Text(
+                  l.runModeSectionTitle,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ),
+            Divider(height: 1, color: theme.dividerColor),
+            RadioListTile<RunMode>(
+              value: RunMode.tun,
+              title: Text(
+                l.runModeTunTitle,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              subtitle: Text(l.runModeTunSubtitle),
+              secondary: Icon(
+                Icons.vpn_lock_rounded,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+            Divider(height: 1, color: theme.dividerColor),
+            RadioListTile<RunMode>(
+              value: RunMode.proxyOnly,
+              title: Text(
+                l.runModeProxyOnlyTitle,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+              subtitle: Text(l.runModeProxyOnlySubtitle),
+              secondary: Icon(
+                Icons.visibility_off_rounded,
+                color: theme.colorScheme.primary,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ConnectionPolicyCard extends StatefulWidget {
+  const _ConnectionPolicyCard({
+    required this.policy,
+    required this.onIdleChanged,
+    required this.onMaxTcpChanged,
+    required this.onMaxUdpChanged,
+  });
+
+  final ConnectionPolicySettings policy;
+  final ValueChanged<int> onIdleChanged;
+  final ValueChanged<int> onMaxTcpChanged;
+  final ValueChanged<int> onMaxUdpChanged;
+
+  @override
+  State<_ConnectionPolicyCard> createState() => _ConnectionPolicyCardState();
+}
+
+class _ConnectionPolicyCardState extends State<_ConnectionPolicyCard> {
+  bool _expanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final l = AppLocalizations.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: theme.dividerColor),
+      ),
+      child: Column(
+        children: [
+          InkWell(
+            onTap: () => setState(() => _expanded = !_expanded),
+            borderRadius: BorderRadius.circular(14),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 12,
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.tune_rounded,
+                    color: theme.colorScheme.primary,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          l.connectionPolicySectionTitle,
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          l.connectionPolicySectionSubtitle,
+                          style: theme.textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                  AnimatedRotation(
+                    turns: _expanded ? 0.5 : 0.0,
+                    duration: const Duration(milliseconds: 180),
+                    child: const Icon(Icons.expand_more_rounded),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeInOut,
+            alignment: Alignment.topCenter,
+            child: _expanded
+                ? Column(
+                    children: [
+                      Divider(height: 1, color: theme.dividerColor),
+                      _PolicyStepperRow(
+                        title: l.connectionPolicyIdleTitle,
+                        subtitle: l.connectionPolicyIdleSubtitle,
+                        value: widget.policy.connIdleSeconds,
+                        min: ConnectionPolicySettings.minIdleSeconds,
+                        max: ConnectionPolicySettings.maxIdleSeconds,
+                        step: 10,
+                        onChanged: widget.onIdleChanged,
+                      ),
+                      Divider(height: 1, color: theme.dividerColor),
+                      _PolicyStepperRow(
+                        title: l.connectionPolicyMaxTcpTitle,
+                        subtitle: l.connectionPolicyMaxTcpSubtitle,
+                        value: widget.policy.maxTcpConnections,
+                        min: ConnectionPolicySettings.minConnections,
+                        max: ConnectionPolicySettings.maxTcpLimit,
+                        step: 16,
+                        onChanged: widget.onMaxTcpChanged,
+                      ),
+                      Divider(height: 1, color: theme.dividerColor),
+                      _PolicyStepperRow(
+                        title: l.connectionPolicyMaxUdpTitle,
+                        subtitle: l.connectionPolicyMaxUdpSubtitle,
+                        value: widget.policy.maxUdpConnections,
+                        min: ConnectionPolicySettings.minConnections,
+                        max: ConnectionPolicySettings.maxUdpLimit,
+                        step: 16,
+                        onChanged: widget.onMaxUdpChanged,
+                      ),
+                    ],
+                  )
+                : const SizedBox(width: double.infinity),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PolicyStepperRow extends StatelessWidget {
+  const _PolicyStepperRow({
+    required this.title,
+    required this.subtitle,
+    required this.value,
+    required this.min,
+    required this.max,
+    required this.step,
+    required this.onChanged,
+  });
+
+  final String title;
+  final String subtitle;
+  final int value;
+  final int min;
+  final int max;
+  final int step;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final canDecrement = value > min;
+    final canIncrement = value < max;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(subtitle, style: theme.textTheme.bodySmall),
               ],
             ),
           ),
-        ),
+          const SizedBox(width: 12),
+          // Stepper cluster: [ − ] [ value ] [ + ]. Putting the value
+          // between the buttons keeps the number visually anchored to its
+          // controls and matches the reference design.
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                style: IconButton.styleFrom(
+                  padding: const EdgeInsets.all(6),
+                  minimumSize: const Size(36, 36),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                icon: const Icon(Icons.remove_rounded),
+                onPressed: canDecrement
+                    ? () => onChanged((value - step).clamp(min, max))
+                    : null,
+              ),
+              SizedBox(
+                width: 56,
+                child: Text(
+                  '$value',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: theme.colorScheme.primary,
+                    fontWeight: FontWeight.w800,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ),
+              IconButton(
+                style: IconButton.styleFrom(
+                  padding: const EdgeInsets.all(6),
+                  minimumSize: const Size(36, 36),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                ),
+                icon: const Icon(Icons.add_rounded),
+                onPressed: canIncrement
+                    ? () => onChanged((value + step).clamp(min, max))
+                    : null,
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -1271,6 +1706,8 @@ class _CompactToggleRow extends StatelessWidget {
     required this.onChanged,
     this.description,
     this.enabled = true,
+    this.tvFocusable = false,
+    this.autofocus = false,
   });
 
   final IconData icon;
@@ -1279,6 +1716,8 @@ class _CompactToggleRow extends StatelessWidget {
   final bool value;
   final ValueChanged<bool> onChanged;
   final bool enabled;
+  final bool tvFocusable;
+  final bool autofocus;
 
   @override
   Widget build(BuildContext context) {
@@ -1291,7 +1730,7 @@ class _CompactToggleRow extends StatelessWidget {
     final descriptionStyle = theme.textTheme.bodySmall?.copyWith(
       color: enabled ? null : theme.disabledColor,
     );
-    return Padding(
+    final row = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       child: Row(
         children: [
@@ -1309,9 +1748,18 @@ class _CompactToggleRow extends StatelessWidget {
                     ],
                   ),
           ),
-          Switch(value: value, onChanged: enabled ? onChanged : null),
+          TvSettingsNonFocusTrailing(
+            child: Switch(value: value, onChanged: enabled ? onChanged : null),
+          ),
         ],
       ),
+    );
+    if (!tvFocusable) return row;
+    return TvCompactFocusRow(
+      autofocus: autofocus,
+      enabled: enabled,
+      onActivate: () => onChanged(!value),
+      child: row,
     );
   }
 }

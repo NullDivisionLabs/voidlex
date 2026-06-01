@@ -63,8 +63,7 @@ class NodeRow extends StatelessWidget {
     required this.name,
     required this.protocol,
     required this.transport,
-    required this.ping,
-    required this.pingTone,
+    required this.pingSlot,
     this.selected = false,
     this.pinned = false,
     this.exit = false,
@@ -78,8 +77,7 @@ class NodeRow extends StatelessWidget {
   final String name;
   final String protocol;
   final String transport;
-  final String ping;
-  final NodePingTone pingTone;
+  final Widget pingSlot;
   final bool selected;
   final bool pinned;
   final bool exit;
@@ -97,13 +95,13 @@ class NodeRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = VoidTokens.of(context);
-    final pingColor = pingTone.colorIn(t);
     final borderColor = selected ? t.fg1 : (pinned ? t.borderStrong : t.border);
 
-    return Material(
-      color: t.surface,
-      borderRadius: BorderRadius.circular(10),
-      child: InkWell(
+    return RepaintBoundary(
+      child: Material(
+        color: t.surface,
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
         borderRadius: BorderRadius.circular(10),
         onTap: onTap,
         child: AnimatedContainer(
@@ -161,44 +159,7 @@ class NodeRow extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 8),
-              CustomPaint(
-                size: const Size(11, 11),
-                painter: _SignalPainter(color: pingColor),
-              ),
-              const SizedBox(width: 4),
-              // Align the ping number and its `MS` unit on the alphabetic
-              // baseline so they sit on the same visual line even though
-              // their weights/colours differ. The `MS` suffix only makes
-              // sense when `ping` is a real number — skip it for markers
-              // like "N/A", "—", or "...".
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.baseline,
-                textBaseline: TextBaseline.alphabetic,
-                children: [
-                  Text(
-                    ping,
-                    style: VoidType.mono(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: pingColor,
-                      fontFeatures: const [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                  if (RegExp(r'\d').hasMatch(ping)) ...[
-                    const SizedBox(width: 2),
-                    Text(
-                      AppLocalizations.of(context).pingMsSuffix.trimLeft(),
-                      style: VoidType.mono(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 0,
-                        color: t.fg3,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
+              pingSlot,
               if (onMenuTap != null) ...[
                 const SizedBox(width: 4),
                 InkWell(
@@ -212,6 +173,7 @@ class NodeRow extends StatelessWidget {
               ],
               if (trailing != null) ...[const SizedBox(width: 4), trailing!],
             ],
+          ),
           ),
         ),
       ),
@@ -313,21 +275,3 @@ class _MiniTrianglePainter extends CustomPainter {
       old.color != color || old.fill != fill;
 }
 
-class _SignalPainter extends CustomPainter {
-  _SignalPainter({required this.color});
-  final Color color;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final base = Paint()..color = color;
-    final dim = Paint()..color = color.withValues(alpha: 0.55);
-    final faint = Paint()..color = color.withValues(alpha: 0.25);
-    canvas.drawRect(Rect.fromLTWH(0, 7, 2, 4), base);
-    canvas.drawRect(Rect.fromLTWH(3, 4, 2, 7), base);
-    canvas.drawRect(Rect.fromLTWH(6, 2, 2, 9), dim);
-    canvas.drawRect(Rect.fromLTWH(9, 0, 2, 11), faint);
-  }
-
-  @override
-  bool shouldRepaint(covariant _SignalPainter old) => old.color != color;
-}

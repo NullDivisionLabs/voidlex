@@ -1,4 +1,3 @@
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
@@ -18,21 +17,13 @@ import 'widgets/bottom_dock.dart';
 import 'widgets/exit_info_bar.dart';
 import 'widgets/fav_card.dart';
 import 'widgets/global_proxy_pill.dart';
-import 'widgets/node_row.dart';
+import 'widgets/node_ping_badge.dart';
 import 'widgets/section_header.dart';
+import 'widgets/server_node_tile.dart';
 import 'widgets/status_strip.dart';
 import 'widgets/triangle_hub.dart';
 import 'widgets/void_dock.dart';
 import 'widgets/void_top_bar.dart';
-
-enum _ServerMenuAction {
-  toggleFavorite,
-  edit,
-  toggleExitNode,
-  assignRoutingPreset,
-  share,
-  remove,
-}
 
 enum _FavoriteMenuAction { move, remove }
 
@@ -57,14 +48,15 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  static const double _nodeRadius = 10;
-  static const double _nodeSlidableExtentRatio = 0.24;
-  static const double _nodeSlidableOpenThreshold = 0.19;
-  static const double _nodeSlidableCloseThreshold = 0.07;
-
   String? _lastShownConnectionError;
   bool _manualNodesCollapsed = false;
   bool _favoritesMoveMode = false;
+  bool _subscriptionsMoveMode = false;
+
+  bool _searchActive = false;
+  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
 
   VpnController get _controller => widget.controller;
 
@@ -83,7 +75,29 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void dispose() {
     _controller.removeListener(_handleControllerChanged);
+    _searchController.dispose();
+    _searchFocusNode.dispose();
     super.dispose();
+  }
+
+  void _openSearch() {
+    setState(() => _searchActive = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _searchFocusNode.requestFocus();
+    });
+  }
+
+  void _closeSearch() {
+    _searchController.clear();
+    _searchFocusNode.unfocus();
+    setState(() {
+      _searchActive = false;
+      _searchQuery = '';
+    });
+  }
+
+  void _onSearchChanged(String value) {
+    setState(() => _searchQuery = value);
   }
 
   void _handleControllerChanged() {
@@ -91,6 +105,14 @@ class _HomeScreenState extends State<HomeScreen> {
     if (routingWarning != null && routingWarning.isNotEmpty) {
       _scheduleBubble(
         () => localizeUserMessage(context, routingWarning),
+        guard: () => mounted,
+      );
+    }
+
+    final deepLinkNotice = _controller.consumeDeepLinkNotice();
+    if (deepLinkNotice != null && deepLinkNotice.isNotEmpty) {
+      _scheduleBubble(
+        () => localizeUserMessage(context, deepLinkNotice),
         guard: () => mounted,
       );
     }
@@ -153,16 +175,16 @@ class _HomeScreenState extends State<HomeScreen> {
   // ── Server actions ───────────────────────────────────────────────────
   Future<void> _handleServerMenuAction(
     ServerConfig server,
-    _ServerMenuAction action,
+    ServerMenuAction action,
   ) async {
     final protectedSubscriptionServer =
         _controller.subscriptionProviderSettings.protectSubscriptions &&
         _isSubscriptionServer(server.name);
     switch (action) {
-      case _ServerMenuAction.toggleFavorite:
+      case ServerMenuAction.toggleFavorite:
         await _controller.togglePinned(server.name);
         break;
-      case _ServerMenuAction.edit:
+      case ServerMenuAction.edit:
         if (protectedSubscriptionServer) return;
         await Navigator.of(context).push(
           MaterialPageRoute<void>(
@@ -171,13 +193,13 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         );
         break;
-      case _ServerMenuAction.toggleExitNode:
+      case ServerMenuAction.toggleExitNode:
         await _controller.toggleExitNode(server.name);
         break;
-      case _ServerMenuAction.assignRoutingPreset:
+      case ServerMenuAction.assignRoutingPreset:
         await _assignRoutingPresetToServer(server);
         break;
-      case _ServerMenuAction.share:
+      case ServerMenuAction.share:
         if (protectedSubscriptionServer) return;
         final messenger = ScaffoldMessenger.of(context);
         await Clipboard.setData(
@@ -189,7 +211,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ..hideCurrentSnackBar()
           ..showSnackBar(SnackBar(content: Text(l.homeServerCopied)));
         break;
-      case _ServerMenuAction.remove:
+      case ServerMenuAction.remove:
         await _controller.removeServer(server.name);
         break;
     }
@@ -418,8 +440,8 @@ class _HomeScreenState extends State<HomeScreen> {
         child: SlidableAutoCloseBehavior(
           child: Column(
             children: [
-              AnimatedBuilder(
-                animation: _controller,
+              ListenableBuilder(
+                listenable: _controller.homeListRevisionListenable,
                 builder: (context, _) {
                   final exitServer = _controller.exitServer;
                   return VoidTopBar(
@@ -465,8 +487,8 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               const SizedBox(height: 14),
               Expanded(
-                child: AnimatedBuilder(
-                  animation: _controller,
+                child: ListenableBuilder(
+                  listenable: _controller.homeListRevisionListenable,
                   builder: (context, _) => _buildBody(context, t),
                 ),
               ),
@@ -604,15 +626,21 @@ class _HomeScreenState extends State<HomeScreen> {
     // every node row to lay out eagerly (NeverScrollableScrollPhysics + a
     // sized child); the sliver-based version lets the manual list and each
     // subscription block paginate lazily.
+    final hasSubServers = subs.any((s) => s.servers.isNotEmpty);
+    final hasNodes = manual.isNotEmpty || hasSubServers;
     final slivers = <Widget>[];
     if (favorites.isNotEmpty) {
       slivers.addAll(_favoritesSlivers(context, t, favorites));
     }
-    if (manual.isNotEmpty) {
-      slivers.addAll(_manualNodesSlivers(context, l, manual));
-    }
-    if (subs.isNotEmpty) {
-      slivers.addAll(_subscriptionSlivers(context, subs));
+    if (_searchActive) {
+      slivers.addAll(_searchSlivers(context, l, t, manual, subs));
+    } else {
+      if (hasNodes) {
+        slivers.addAll(_manualNodesSlivers(context, l, manual, hasNodes));
+      }
+      if (subs.isNotEmpty) {
+        slivers.addAll(_subscriptionSlivers(context, subs));
+      }
     }
     slivers.add(const SliverToBoxAdapter(child: SizedBox(height: 12)));
 
@@ -694,8 +722,11 @@ class _HomeScreenState extends State<HomeScreen> {
     final card = FavCard(
       name: _shortName(server.name),
       protocol: server.protocol,
-      ping: NodePingTone.shortLabel(server.ping),
-      pingTone: NodePingTone.fromRaw(server.ping),
+      pingSlot: NodePingBadge(
+        controller: _controller,
+        serverName: server.name,
+        style: NodePingBadgeStyle.fav,
+      ),
       selected: _controller.selectedName == server.name,
       onTap: _favoritesMoveMode
           ? null
@@ -728,6 +759,7 @@ class _HomeScreenState extends State<HomeScreen> {
     BuildContext context,
     AppLocalizations l,
     List<ServerConfig> manual,
+    bool hasNodes,
   ) {
     final slivers = <Widget>[
       SliverToBoxAdapter(
@@ -738,18 +770,28 @@ class _HomeScreenState extends State<HomeScreen> {
           onToggle: () =>
               setState(() => _manualNodesCollapsed = !_manualNodesCollapsed),
           toggleOnlyIcon: true,
-          trailing: _ScanButton(
-            busy: _controller.isScanningLatency,
-            onTap: _controller.isScanningLatency
-                ? null
-                : _controller.scanManualLatencies,
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _SearchButton(onTap: hasNodes ? _openSearch : null),
+              const SizedBox(width: 6),
+              ValueListenableBuilder<bool>(
+                valueListenable: _controller.isScanningLatencyListenable,
+                builder: (context, scanning, _) {
+                  return _ScanButton(
+                    busy: scanning,
+                    onTap: scanning ? null : _controller.scanManualLatencies,
+                  );
+                },
+              ),
+            ],
           ),
         ),
       ),
       const SliverToBoxAdapter(child: SizedBox(height: 8)),
     ];
 
-    if (!_manualNodesCollapsed) {
+    if (!_manualNodesCollapsed && manual.isNotEmpty) {
       slivers.add(
         SliverReorderableList(
           itemCount: manual.length,
@@ -766,7 +808,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
               child: ReorderableDelayedDragStartListener(
                 index: index,
-                child: _buildSwipeableNode(server),
+                child: _buildNodeTile(server),
               ),
             );
           },
@@ -776,37 +818,207 @@ class _HomeScreenState extends State<HomeScreen> {
     return slivers;
   }
 
+  List<Widget> _searchSlivers(
+    BuildContext context,
+    AppLocalizations l,
+    VoidTokens t,
+    List<ServerConfig> manual,
+    List<ServerSubscription> subs,
+  ) {
+    final q = _searchQuery.trim().toLowerCase();
+    final protectSubscriptions =
+        _controller.subscriptionProviderSettings.protectSubscriptions;
+
+    final slivers = <Widget>[
+      SliverToBoxAdapter(
+        child: Container(
+          height: 40,
+          decoration: BoxDecoration(
+            color: t.surface,
+            border: Border.all(color: t.border),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 6),
+          child: Row(
+            children: [
+              const SizedBox(width: 6),
+              Icon(Icons.search_rounded, size: 14, color: t.fg3),
+              const SizedBox(width: 8),
+              Expanded(
+                child: TextField(
+                  controller: _searchController,
+                  focusNode: _searchFocusNode,
+                  autofocus: true,
+                  onChanged: _onSearchChanged,
+                  cursorColor: t.fg1,
+                  style: VoidType.sans(
+                    fontSize: 13,
+                    color: t.fg1,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  decoration: InputDecoration(
+                    isCollapsed: true,
+                    border: InputBorder.none,
+                    hintText: l.searchNodesHint,
+                    hintStyle: VoidType.sans(
+                      fontSize: 13,
+                      color: t.fg3,
+                      fontWeight: FontWeight.w400,
+                    ),
+                    contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              _CloseSearchButton(onTap: _closeSearch),
+            ],
+          ),
+        ),
+      ),
+      const SliverToBoxAdapter(child: SizedBox(height: 10)),
+    ];
+
+    // Filter once per build (cheap; runs when query/composition changes).
+    // Result rows do their own per-server ping subscription, so the search
+    // list does not need a global tick listener.
+    final all = <ServerConfig>[
+      ...manual,
+      for (final sub in subs) ..._controller.visibleSubscriptionServers(sub),
+    ];
+    final results = q.isEmpty
+        ? all
+        : all.where((s) => s.name.toLowerCase().contains(q)).toList();
+
+    if (results.isEmpty && q.isNotEmpty) {
+      slivers.add(
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 24),
+            child: Center(
+              child: Text(
+                l.searchNoResults,
+                style: VoidType.mono(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.6,
+                  color: t.fg3,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      return slivers;
+    }
+
+    slivers.add(
+      SliverList(
+        delegate: SliverChildBuilderDelegate(
+          (context, index) {
+            final server = results[index];
+            return Padding(
+              key: ValueKey('search:${server.name}'),
+              padding: EdgeInsets.only(
+                bottom: index < results.length - 1 ? 6 : 12,
+              ),
+              child: _buildNodeTile(
+                server,
+                protectSubscriptionActions:
+                    protectSubscriptions && _isSubscriptionServer(server.name),
+              ),
+            );
+          },
+          childCount: results.length,
+          addAutomaticKeepAlives: false,
+        ),
+      ),
+    );
+    return slivers;
+  }
+
   List<Widget> _subscriptionSlivers(
     BuildContext context,
     List<ServerSubscription> subscriptions,
   ) {
-    return [
-      SliverReorderableList(
-        itemCount: subscriptions.length,
-        onReorder: (oldIndex, newIndex) {
-          _controller.reorderSubscriptions(oldIndex, newIndex);
-        },
-        proxyDecorator: _reorderProxyDecorator,
-        itemBuilder: (context, index) {
-          final sub = subscriptions[index];
-          return KeyedSubtree(
-            key: ValueKey('subscription:${sub.id}'),
-            child: _subscriptionBlock(sub, index),
-          );
-        },
-      ),
-    ];
+    if (_subscriptionsMoveMode) {
+      // Move mode: only headers are shown (collapsed), reordered as a single
+      // SliverReorderableList. The expansion state from regular mode is left
+      // untouched in the controller, so leaving move mode restores everything.
+      return [
+        SliverReorderableList(
+          itemCount: subscriptions.length,
+          onReorder: (oldIndex, newIndex) {
+            _controller.reorderSubscriptions(oldIndex, newIndex);
+          },
+          proxyDecorator: _reorderProxyDecorator,
+          itemBuilder: (context, index) {
+            final sub = subscriptions[index];
+            return KeyedSubtree(
+              key: ValueKey('subscription-move:${sub.id}'),
+              child: ReorderableDelayedDragStartListener(
+                index: index,
+                child: _buildMoveModeHeader(sub),
+              ),
+            );
+          },
+        ),
+        SliverToBoxAdapter(child: _moveModeFooter()),
+      ];
+    }
+
+    // Normal mode: each subscription is rendered as adjacent slivers — the
+    // header is a single box and the nodes live in their own SliverList so
+    // off-screen rows never lay out. This is what makes scrolling stay
+    // smooth even with 1000+ nodes across many subscriptions.
+    final protectSubscriptions =
+        _controller.subscriptionProviderSettings.protectSubscriptions;
+    final slivers = <Widget>[];
+    for (final sub in subscriptions) {
+      slivers.addAll(_subscriptionSliversFor(sub, protectSubscriptions));
+    }
+    return slivers;
   }
 
-  Widget _subscriptionBlock(ServerSubscription sub, int reorderIndex) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _buildSubscriptionHeader(sub, reorderIndex),
-        if (!_controller.isSubscriptionCollapsed(sub.id))
-          _subscriptionNodeList(sub),
-      ],
+  List<Widget> _subscriptionSliversFor(
+    ServerSubscription sub,
+    bool protectSubscriptions,
+  ) {
+    final collapsed = _controller.isSubscriptionCollapsed(sub.id);
+    final out = <Widget>[
+      SliverToBoxAdapter(
+        key: ValueKey('subscription-header:${sub.id}'),
+        child: _buildSubscriptionHeader(sub),
+      ),
+    ];
+    if (collapsed) return out;
+
+    final visible = _controller.visibleSubscriptionServers(sub);
+    if (visible.isEmpty) return out;
+
+    out.add(const SliverToBoxAdapter(child: SizedBox(height: 8)));
+    out.add(
+      SliverList(
+        key: ValueKey('subscription-list:${sub.id}'),
+        delegate: SliverChildBuilderDelegate(
+          (context, index) {
+            final server = visible[index];
+            return Padding(
+              key: ValueKey('${sub.id}:${server.id}'),
+              padding: EdgeInsets.only(
+                bottom: index < visible.length - 1 ? 6 : 0,
+              ),
+              child: _buildNodeTile(
+                server,
+                protectSubscriptionActions: protectSubscriptions,
+              ),
+            );
+          },
+          childCount: visible.length,
+          addAutomaticKeepAlives: false,
+        ),
+      ),
     );
+    return out;
   }
 
   Widget _emptyState(VoidTokens t, AppLocalizations l) {
@@ -866,9 +1078,78 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildSubscriptionHeader(ServerSubscription sub, int reorderIndex) {
+  void _enterSubscriptionsMoveMode() {
+    HapticFeedback.mediumImpact();
+    setState(() => _subscriptionsMoveMode = true);
+  }
+
+  void _exitSubscriptionsMoveMode() {
+    if (!_subscriptionsMoveMode) return;
+    setState(() => _subscriptionsMoveMode = false);
+  }
+
+  Widget _buildMoveModeHeader(ServerSubscription sub) {
     final l = AppLocalizations.of(context);
-    final isScanning = _controller.isScanningSubscription(sub.id);
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: VoidSubscriptionHeader(
+        name: sub.name,
+        meta: l.subscriptionMetaLine(
+          _subscriptionExpiryLabel(l, sub),
+          _controller.visibleSubscriptionServers(sub).length,
+        ),
+        traffic: _subscriptionTrafficLabel(sub),
+        expanded: false,
+        onToggle: _exitSubscriptionsMoveMode,
+        actions: [
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Icon(
+              Icons.drag_indicator_rounded,
+              size: 18,
+              color: VoidTokens.of(context).fg2,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _moveModeFooter() {
+    final t = VoidTokens.of(context);
+    final l = AppLocalizations.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(top: 16, bottom: 4),
+      child: Center(
+        child: Material(
+          color: t.surface,
+          borderRadius: BorderRadius.circular(10),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(10),
+            onTap: _exitSubscriptionsMoveMode,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 18,
+                vertical: 10,
+              ),
+              child: Text(
+                l.done.toUpperCase(),
+                style: VoidType.mono(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.6,
+                  color: t.fg1,
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSubscriptionHeader(ServerSubscription sub) {
+    final l = AppLocalizations.of(context);
     final isRefreshing = _controller.isRefreshingSubscription(sub.id);
     final protectSubscriptions =
         _controller.subscriptionProviderSettings.protectSubscriptions;
@@ -879,37 +1160,57 @@ class _HomeScreenState extends State<HomeScreen> {
         name: sub.name,
         meta: l.subscriptionMetaLine(
           _subscriptionExpiryLabel(l, sub),
-          sub.servers.length,
+          _controller.visibleSubscriptionServers(sub).length,
         ),
         traffic: _subscriptionTrafficLabel(sub),
         expanded: !collapsed,
         onToggle: () =>
             _controller.setSubscriptionCollapsed(sub.id, !collapsed),
-        textBuilder: (textBlock) => ReorderableDelayedDragStartListener(
-          index: reorderIndex,
+        textBuilder: (textBlock) => GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onLongPress: _controller.subscriptions.length > 1
+              ? _enterSubscriptionsMoveMode
+              : null,
           child: textBlock,
         ),
         actions: [
-          VoidIconActionButton(
-            icon: Icons.refresh_rounded,
-            busy: isRefreshing,
-            tooltip: l.tooltipUpdateSubscription,
-            onTap: isRefreshing || isScanning
-                ? null
-                : () => _refreshSubscription(sub),
+          ValueListenableBuilder<int>(
+            valueListenable: _controller.subscriptionScanTickListenable,
+            builder: (context, tick, _) {
+              final isScanning = _controller.isScanningSubscription(sub.id);
+              return VoidIconActionButton(
+                icon: Icons.refresh_rounded,
+                busy: isRefreshing,
+                tooltip: l.tooltipUpdateSubscription,
+                onTap: isRefreshing || isScanning
+                    ? null
+                    : () => _refreshSubscription(sub),
+              );
+            },
           ),
-          VoidIconActionButton(
-            icon: Icons.network_ping_rounded,
-            busy: isScanning,
-            tooltip: l.tooltipScanPing,
-            onTap: isScanning || isRefreshing
-                ? null
-                : () => _controller.scanSubscriptionLatencies(sub.id),
+          ValueListenableBuilder<int>(
+            valueListenable: _controller.subscriptionScanTickListenable,
+            builder: (context, tick, _) {
+              final isScanning = _controller.isScanningSubscription(sub.id);
+              return VoidIconActionButton(
+                icon: Icons.network_ping_rounded,
+                busy: isScanning,
+                tooltip: l.tooltipScanPing,
+                onTap: isScanning || isRefreshing
+                    ? null
+                    : () => _controller.scanSubscriptionLatencies(sub.id),
+              );
+            },
           ),
           _SubMenuButton(
             protectSubscriptions: protectSubscriptions,
+            hideNaServers: sub.hideNaServers,
             onShareEncrypted: () => _shareSubscriptionAsEncryptedCode(sub),
             onEdit: () => _editSubscription(sub),
+            onToggleHideNa: () => _controller.setSubscriptionHideNaServers(
+              sub.id,
+              !sub.hideNaServers,
+            ),
             onDelete: () => _confirmAndDeleteSubscription(sub),
           ),
         ],
@@ -917,103 +1218,24 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _subscriptionNodeList(ServerSubscription sub) {
-    final protectSubscriptions =
-        _controller.subscriptionProviderSettings.protectSubscriptions;
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: List<Widget>.generate(sub.servers.length, (index) {
-          final server = sub.servers[index];
-          return Padding(
-            key: ValueKey('${sub.id}:${server.id}'),
-            padding: EdgeInsets.only(
-              bottom: index < sub.servers.length - 1 ? 6 : 0,
-            ),
-            child: _buildSwipeableNode(
-              server,
-              protectSubscriptionActions: protectSubscriptions,
-            ),
-          );
-        }),
-      ),
-    );
-  }
-
-  Widget _buildSwipeableNode(
+  Widget _buildNodeTile(
     ServerConfig server, {
     bool protectSubscriptionActions = false,
   }) {
-    final t = VoidTokens.of(context);
     final isSelected = _controller.selectedName == server.name;
     final isExitNode = _controller.isExitNode(server.name);
-    final hasPreset = _controller.hasExplicitRoutingPresetForServer(
-      server.name,
-    );
     final preset = _controller.explicitRoutingPresetForServer(server.name);
-
-    final frame = _NodeSwipeFrame(
-      key: ValueKey('slidable:${server.name}'),
-      radius: _nodeRadius,
-      extentRatio: _nodeSlidableExtentRatio,
-      openThreshold: _nodeSlidableOpenThreshold,
-      closeThreshold: _nodeSlidableCloseThreshold,
-      startColor: t.fg1,
-      endColor: t.error,
-      startActionEnabled: !protectSubscriptionActions,
-      startAction: _SwipeActionButton(
-        backgroundColor: t.fg1,
-        foregroundColor: t.bg,
-        borderColor: t.fg1,
-        borderRadius: const BorderRadius.horizontal(
-          left: Radius.circular(_nodeRadius),
-        ),
-        icon: Icons.share_rounded,
-        onPressed: () =>
-            _handleServerMenuAction(server, _ServerMenuAction.share),
-      ),
-      endAction: _SwipeActionButton(
-        backgroundColor: t.error,
-        foregroundColor: Colors.white,
-        borderColor: t.error,
-        borderRadius: const BorderRadius.horizontal(
-          right: Radius.circular(_nodeRadius),
-        ),
-        icon: Icons.delete_rounded,
-        onPressed: () =>
-            _handleServerMenuAction(server, _ServerMenuAction.remove),
-      ),
-      child: NodeRow(
-        name: server.name,
-        protocol: server.protocol,
-        transport: server.transport.wireName,
-        ping: NodePingTone.shortLabel(server.ping),
-        pingTone: NodePingTone.fromRaw(server.ping),
-        selected: isSelected,
-        pinned: server.isPinned,
-        exit: isExitNode,
-        insecure: server.tlsInsecure,
-        preset: hasPreset ? preset?.name : null,
-        onTap: () => _controller.selectServer(server.name),
-        trailing: _NodeMenuButton(
-          isPinned: server.isPinned,
-          isExit: isExitNode,
-          hasPreset: hasPreset,
-          hideEdit: protectSubscriptionActions,
-          onSelected: (action) => _handleServerMenuAction(server, action),
-        ),
-      ),
-    );
-    // Fade-in on first build of each row. Was `flutter_animate`'s
-    // `.fadeIn(duration: 180.ms)` — replaced with a one-shot
-    // TweenAnimationBuilder so the flutter_animate dependency can be
-    // dropped from pubspec.yaml entirely.
-    return TweenAnimationBuilder<double>(
-      tween: Tween<double>(begin: 0.0, end: 1.0),
-      duration: const Duration(milliseconds: 180),
-      builder: (context, value, child) => Opacity(opacity: value, child: child),
-      child: frame,
+    return ServerNodeTile(
+      key: ValueKey('tile:${server.name}'),
+      controller: _controller,
+      server: server,
+      isSelected: isSelected,
+      isExitNode: isExitNode,
+      hasPreset: preset != null,
+      presetName: preset?.name,
+      protectSubscriptionActions: protectSubscriptionActions,
+      onTap: () => _controller.selectServer(server.name),
+      onMenuAction: (action) => _handleServerMenuAction(server, action),
     );
   }
 
@@ -1070,213 +1292,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class _NodeSwipeFrame extends StatefulWidget {
-  const _NodeSwipeFrame({
-    super.key,
-    required this.radius,
-    required this.extentRatio,
-    required this.openThreshold,
-    required this.closeThreshold,
-    required this.startColor,
-    required this.endColor,
-    this.startActionEnabled = true,
-    required this.startAction,
-    required this.endAction,
-    required this.child,
-  });
-
-  final double radius;
-  final double extentRatio;
-  final double openThreshold;
-  final double closeThreshold;
-  final Color startColor;
-  final Color endColor;
-  final bool startActionEnabled;
-  final Widget startAction;
-  final Widget endAction;
-  final Widget child;
-
-  @override
-  State<_NodeSwipeFrame> createState() => _NodeSwipeFrameState();
-}
-
-class _NodeSwipeFrameState extends State<_NodeSwipeFrame>
-    with SingleTickerProviderStateMixin {
-  static const double _dragScale = 0.5;
-
-  late final SlidableController _slidableController;
-  late final Listenable _visuals;
-  double _dragExtent = 0;
-  double _dragStartRatio = 0;
-
-  @override
-  void initState() {
-    super.initState();
-    _slidableController = SlidableController(this);
-    _visuals = Listenable.merge([
-      _slidableController.animation,
-      _slidableController.actionPaneType,
-    ]);
-  }
-
-  @override
-  void dispose() {
-    _slidableController.dispose();
-    super.dispose();
-  }
-
-  @override
-  void didUpdateWidget(covariant _NodeSwipeFrame oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.startActionEnabled && !widget.startActionEnabled) {
-      _slidableController.close();
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final radius = BorderRadius.circular(widget.radius);
-    return AnimatedBuilder(
-      animation: _visuals,
-      builder: (context, _) {
-        return DecoratedBox(
-          decoration: BoxDecoration(
-            color: _actionFillColor(),
-            borderRadius: radius,
-          ),
-          child: ClipRRect(
-            borderRadius: radius,
-            clipBehavior: Clip.antiAlias,
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              dragStartBehavior: DragStartBehavior.start,
-              onHorizontalDragStart: _handleDragStart,
-              onHorizontalDragUpdate: _handleDragUpdate,
-              onHorizontalDragEnd: _handleDragEnd,
-              child: Slidable(
-                controller: _slidableController,
-                enabled: false,
-                groupTag: 'servers',
-                closeOnScroll: true,
-                startActionPane: widget.startActionEnabled
-                    ? ActionPane(
-                        motion: const BehindMotion(),
-                        extentRatio: widget.extentRatio,
-                        openThreshold: widget.openThreshold,
-                        closeThreshold: widget.closeThreshold,
-                        children: [widget.startAction],
-                      )
-                    : null,
-                endActionPane: ActionPane(
-                  motion: const BehindMotion(),
-                  extentRatio: widget.extentRatio,
-                  openThreshold: widget.openThreshold,
-                  closeThreshold: widget.closeThreshold,
-                  children: [widget.endAction],
-                ),
-                child: widget.child,
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Color _actionFillColor() {
-    if (_slidableController.animation.value <= 0.001) {
-      return Colors.transparent;
-    }
-    if (!widget.startActionEnabled &&
-        _slidableController.actionPaneType.value == ActionPaneType.start) {
-      return Colors.transparent;
-    }
-    return switch (_slidableController.actionPaneType.value) {
-      ActionPaneType.start => widget.startColor,
-      ActionPaneType.end => widget.endColor,
-      ActionPaneType.none => Colors.transparent,
-    };
-  }
-
-  void _handleDragStart(DragStartDetails details) {
-    final width = _dragWidth;
-    _dragStartRatio = _slidableController.ratio;
-    _dragExtent = _dragStartRatio * width;
-  }
-
-  void _handleDragUpdate(DragUpdateDetails details) {
-    final width = _dragWidth;
-    _dragExtent += (details.primaryDelta ?? 0) * _dragScale;
-    final maxRatio = widget.startActionEnabled ? widget.extentRatio : 0.0;
-    final nextRatio = (_dragExtent / width)
-        .clamp(-widget.extentRatio, maxRatio)
-        .toDouble();
-    _slidableController.ratio = nextRatio;
-  }
-
-  void _handleDragEnd(DragEndDetails details) {
-    final ratio = _slidableController.ratio;
-    final absRatio = ratio.abs();
-    final wasOpen = _dragStartRatio.abs() > widget.closeThreshold;
-    final shouldOpen = wasOpen
-        ? absRatio > widget.closeThreshold
-        : absRatio >= widget.openThreshold;
-
-    if (shouldOpen && ratio != 0) {
-      _slidableController.openTo(widget.extentRatio * ratio.sign);
-    } else {
-      _slidableController.close();
-    }
-  }
-
-  double get _dragWidth {
-    final width = context.size?.width ?? 1;
-    return width <= 0 ? 1 : width;
-  }
-}
-
-class _SwipeActionButton extends StatelessWidget {
-  const _SwipeActionButton({
-    required this.backgroundColor,
-    required this.foregroundColor,
-    required this.borderColor,
-    required this.borderRadius,
-    required this.icon,
-    required this.onPressed,
-  });
-
-  final Color backgroundColor;
-  final Color foregroundColor;
-  final Color borderColor;
-  final BorderRadius borderRadius;
-  final IconData icon;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: Material(
-        color: Colors.transparent,
-        child: Ink(
-          decoration: BoxDecoration(
-            color: backgroundColor,
-            border: Border.all(color: borderColor),
-            borderRadius: borderRadius,
-          ),
-          child: InkWell(
-            borderRadius: borderRadius,
-            onTap: () {
-              onPressed();
-              Slidable.of(context)?.close();
-            },
-            child: Center(child: Icon(icon, color: foregroundColor, size: 18)),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 class _ScanButton extends StatelessWidget {
   const _ScanButton({required this.busy, required this.onTap});
 
@@ -1294,86 +1309,53 @@ class _ScanButton extends StatelessWidget {
   }
 }
 
-class _NodeMenuButton extends StatelessWidget {
-  const _NodeMenuButton({
-    required this.isPinned,
-    required this.isExit,
-    required this.hasPreset,
-    required this.hideEdit,
-    required this.onSelected,
-  });
+class _SearchButton extends StatelessWidget {
+  const _SearchButton({required this.onTap});
 
-  final bool isPinned;
-  final bool isExit;
-  final bool hasPreset;
-  final bool hideEdit;
-  final ValueChanged<_ServerMenuAction> onSelected;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    final t = VoidTokens.of(context);
-    final l = AppLocalizations.of(context);
-    final itemStyle = VoidType.sans(
-      fontSize: 13,
-      fontWeight: FontWeight.w500,
-      color: t.fg1,
-    );
-    return PopupMenuButton<_ServerMenuAction>(
-      tooltip: '',
-      padding: EdgeInsets.zero,
-      position: PopupMenuPosition.under,
-      color: t.surface,
-      surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(10),
-        side: BorderSide(color: t.border),
-      ),
-      onSelected: onSelected,
-      icon: Icon(Icons.more_horiz_rounded, color: t.fg2, size: 16),
-      itemBuilder: (_) => <PopupMenuEntry<_ServerMenuAction>>[
-        if (!hideEdit) ...[
-          PopupMenuItem<_ServerMenuAction>(
-            value: _ServerMenuAction.edit,
-            child: Text(l.serverMenuEdit, style: itemStyle),
-          ),
-          const PopupMenuDivider(),
-        ],
-        PopupMenuItem<_ServerMenuAction>(
-          value: _ServerMenuAction.toggleFavorite,
-          child: Text(
-            isPinned ? l.serverMenuRemoveFavorite : l.serverMenuAddFavorite,
-            style: itemStyle,
-          ),
-        ),
-        PopupMenuItem<_ServerMenuAction>(
-          value: _ServerMenuAction.toggleExitNode,
-          child: Text(
-            isExit ? l.serverMenuResetExitNode : l.serverMenuSetExitNode,
-            style: itemStyle,
-          ),
-        ),
-        PopupMenuItem<_ServerMenuAction>(
-          value: _ServerMenuAction.assignRoutingPreset,
-          child: Text(l.serverMenuRulePreset, style: itemStyle),
-        ),
-      ],
+    return VoidIconActionButton(
+      icon: Icons.search_rounded,
+      tooltip: AppLocalizations.of(context).tooltipSearchNodes,
+      onTap: onTap,
     );
   }
 }
 
-enum _SubMenuAction { shareEncrypted, edit, delete }
+class _CloseSearchButton extends StatelessWidget {
+  const _CloseSearchButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return VoidIconActionButton(
+      icon: Icons.close_rounded,
+      tooltip: AppLocalizations.of(context).tooltipCloseSearch,
+      onTap: onTap,
+    );
+  }
+}
+
+enum _SubMenuAction { shareEncrypted, edit, toggleHideNa, delete }
 
 class _SubMenuButton extends StatelessWidget {
   const _SubMenuButton({
     required this.protectSubscriptions,
+    required this.hideNaServers,
     required this.onShareEncrypted,
     required this.onEdit,
+    required this.onToggleHideNa,
     required this.onDelete,
   });
 
   final bool protectSubscriptions;
+  final bool hideNaServers;
   final VoidCallback onShareEncrypted;
   final VoidCallback onEdit;
+  final VoidCallback onToggleHideNa;
   final VoidCallback onDelete;
 
   @override
@@ -1403,17 +1385,17 @@ class _SubMenuButton extends StatelessWidget {
           case _SubMenuAction.edit:
             onEdit();
             break;
+          case _SubMenuAction.toggleHideNa:
+            onToggleHideNa();
+            break;
           case _SubMenuAction.delete:
             onDelete();
             break;
         }
       },
       itemBuilder: (_) => <PopupMenuEntry<_SubMenuAction>>[
-        PopupMenuItem<_SubMenuAction>(
-          value: _SubMenuAction.shareEncrypted,
-          child: Text(l.subscriptionShareEncrypted, style: itemStyle),
-        ),
-        const PopupMenuDivider(),
+        // Encrypted-link sharing is hidden from the UI for now; the underlying
+        // encode/share plumbing is kept intact for future use.
         if (!protectSubscriptions) ...[
           PopupMenuItem<_SubMenuAction>(
             value: _SubMenuAction.edit,
@@ -1421,6 +1403,13 @@ class _SubMenuButton extends StatelessWidget {
           ),
           const PopupMenuDivider(),
         ],
+        PopupMenuItem<_SubMenuAction>(
+          value: _SubMenuAction.toggleHideNa,
+          child: Text(
+            hideNaServers ? l.subscriptionShowNa : l.subscriptionHideNa,
+            style: itemStyle,
+          ),
+        ),
         PopupMenuItem<_SubMenuAction>(
           value: _SubMenuAction.delete,
           child: Text(l.delete, style: itemStyle),

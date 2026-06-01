@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:voidtunnel/theme.dart';
+import 'package:voidlex/theme.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

@@ -9,7 +9,10 @@ import 'package:flutter/services.dart';
 import 'app_log.dart';
 import 'app_message_code.dart';
 import 'app_routing.dart';
+import 'bounded_json.dart';
+import 'connection_policy_settings.dart';
 import 'deep_link_channel.dart';
+import 'deep_link_handler.dart';
 import 'dev_servers.dart';
 import 'device_identity.dart';
 import 'geo_data.dart';
@@ -17,10 +20,12 @@ import 'installed_apps.dart';
 import 'models/server_config.dart';
 import 'models/server_subscription.dart';
 import 'multiplex_settings.dart';
+import 'ping_label.dart';
 import 'profile_exporter.dart';
 import 'profile_importer.dart';
 import 'routing_preset.dart';
 import 'routing_rule.dart';
+import 'run_mode.dart';
 import 'server_importer.dart';
 import 'server_latency_probe.dart';
 import 'server_repository.dart';
@@ -80,7 +85,7 @@ class VpnController extends ChangeNotifier {
        _installedAppsBridge =
            installedAppsBridge ?? const InstalledAppsBridge() {
     _bindEventChannel();
-    _bindDeepLinkChannel();
+    _bindSpeedChannel();
     _bindGeoDataProgressChannel();
   }
 
@@ -106,6 +111,8 @@ class VpnController extends ChangeNotifier {
   // after a silent reconnect — still reaches the UI.
   static const Duration _disconnectSuppressionWindow = Duration(seconds: 3);
   static const Duration _disconnectFallbackTimeout = Duration(seconds: 5);
+  static const Duration _deepLinkDedupeWindow = Duration(seconds: 2);
+  static const Duration _deepLinkRulesetTimeout = Duration(seconds: 12);
   static const Duration _androidVpnRestartStopTimeout = Duration(seconds: 5);
   static const Duration _androidVpnPostStopSettleDelay = Duration(
     milliseconds: 500,
@@ -123,11 +130,18 @@ class VpnController extends ChangeNotifier {
   static const int _externalIpProxyPort = 10809;
 
   static const MethodChannel _methodChannel = MethodChannel(
-    'org.voidtunnel.vpn/service',
+    'org.voidlex.vpn/service',
   );
   static const EventChannel _eventChannel = EventChannel(
-    'org.voidtunnel.vpn/state',
+    'org.voidlex.vpn/state',
   );
+  static const EventChannel _speedChannel = EventChannel(
+    'org.voidlex.vpn/speed',
+  );
+
+  /// Number of throughput samples kept for the sparkline history.
+  /// 24 ticks × 1 s = 24 seconds visible at a glance.
+  static const int _throughputHistoryLength = 24;
 
   final ServerRepository _repository;
 
@@ -143,8 +157,28 @@ class VpnController extends ChangeNotifier {
   final InstalledAppsBridge _installedAppsBridge;
   final ServerLatencyProbe _latencyProbe = const ServerLatencyProbe();
   StreamSubscription<dynamic>? _eventSub;
+  StreamSubscription<dynamic>? _speedSub;
   StreamSubscription<String>? _deepLinkSub;
   StreamSubscription<GeoDataDownloadProgress>? _geoDataProgressSub;
+
+  // Latest instantaneous throughput sample pushed from the native VPN
+  // service. Both are bytes/sec. Zero when the tunnel is down or the
+  // very first sample hasn't arrived yet.
+  double _downloadBps = 0;
+  double _uploadBps = 0;
+  // Rolling history of the last [_throughputHistoryLength] samples.
+  // Indexed oldest → newest. Read by the TV throughput sparkline so it
+  // can render real per-second tunnel activity instead of a sin/cos
+  // mock. Each entry is a (down, up) tuple expressed as a list so the
+  // history payload stays trivially const-copyable.
+  final List<double> _downloadHistory = List<double>.filled(
+    _throughputHistoryLength,
+    0,
+  );
+  final List<double> _uploadHistory = List<double>.filled(
+    _throughputHistoryLength,
+    0,
+  );
   Timer? _connectTimeoutTimer;
   Timer? _disconnectTimeoutTimer;
   Timer? _connectionTicker;
@@ -162,6 +196,28 @@ class VpnController extends ChangeNotifier {
   final ValueNotifier<VpnConnectionState> _connectionStateNotifier =
       ValueNotifier(VpnConnectionState.disconnected);
   final ValueNotifier<int> _latencyScanTick = ValueNotifier<int>(0);
+  final ValueNotifier<bool> _isScanningLatencyNotifier = ValueNotifier(false);
+  final ValueNotifier<int> _subscriptionScanTick = ValueNotifier(0);
+  // Per-server ping notifier, keyed by normalized server name. Lets each
+  // NodePingBadge listen to its own server's value so a batch update of 4
+  // servers rebuilds 4 widgets — not every badge on the screen.
+  final Map<String, ValueNotifier<String>> _pingNotifiers =
+      <String, ValueNotifier<String>>{};
+  // Bumped only when HomeScreen's list composition / order / visibility could
+  // change. The list body's ValueListenableBuilder rebuilds on this signal
+  // instead of subscribing to the entire controller.
+  final ValueNotifier<int> _homeListRevision = ValueNotifier<int>(0);
+  // Narrow notifiers for the currently-selected server and the bridge-mode
+  // exit node. Per-row widgets subscribe to these so tap-to-select only
+  // rebuilds two rows (old + new), never the whole list.
+  final ValueNotifier<String?> _selectedNameNotifier =
+      ValueNotifier<String?>(null);
+  final ValueNotifier<String?> _exitNodeNameNotifier =
+      ValueNotifier<String?>(null);
+  String? _lastObservedSelectedName;
+  String? _lastObservedExitNodeName;
+  int _lastObservedServerMembership = 0;
+  int _activePingScanCount = 0;
 
   final List<ServerConfig> _servers = [];
   final List<ServerSubscription> _subscriptions = [];
@@ -185,6 +241,11 @@ class VpnController extends ChangeNotifier {
   final List<RoutingPreset> _routingPresets = [];
   String _selectedRoutingPresetId = RoutingPreset.mainId;
   String? _routingPresetWarning;
+  String? _deepLinkNotice;
+  Future<void>? _deepLinkChain;
+  String? _lastDeepLinkFingerprint;
+  DateTime? _lastDeepLinkAt;
+  String? _consumedInitialDeepLink;
   VpnConnectionState _connectionState = VpnConnectionState.disconnected;
   String? _lastError;
   bool _acceptConnectedEvent = false;
@@ -212,6 +273,13 @@ class VpnController extends ChangeNotifier {
   TunnelNetworkSettings _tunnelNetworkSettings = TunnelNetworkSettings.defaults;
   SubscriptionProviderSettings _subscriptionProviderSettings =
       SubscriptionProviderSettings.defaults;
+  bool _killSwitchEnabled = false;
+  RunMode _runMode = RunMode.tun;
+  bool _hotspotBindEnabled = false;
+  bool _httpProxyAuthEnabled = false;
+  bool _sniffingRouteOnly = true;
+  ConnectionPolicySettings _connectionPolicy =
+      ConnectionPolicySettings.defaults;
   String? _activeProxyUser;
   String? _activeProxyPassword;
   String? _cachedSubscriptionHwid;
@@ -288,7 +356,90 @@ class VpnController extends ChangeNotifier {
   @override
   void notifyListeners() {
     _viewVersion++;
+    if (_selectedName != _lastObservedSelectedName) {
+      _lastObservedSelectedName = _selectedName;
+      _selectedNameNotifier.value = _selectedName;
+    }
+    if (_exitNodeName != _lastObservedExitNodeName) {
+      _lastObservedExitNodeName = _exitNodeName;
+      _exitNodeNameNotifier.value = _exitNodeName;
+    }
+    // Prune ping notifiers when the inventory fingerprint changes — covers
+    // additions, removals, reorders, renames, and same-size subscription
+    // refreshes (a plain count missed renames and add+remove-in-one-pass, so
+    // a renamed node leaked its old notifier). The fingerprint is integer-only
+    // and allocates nothing, keeping it clear of the per-second notifyListeners
+    // hot path; the O(n) prune itself only runs on an actual change.
+    final membership = _serverMembershipSignature();
+    if (membership != _lastObservedServerMembership) {
+      _lastObservedServerMembership = membership;
+      _pruneStalePingNotifiers();
+    }
+    _homeListRevision.value++;
     super.notifyListeners();
+  }
+
+  int _serverMembershipSignature() {
+    var signature = _servers.length * 31 + _subscriptions.length;
+    for (final server in _servers) {
+      signature = 0x3fffffff & (signature * 31 + server.name.hashCode);
+    }
+    for (final subscription in _subscriptions) {
+      for (final server in subscription.servers) {
+        signature = 0x3fffffff & (signature * 31 + server.name.hashCode);
+      }
+    }
+    return signature;
+  }
+
+  /// Bumped when the HomeScreen list (favorites/manual/subscriptions/search)
+  /// composition or order may have changed. Cheap signal for the list body
+  /// to rebuild without subscribing to the entire controller.
+  ValueListenable<int> get homeListRevisionListenable => _homeListRevision;
+  ValueListenable<String?> get selectedNameListenable => _selectedNameNotifier;
+  ValueListenable<String?> get exitNodeNameListenable => _exitNodeNameNotifier;
+
+  /// Returns a [ValueListenable] that emits the current ping label for
+  /// [serverName] and updates whenever a latency scan reports a new value
+  /// for it. Lazy-created on first access; cleared in [dispose] and when
+  /// the underlying server disappears.
+  ValueListenable<String> pingListenableFor(String serverName) {
+    final key = RoutingPreset.normalizeServerName(serverName) ?? serverName;
+    return _pingNotifiers.putIfAbsent(
+      key,
+      () => ValueNotifier<String>(pingForServer(serverName)),
+    );
+  }
+
+  void _publishPing(String serverName, String ping) {
+    final key = RoutingPreset.normalizeServerName(serverName) ?? serverName;
+    final existing = _pingNotifiers[key];
+    if (existing != null) {
+      existing.value = ping;
+    }
+  }
+
+  void _pruneStalePingNotifiers() {
+    if (_pingNotifiers.isEmpty) return;
+    final alive = <String>{};
+    for (final server in _servers) {
+      final key = RoutingPreset.normalizeServerName(server.name) ?? server.name;
+      alive.add(key);
+    }
+    for (final subscription in _subscriptions) {
+      for (final server in subscription.servers) {
+        final key =
+            RoutingPreset.normalizeServerName(server.name) ?? server.name;
+        alive.add(key);
+      }
+    }
+    final stale = <String>[];
+    for (final entry in _pingNotifiers.entries) {
+      if (!alive.contains(entry.key)) stale.add(entry.key);
+    }
+    for (final key in stale) {
+      _pingNotifiers.remove(key)?.dispose();
+    }
   }
 
   String? get selectedName => _selectedName;
@@ -323,6 +474,12 @@ class VpnController extends ChangeNotifier {
   TunnelNetworkSettings get tunnelNetworkSettings => _tunnelNetworkSettings;
   SubscriptionProviderSettings get subscriptionProviderSettings =>
       _subscriptionProviderSettings;
+  bool get killSwitchEnabled => _killSwitchEnabled;
+  RunMode get runMode => _runMode;
+  bool get hotspotBindEnabled => _hotspotBindEnabled;
+  bool get httpProxyAuthEnabled => _httpProxyAuthEnabled;
+  bool get sniffingRouteOnly => _sniffingRouteOnly;
+  ConnectionPolicySettings get connectionPolicy => _connectionPolicy;
 
   Future<String> exportProfileAsJsonString({DateTime? exportedAt}) async {
     final protect = _subscriptionProviderSettings.protectSubscriptions;
@@ -344,7 +501,7 @@ class VpnController extends ChangeNotifier {
     );
   }
 
-  /// Encodes [subscription] as a `voidtunnel://1/...` shareable code.
+  /// Encodes [subscription] as a `voidlex://1/...` shareable code.
   Future<String> encodeSubscriptionAsLink(ServerSubscription subscription) {
     return _linkCodec.encode(url: subscription.url, name: subscription.name);
   }
@@ -389,6 +546,36 @@ class VpnController extends ChangeNotifier {
   /// Resolved public IP when connected; otherwise null.
   String? get externalIpIfResolved => _externalIp;
 
+  /// Latest instantaneous tunnel download speed in bytes/second.
+  /// Zero while disconnected or before the first sample arrives.
+  double get downloadBps => _downloadBps;
+
+  /// Latest instantaneous tunnel upload speed in bytes/second.
+  double get uploadBps => _uploadBps;
+
+  /// Rolling history of download samples (oldest → newest), one entry
+  /// per second, length [_throughputHistoryLength]. Safe to read from
+  /// the UI layer — the returned list is an unmodifiable view backed
+  /// by the controller's internal buffer.
+  List<double> get downloadBpsHistory =>
+      List<double>.unmodifiable(_downloadHistory);
+
+  /// Rolling history of upload samples. See [downloadBpsHistory].
+  List<double> get uploadBpsHistory =>
+      List<double>.unmodifiable(_uploadHistory);
+
+  /// Renders [bps] as a compact human-readable rate matching the
+  /// foreground-notification format ("0 B/s", "12.7 KB/s", "1.42
+  /// MB/s"). Pinned to ASCII numerics — no locale separators.
+  static String formatBpsLabel(double bps) {
+    if (!bps.isFinite || bps <= 0) return '0 B/s';
+    if (bps < 1000) return '${bps.toInt()} B/s';
+    final kb = bps / 1000;
+    if (kb < 1000) return '${kb.toStringAsFixed(1)} KB/s';
+    final mb = kb / 1000;
+    return '${mb.toStringAsFixed(2)} MB/s';
+  }
+
   /// True while connected and the first external-IP lookup has not started.
   bool get isResolvingExternalIp =>
       isConnected && _externalIp == null && !_hasExternalIpAttempt;
@@ -408,6 +595,27 @@ class VpnController extends ChangeNotifier {
   // itself is opaque — it exists so the latency-affected widgets can listen
   // without subscribing to the whole controller.
   ValueListenable<int> get latencyScanTickListenable => _latencyScanTick;
+  ValueListenable<bool> get isScanningLatencyListenable =>
+      _isScanningLatencyNotifier;
+  /// Bumped when [_scanningSubscriptionIds] changes so subscription header
+  /// scan buttons can refresh without a full [notifyListeners] pass.
+  ValueListenable<int> get subscriptionScanTickListenable =>
+      _subscriptionScanTick;
+
+  /// Latest ping label for [name], including values still in [_pingBuffer].
+  String pingForServer(String name) {
+    final buffered = _pingBuffer[name];
+    if (buffered != null) return buffered;
+    for (final server in _servers) {
+      if (_serverNameEquals(server.name, name)) return server.ping;
+    }
+    for (final subscription in _subscriptions) {
+      for (final server in subscription.servers) {
+        if (_serverNameEquals(server.name, name)) return server.ping;
+      }
+    }
+    return '--';
+  }
   bool isExitNode(String serverId) =>
       _exitNodeName != null && _serverNameEquals(_exitNodeName, serverId);
   bool hasExplicitRoutingPresetForServer(String serverName) =>
@@ -437,6 +645,14 @@ class VpnController extends ChangeNotifier {
     final warning = _routingPresetWarning;
     _routingPresetWarning = null;
     return warning;
+  }
+
+  /// One-shot user-visible outcome from the last deep-link import/ruleset
+  /// action. Consumed by [HomeScreen] the same way as routing warnings.
+  String? consumeDeepLinkNotice() {
+    final notice = _deepLinkNotice;
+    _deepLinkNotice = null;
+    return notice;
   }
 
   RoutingPreset get _activeRoutingPreset {
@@ -640,10 +856,12 @@ class VpnController extends ChangeNotifier {
     _verboseXrayLogs = snapshot.verboseXrayLogs;
     await const AppLogBridge().setRetention(_logRetention);
     _showSpeedInNotification = _repository.loadShowSpeedInNotification();
-    if (!_showGlobalProxyButton && _isGlobalProxy) {
-      _isGlobalProxy = false;
-      await _repository.saveGlobalProxy(false);
-    }
+    // Note: we intentionally no longer reset _isGlobalProxy to false when
+    // _showGlobalProxyButton is off. The home-screen widget is a separate
+    // entry point for enabling global mode; resetting here would silently
+    // clobber whatever the widget wrote between Flutter sessions. The
+    // in-app pill visibility is still gated by _showGlobalProxyButton via
+    // its conditional render in home_screen.dart.
     _routingPresets
       ..clear()
       ..addAll(_sanitizeRoutingPresets(snapshot.routingPresets));
@@ -663,6 +881,12 @@ class VpnController extends ChangeNotifier {
     _multiplexSettings = snapshot.multiplexSettings;
     _tunnelNetworkSettings = snapshot.tunnelNetworkSettings;
     _subscriptionProviderSettings = snapshot.subscriptionProviderSettings;
+    _killSwitchEnabled = snapshot.killSwitchEnabled;
+    _runMode = snapshot.runMode;
+    _hotspotBindEnabled = snapshot.hotspotBindEnabled;
+    _httpProxyAuthEnabled = snapshot.httpProxyAuthEnabled;
+    _sniffingRouteOnly = snapshot.sniffingRouteOnly;
+    _connectionPolicy = snapshot.connectionPolicy;
     await _restoreNativeRuntimeState();
     await _pushActiveLogLevelsToNative();
     _scheduleSubscriptionAutoRefresh();
@@ -670,6 +894,8 @@ class VpnController extends ChangeNotifier {
     if (_subscriptionProviderSettings.updateOnLaunch) {
       unawaited(_refreshSubscriptionsAfterLaunch());
     }
+    await _processInitialDeepLink();
+    _bindDeepLinkChannel();
   }
 
   Future<void> _refreshSubscriptionsAfterLaunch() async {
@@ -1972,8 +2198,10 @@ class VpnController extends ChangeNotifier {
     }
   }
 
-  Future<void> setGlobalProxy(bool value) async {
-    if (value && !_showGlobalProxyButton) return;
+  Future<void> setGlobalProxy(bool value, {bool fromTvHome = false}) async {
+    // The application setting only gates the mobile home widget — the TV
+    // side rail always exposes split/global mode.
+    if (value && !_showGlobalProxyButton && !fromTvHome) return;
     if (_isGlobalProxy == value) return;
     _isGlobalProxy = value;
     await _repository.saveGlobalProxy(value);
@@ -1983,6 +2211,28 @@ class VpnController extends ChangeNotifier {
     if (_hasRestartableNativeSession) {
       await _restartActiveConnection();
     }
+  }
+
+  /// Adopt a globalProxy change that was made by the Android home-screen
+  /// widget. The widget wrote the value to SharedPreferences and already
+  /// restarted the native session — Flutter just needs to refresh its
+  /// in-memory cache so the UI matches and the next session start uses
+  /// the new value.
+  ///
+  /// We intentionally do NOT gate on `_showGlobalProxyButton` here: the
+  /// widget is a separate, explicit user action. If the user has the
+  /// in-app button hidden but added the home-screen widget, they want
+  /// global mode — refusing the update would leave Flutter showing the
+  /// stale (wrong) state and would re-overwrite SharedPreferences on the
+  /// next session start.
+  void _adoptWidgetGlobalProxy(bool value) {
+    if (_isGlobalProxy == value) return;
+    _isGlobalProxy = value;
+    // SharedPreferences was written natively. Reload the cached value so
+    // any later `_repository` read sees what the widget wrote rather than
+    // the stale Flutter cache from app launch.
+    unawaited(_repository.saveGlobalProxy(value));
+    notifyListeners();
   }
 
   Future<void> setRestartConnectionOnSettingsChanges(bool value) async {
@@ -2127,6 +2377,75 @@ class VpnController extends ChangeNotifier {
     await _restartActiveConnection();
   }
 
+  Future<void> setKillSwitchEnabled(bool value) async {
+    if (_killSwitchEnabled == value) return;
+    _killSwitchEnabled = value;
+    await _repository.saveKillSwitchEnabled(value);
+    notifyListeners();
+    if (Platform.isAndroid && _hasRestartableNativeSession) {
+      try {
+        await _methodChannel.invokeMethod<void>('updateKillSwitch', value);
+      } on PlatformException {
+        // Falls back to the next reconnect — the persisted flag still applies.
+      }
+    }
+  }
+
+  Future<void> setRunMode(RunMode mode) async {
+    if (_runMode == mode) return;
+    _runMode = mode;
+    await _repository.saveRunMode(mode);
+    notifyListeners();
+    if (_hasRestartableNativeSession) {
+      await _restartActiveConnection();
+    }
+  }
+
+  Future<void> setHotspotBindEnabled(bool value) async {
+    if (_hotspotBindEnabled == value) return;
+    _hotspotBindEnabled = value;
+    await _repository.saveHotspotBindEnabled(value);
+    notifyListeners();
+    _markNetworkSettingsRestartPending();
+  }
+
+  Future<void> setHttpProxyAuthEnabled(bool value) async {
+    if (_httpProxyAuthEnabled == value) return;
+    _httpProxyAuthEnabled = value;
+    await _repository.saveHttpProxyAuthEnabled(value);
+    notifyListeners();
+    _markNetworkSettingsRestartPending();
+  }
+
+  Future<void> setSniffingRouteOnly(bool value) async {
+    if (_sniffingRouteOnly == value) return;
+    _sniffingRouteOnly = value;
+    await _repository.saveSniffingRouteOnly(value);
+    notifyListeners();
+    _markNetworkSettingsRestartPending();
+  }
+
+  Future<void> setConnectionPolicy(ConnectionPolicySettings settings) async {
+    final normalized = settings.normalized();
+    if (_connectionPolicy.hasSameConfiguration(normalized)) return;
+    _connectionPolicy = normalized;
+    await _repository.saveConnectionPolicy(normalized);
+    notifyListeners();
+    _markNetworkSettingsRestartPending();
+  }
+
+  /// Opens the system "VPN" settings screen on Android so the user can
+  /// enable "Always-on VPN" + "Block connections without VPN" — the OS-
+  /// level boot autoconnect + system kill switch.
+  Future<void> openSystemVpnSettings() async {
+    if (!Platform.isAndroid) return;
+    try {
+      await _methodChannel.invokeMethod<void>('openSystemVpnSettings');
+    } on PlatformException {
+      // No-op: the tile is purely informational, failure is silent.
+    }
+  }
+
   Future<void> setSubscriptionProviderSettings(
     SubscriptionProviderSettings settings,
   ) async {
@@ -2208,6 +2527,31 @@ class VpnController extends ChangeNotifier {
     if (!changed) return;
     await _persistCollapsedSubscriptionIds();
     notifyListeners();
+  }
+
+  Future<void> setSubscriptionHideNaServers(String id, bool hide) async {
+    final index = _subscriptions.indexWhere((subscription) => subscription.id == id);
+    if (index < 0) return;
+    final current = _subscriptions[index];
+    if (current.hideNaServers == hide) return;
+    _subscriptions[index] = current.copyWith(hideNaServers: hide);
+    await _persistSubscriptions();
+    notifyListeners();
+  }
+
+  bool shouldHideServerInSubscription(
+    ServerSubscription sub,
+    ServerConfig server,
+  ) {
+    if (!sub.hideNaServers) return false;
+    if (server.isPinned) return false;
+    return isPingDisplayNa(pingForServer(server.name));
+  }
+
+  List<ServerConfig> visibleSubscriptionServers(ServerSubscription sub) {
+    return sub.servers
+        .where((server) => !shouldHideServerInSubscription(sub, server))
+        .toList(growable: false);
   }
 
   Future<void> setShowGlobalProxyButton(bool value) async {
@@ -2718,6 +3062,7 @@ class VpnController extends ChangeNotifier {
         .toList(growable: false);
     return next.copyWith(
       servers: List.unmodifiable(servers),
+      hideNaServers: current.hideNaServers,
       updateIntervalOverride: current.updateIntervalOverride,
       clearUpdateIntervalOverride: current.updateIntervalOverride == null,
     );
@@ -2812,11 +3157,15 @@ class VpnController extends ChangeNotifier {
     _suppressDisconnectedUntil = null;
     _setState(VpnConnectionState.preparing);
     try {
-      final prepared =
-          await _methodChannel.invokeMethod<bool>('prepareVpn') ?? false;
-      if (!prepared) {
-        _setError(Msg.vpnPermissionDenied);
-        return;
+      // proxyOnly mode runs a foreground service without VpnService.Builder,
+      // so no system VPN permission prompt is needed.
+      if (_runMode == RunMode.tun) {
+        final prepared =
+            await _methodChannel.invokeMethod<bool>('prepareVpn') ?? false;
+        if (!prepared) {
+          _setError(Msg.vpnPermissionDenied);
+          return;
+        }
       }
       _setState(VpnConnectionState.connecting);
       await _invokeStart();
@@ -2903,7 +3252,15 @@ class VpnController extends ChangeNotifier {
     args.addAll(_tunnelFragmentSettings.toNativeArgs());
     args.addAll(_multiplexSettings.toNativeArgs());
     args.addAll(_tunnelNetworkSettings.toNativeArgs());
-    await _methodChannel.invokeMethod<bool>('startVpn', args);
+    args.addAll(_connectionPolicy.toNativeArgs());
+    args['killSwitchEnabled'] = _killSwitchEnabled;
+    args['runMode'] = _runMode.wireName;
+    args['hotspotBindEnabled'] =
+        _hotspotBindEnabled || _runMode == RunMode.proxyOnly;
+    args['httpProxyAuthEnabled'] = _httpProxyAuthEnabled;
+    args['sniffingRouteOnly'] = _sniffingRouteOnly;
+    final method = _runMode == RunMode.proxyOnly ? 'startProxy' : 'startVpn';
+    await _methodChannel.invokeMethod<bool>(method, args);
   }
 
   /// Returns the exit-marked server to bridge through, or null when the
@@ -3053,26 +3410,205 @@ class VpnController extends ChangeNotifier {
   }
 
   // ─── DeepLink wiring ─────────────────────────────────────────────
-  // Drains both the cold-launch URL (if any) and warm events from the
-  // platform-side bridge. Each URL is run through [importServersFromString]
-  // — that path already routes voidtunnel:// codes through the link codec
-  // and falls back to the plain subscription-URL importer if a future
-  // version of the scheme ships a raw https payload.
+  // Warm links arrive on the event stream; the cold-launch URL is drained
+  // once from [DeepLinkChannel.consumeInitial] at the end of [bootstrap].
+  // All handlers run serially via [_enqueueDeepLink] so connect + import
+  // cannot race each other.
   void _bindDeepLinkChannel() {
-    unawaited(() async {
-      final initial = await _deepLinkChannel.consumeInitial();
-      if (initial != null && initial.isNotEmpty) {
-        await importServersFromString(initial);
-      }
-    }());
     _deepLinkSub = _deepLinkChannel.incomingLinks.listen(
       (url) {
-        unawaited(importServersFromString(url));
+        if (url == _consumedInitialDeepLink) return;
+        unawaited(
+          _enqueueDeepLink(() => _dispatchDeepLink(url)),
+        );
       },
       onError: (Object error) {
-        debugPrint('deeplink event stream error: $error');
+        if (kDebugMode) debugPrint('deeplink event stream error: $error');
       },
     );
+  }
+
+  Future<void> _processInitialDeepLink() async {
+    final initial = await _deepLinkChannel.consumeInitial();
+    if (initial == null || initial.isEmpty) return;
+    _consumedInitialDeepLink = initial;
+    await _enqueueDeepLink(
+      () => _dispatchDeepLink(initial, launchedFromColdStart: true),
+    );
+  }
+
+  Future<void> _enqueueDeepLink(Future<void> Function() work) {
+    final scheduled = (_deepLinkChain ?? Future<void>.value()).then(
+      (_) => work(),
+    );
+    _deepLinkChain = scheduled;
+    unawaited(
+      scheduled.catchError((Object error, StackTrace stack) {
+        if (kDebugMode) debugPrint('deeplink handler failed: $error\n$stack');
+      }),
+    );
+    return scheduled;
+  }
+
+  bool _shouldSkipDuplicateDeepLink(String url) {
+    final fingerprint = url.trim();
+    if (fingerprint.isEmpty) return true;
+    final now = DateTime.now();
+    if (_lastDeepLinkFingerprint == fingerprint &&
+        _lastDeepLinkAt != null &&
+        now.difference(_lastDeepLinkAt!) < _deepLinkDedupeWindow) {
+      return true;
+    }
+    _lastDeepLinkFingerprint = fingerprint;
+    _lastDeepLinkAt = now;
+    return false;
+  }
+
+  void _publishDeepLinkNotice(String message) {
+    if (message.isEmpty) return;
+    _deepLinkNotice = message;
+    notifyListeners();
+  }
+
+  Future<void> _dispatchDeepLink(
+    String url, {
+    bool launchedFromColdStart = false,
+  }) async {
+    if (_shouldSkipDuplicateDeepLink(url)) return;
+
+    final uri = Uri.tryParse(url);
+    if (!DeepLinkHandler.isVoidLexUri(uri)) {
+      await importServersFromString(url);
+      return;
+    }
+    final parsed = uri!;
+    if (DeepLinkHandler.isWidgetDeepLink(parsed)) return;
+
+    final host = parsed.host.toLowerCase();
+    if (launchedFromColdStart && DeepLinkHandler.isVpnControlHost(host)) {
+      _publishDeepLinkNotice(Msg.deepLinkVpnControlColdStart);
+      return;
+    }
+
+    switch (host) {
+      case 'connect':
+      case 'open':
+        await connect();
+        return;
+      case 'disconnect':
+      case 'close':
+        await disconnect();
+        return;
+      case 'toggle':
+        if (isConnected) {
+          await disconnect();
+        } else {
+          await connect();
+        }
+        return;
+      case 'restart':
+        if (_hasRestartableNativeSession) {
+          await _restartActiveConnection();
+        } else {
+          await connect();
+        }
+        return;
+      case 'import':
+        final payload = parsed.pathSegments.isNotEmpty
+            ? parsed.pathSegments.first
+            : '';
+        if (payload.isEmpty) return;
+        await _importFromBase64Payload(payload);
+        return;
+      case 'import-ruleset':
+        final target = DeepLinkHandler.rulesetTargetFromUri(parsed);
+        if (target == null) {
+          _publishDeepLinkNotice(Msg.deepLinkRulesetInvalidUrl);
+          return;
+        }
+        await _importRulesetFromUrl(target);
+        return;
+    }
+    // Legacy / fall-through: encrypted-subscription codes
+    // (voidlex://1/<base64>) and plain http(s) subscription URLs.
+    await importServersFromString(url);
+  }
+
+  Future<void> _importFromBase64Payload(String base64Payload) async {
+    String decoded;
+    try {
+      var padded = base64Payload.replaceAll('-', '+').replaceAll('_', '/');
+      while (padded.length % 4 != 0) {
+        padded += '=';
+      }
+      decoded = utf8.decode(base64.decode(padded));
+    } on FormatException {
+      return;
+    }
+    await importServersFromString(decoded);
+  }
+
+  Future<void> _importRulesetFromUrl(Uri target) async {
+    if (!DeepLinkHandler.isAllowedRulesetUrl(target)) {
+      _publishDeepLinkNotice(Msg.deepLinkRulesetInvalidUrl);
+      return;
+    }
+
+    HttpClient? client;
+    try {
+      client = HttpClient()..connectionTimeout = _deepLinkRulesetTimeout;
+      final request = await client
+          .getUrl(target)
+          .timeout(_deepLinkRulesetTimeout);
+      final response = await request.close().timeout(
+        _deepLinkRulesetTimeout,
+      );
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        _publishDeepLinkNotice(
+          Msg.deepLinkRulesetHttpStatus(response.statusCode),
+        );
+        return;
+      }
+
+      final bytes = <int>[];
+      await for (final chunk in response.timeout(_deepLinkRulesetTimeout)) {
+        bytes.addAll(chunk);
+        if (bytes.length > JsonPayloadLimits.routingDocument) {
+          _publishDeepLinkNotice(Msg.deepLinkRulesetTooLarge);
+          return;
+        }
+      }
+
+      final body = utf8.decode(bytes, allowMalformed: true).trim();
+      if (body.isEmpty) {
+        _publishDeepLinkNotice(Msg.deepLinkRulesetEmpty);
+        return;
+      }
+
+      final count = await importRoutingRulesFromJsonString(
+        body,
+        replaceExisting: false,
+      );
+      if (count == 0) {
+        _publishDeepLinkNotice(Msg.deepLinkRulesetNoRules);
+        return;
+      }
+      _publishDeepLinkNotice(Msg.deepLinkRulesetImported(count));
+    } on TimeoutException {
+      _publishDeepLinkNotice(Msg.deepLinkRulesetTimeout);
+    } on SocketException catch (e) {
+      _publishDeepLinkNotice(
+        Msg.deepLinkRulesetRequestFailed(e.message),
+      );
+    } on JsonPayloadTooLargeException {
+      _publishDeepLinkNotice(Msg.deepLinkRulesetTooLarge);
+    } on FormatException {
+      _publishDeepLinkNotice(Msg.deepLinkRulesetInvalidJson);
+    } catch (e) {
+      _publishDeepLinkNotice(Msg.deepLinkRulesetRequestFailed(e.toString()));
+    } finally {
+      client?.close(force: true);
+    }
   }
 
   // ─── EventChannel wiring ──────────────────────────────────────────
@@ -3123,12 +3659,66 @@ class VpnController extends ChangeNotifier {
             _acceptConnectedEvent = false;
             _setError(message ?? Msg.vpnUnknownError);
             break;
+          case 'globalProxyChanged':
+            // The Android home-screen widget toggled global mode while
+            // Flutter was alive. Mirror the change into our in-memory
+            // cache so any subsequent UI render or session start sees
+            // the new value — without re-triggering a restart, since
+            // the widget already restarted the native session.
+            final value = event['globalProxy'];
+            if (value is bool) {
+              _adoptWidgetGlobalProxy(value);
+            }
+            break;
         }
       },
       onError: (Object err) {
         _setError(Msg.vpnEventChannelError(err.toString()));
       },
     );
+  }
+
+  /// Subscribes to the per-second throughput stream from the native VPN
+  /// service. Each event carries `downBps` and `upBps` as doubles
+  /// (bytes/sec). We mirror them into [_downloadBps]/[_uploadBps], shift
+  /// the rolling histories, and call [notifyListeners] so the TV
+  /// throughput widget rebuilds.
+  void _bindSpeedChannel() {
+    _speedSub = _speedChannel.receiveBroadcastStream().listen(
+      (event) {
+        if (event is! Map) return;
+        final downRaw = event['downBps'];
+        final upRaw = event['upBps'];
+        final down = downRaw is num ? downRaw.toDouble() : 0.0;
+        final up = upRaw is num ? upRaw.toDouble() : 0.0;
+        _ingestThroughputSample(down: down, up: up);
+      },
+      onError: (Object err) {
+        // Non-fatal: stale stream just means the sparkline freezes at
+        // the last known values. Log for debugging, don't surface to
+        // the UI.
+        if (kDebugMode) debugPrint('vpn speed stream error: $err');
+      },
+    );
+  }
+
+  void _ingestThroughputSample({required double down, required double up}) {
+    final clampedDown = down.isFinite && down > 0 ? down : 0.0;
+    final clampedUp = up.isFinite && up > 0 ? up : 0.0;
+    _downloadBps = clampedDown;
+    _uploadBps = clampedUp;
+    // _downloadHistory / _uploadHistory are fixed-length via `List.filled`,
+    // so removeAt(0)+add() throws "Cannot remove from a fixed-length list".
+    // Shift the values in place — same rolling-window semantics, zero
+    // allocations, no exception spam on every speed event.
+    final lastIndex = _downloadHistory.length - 1;
+    for (var i = 0; i < lastIndex; i++) {
+      _downloadHistory[i] = _downloadHistory[i + 1];
+      _uploadHistory[i] = _uploadHistory[i + 1];
+    }
+    _downloadHistory[lastIndex] = clampedDown;
+    _uploadHistory[lastIndex] = clampedUp;
+    notifyListeners();
   }
 
   void _bindGeoDataProgressChannel() {
@@ -3143,7 +3733,7 @@ class VpnController extends ChangeNotifier {
         notifyListeners();
       },
       onError: (Object err) {
-        debugPrint('geodata progress stream error: $err');
+        if (kDebugMode) debugPrint('geodata progress stream error: $err');
       },
     );
   }
@@ -3187,18 +3777,20 @@ class VpnController extends ChangeNotifier {
     if (!force && _isFullScanOnCooldown()) return;
     final snapshot = _allServerList();
     if (_isScanningLatency || snapshot.isEmpty) return;
-    _isScanningLatency = true;
+    _activePingScanCount = snapshot.length;
+    _setIsScanningLatency(true);
     for (final server in snapshot) {
       _updateServerPing(server.name, '...', notify: false);
     }
     _flushPingBuffer(notify: false);
-    notifyListeners();
+    _latencyScanTick.value++;
 
     try {
       await _scanLatencySnapshot(snapshot);
     } finally {
       _flushPingBuffer(notify: false);
-      _isScanningLatency = false;
+      _activePingScanCount = 0;
+      _setIsScanningLatency(false);
       _lastFullScanTime = DateTime.now();
       if (_autoSortServersByPing) {
         _sortServersByPingInPlace();
@@ -3208,6 +3800,7 @@ class VpnController extends ChangeNotifier {
       // contain the pre-scan values.
       await _persistServers();
       await _persistSubscriptions();
+      _latencyScanTick.value++;
       notifyListeners();
     }
   }
@@ -3229,22 +3822,25 @@ class VpnController extends ChangeNotifier {
   Future<void> scanManualLatencies() async {
     final snapshot = List<ServerConfig>.from(_servers);
     if (_isScanningLatency || snapshot.isEmpty) return;
-    _isScanningLatency = true;
+    _activePingScanCount = snapshot.length;
+    _setIsScanningLatency(true);
     for (final server in snapshot) {
       _updateServerPing(server.name, '...', notify: false);
     }
     _flushPingBuffer(notify: false);
-    notifyListeners();
+    _latencyScanTick.value++;
 
     try {
       await _scanLatencySnapshot(snapshot);
     } finally {
       _flushPingBuffer(notify: false);
-      _isScanningLatency = false;
+      _activePingScanCount = 0;
+      _setIsScanningLatency(false);
       if (_autoSortServersByPing) {
         _sortManualServersByPingInPlace();
       }
       await _persistServers();
+      _latencyScanTick.value++;
       notifyListeners();
     }
   }
@@ -3259,11 +3855,13 @@ class VpnController extends ChangeNotifier {
     if (snapshot.isEmpty) return;
 
     _scanningSubscriptionIds.add(id);
+    _touchSubscriptionScanUi();
+    _activePingScanCount = snapshot.length;
     for (final server in snapshot) {
       _updateServerPing(server.name, '...', notify: false);
     }
     _flushPingBuffer(notify: false);
-    notifyListeners();
+    _latencyScanTick.value++;
 
     try {
       await _scanLatencySnapshot(snapshot);
@@ -3274,7 +3872,10 @@ class VpnController extends ChangeNotifier {
       await _persistSubscriptions();
     } finally {
       _flushPingBuffer(notify: false);
+      _activePingScanCount = 0;
       _scanningSubscriptionIds.remove(id);
+      _touchSubscriptionScanUi();
+      _latencyScanTick.value++;
       notifyListeners();
     }
   }
@@ -3404,6 +4005,13 @@ class VpnController extends ChangeNotifier {
     _hasExternalIpAttempt = false;
     _activeProxyUser = null;
     _activeProxyPassword = null;
+    // Drop the live throughput stats so the TV widget falls back to its
+    // idle visuals instead of holding the last live values from the
+    // previous session.
+    _downloadBps = 0;
+    _uploadBps = 0;
+    _downloadHistory.fillRange(0, _downloadHistory.length, 0);
+    _uploadHistory.fillRange(0, _uploadHistory.length, 0);
   }
 
   void _setConnectionDuration(Duration duration) {
@@ -3530,12 +4138,27 @@ class VpnController extends ChangeNotifier {
     if (notify) _schedulePingFlush();
   }
 
+  Duration get _effectivePingBatchInterval =>
+      _activePingScanCount > 80
+          ? const Duration(milliseconds: 500)
+          : _pingBatchInterval;
+
   void _schedulePingFlush() {
     if (_pingBatchTimer != null) return;
-    _pingBatchTimer = Timer(_pingBatchInterval, () {
+    _pingBatchTimer = Timer(_effectivePingBatchInterval, () {
       _pingBatchTimer = null;
       _flushPingBuffer();
     });
+  }
+
+  void _setIsScanningLatency(bool value) {
+    if (_isScanningLatency == value) return;
+    _isScanningLatency = value;
+    _isScanningLatencyNotifier.value = value;
+  }
+
+  void _touchSubscriptionScanUi() {
+    _subscriptionScanTick.value++;
   }
 
   bool _flushPingBuffer({bool notify = true}) {
@@ -3546,12 +4169,14 @@ class VpnController extends ChangeNotifier {
     final updates = Map<String, String>.from(_pingBuffer);
     _pingBuffer.clear();
     var changed = false;
+    final changedNames = <String>[];
 
     for (var i = 0; i < _servers.length; i++) {
       final server = _servers[i];
       final ping = updates[server.name];
       if (ping == null || server.ping == ping) continue;
       _servers[i] = server.copyWith(ping: ping);
+      changedNames.add(server.name);
       changed = true;
     }
 
@@ -3568,6 +4193,7 @@ class VpnController extends ChangeNotifier {
         if (ping == null || server.ping == ping) continue;
         nextServers ??= List<ServerConfig>.from(subscription.servers);
         nextServers[serverIndex] = server.copyWith(ping: ping);
+        changedNames.add(server.name);
         changed = true;
       }
       if (nextServers != null) {
@@ -3577,9 +4203,20 @@ class VpnController extends ChangeNotifier {
       }
     }
 
-    if (changed && notify) {
-      _latencyScanTick.value++;
-      notifyListeners();
+    if (changed) {
+      // Per-server publishing happens on every flush — even when [notify] is
+      // false. The scan flow uses `notify: false` to defer the *global* tick
+      // (legacy coarse signal), but each badge subscribes to its own value
+      // listenable now, so we always push individual updates. Otherwise the
+      // initial '...' state and the final results flushed in the scanner's
+      // `finally` block would silently fail to reach the UI.
+      for (final name in changedNames) {
+        final ping = updates[name];
+        if (ping != null) _publishPing(name, ping);
+      }
+      if (notify) {
+        _latencyScanTick.value++;
+      }
     }
     return changed;
   }
@@ -3644,8 +4281,18 @@ class VpnController extends ChangeNotifier {
     _connectionDurationLabelNotifier.dispose();
     _connectionStateNotifier.dispose();
     _latencyScanTick.dispose();
+    _isScanningLatencyNotifier.dispose();
+    _subscriptionScanTick.dispose();
+    _homeListRevision.dispose();
+    _selectedNameNotifier.dispose();
+    _exitNodeNameNotifier.dispose();
+    for (final notifier in _pingNotifiers.values) {
+      notifier.dispose();
+    }
+    _pingNotifiers.clear();
     _completeNativeStopWaiter();
     _eventSub?.cancel();
+    _speedSub?.cancel();
     _deepLinkSub?.cancel();
     _geoDataProgressSub?.cancel();
     super.dispose();

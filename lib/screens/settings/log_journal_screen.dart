@@ -103,7 +103,7 @@ class _LogJournalScreenState extends State<_LogJournalScreen> {
     String two(int value) => value.toString().padLeft(2, '0');
     final date = '${now.year}${two(now.month)}${two(now.day)}';
     final time = '${two(now.hour)}${two(now.minute)}${two(now.second)}';
-    return 'voidtunnel-logs-$date-$time.txt';
+    return 'voidlex-logs-$date-$time.txt';
   }
 
   @override

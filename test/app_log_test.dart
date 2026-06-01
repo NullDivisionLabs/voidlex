@@ -1,7 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:voidtunnel/core/app_log.dart';
-import 'package:voidtunnel/core/server_repository.dart';
+import 'package:voidlex/core/app_log.dart';
+import 'package:voidlex/core/server_repository.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:voidtunnel/core/server_latency_probe.dart';
+import 'package:voidlex/core/server_latency_probe.dart';
 
 void main() {
   group('LatencyProbeTarget', () {

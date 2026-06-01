@@ -6,12 +6,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'app_locale.dart';
 import 'app_log.dart';
 import 'app_routing.dart';
+import 'connection_policy_settings.dart';
 import 'geo_data.dart';
 import 'models/server_config.dart';
 import 'models/server_subscription.dart';
 import 'multiplex_settings.dart';
 import 'routing_preset.dart';
 import 'routing_rule.dart';
+import 'run_mode.dart';
 import 'secure_storage.dart';
 import 'server_latency_probe.dart';
 import 'subscription_provider_settings.dart';
@@ -50,6 +52,12 @@ class ServerRepositorySnapshot {
     required this.multiplexSettings,
     required this.tunnelNetworkSettings,
     required this.subscriptionProviderSettings,
+    required this.killSwitchEnabled,
+    required this.runMode,
+    required this.hotspotBindEnabled,
+    required this.httpProxyAuthEnabled,
+    required this.sniffingRouteOnly,
+    required this.connectionPolicy,
   });
 
   final List<ServerConfig> servers;
@@ -80,6 +88,12 @@ class ServerRepositorySnapshot {
   final MultiplexSettings multiplexSettings;
   final TunnelNetworkSettings tunnelNetworkSettings;
   final SubscriptionProviderSettings subscriptionProviderSettings;
+  final bool killSwitchEnabled;
+  final RunMode runMode;
+  final bool hotspotBindEnabled;
+  final bool httpProxyAuthEnabled;
+  final bool sniffingRouteOnly;
+  final ConnectionPolicySettings connectionPolicy;
 }
 
 class ServerRepository {
@@ -134,6 +148,12 @@ class ServerRepository {
   static const _kGeoDataUrlPrefix = 'void.geoData.url.';
   static const _kGeoDataUpdatedAtPrefix = 'void.geoData.updatedAt.';
   static const _kGeoDataFileSizePrefix = 'void.geoData.fileSize.';
+  static const _kKillSwitchEnabled = 'void.killSwitchEnabled';
+  static const _kRunMode = 'void.runMode';
+  static const _kHotspotBindEnabled = 'void.hotspotBindEnabled';
+  static const _kHttpProxyAuthEnabled = 'void.httpProxyAuthEnabled';
+  static const _kSniffingRouteOnly = 'void.sniffingRouteOnly';
+  static const _kConnectionPolicy = 'void.connectionPolicy';
 
   final SharedPreferences _prefs;
   final SecureStorage _secure;
@@ -230,6 +250,14 @@ class ServerRepository {
       ),
       subscriptionProviderSettings: SubscriptionProviderSettings.decode(
         _prefs.getString(_kSubscriptionProviderSettings),
+      ),
+      killSwitchEnabled: _prefs.getBool(_kKillSwitchEnabled) ?? false,
+      runMode: RunMode.parse(_prefs.getString(_kRunMode)),
+      hotspotBindEnabled: _prefs.getBool(_kHotspotBindEnabled) ?? false,
+      httpProxyAuthEnabled: _prefs.getBool(_kHttpProxyAuthEnabled) ?? false,
+      sniffingRouteOnly: _prefs.getBool(_kSniffingRouteOnly) ?? true,
+      connectionPolicy: ConnectionPolicySettings.decode(
+        _prefs.getString(_kConnectionPolicy),
       ),
     );
   }
@@ -481,6 +509,33 @@ class ServerRepository {
     SubscriptionProviderSettings settings,
   ) async {
     await _prefs.setString(_kSubscriptionProviderSettings, settings.encode());
+  }
+
+  Future<void> saveKillSwitchEnabled(bool value) async {
+    await _prefs.setBool(_kKillSwitchEnabled, value);
+  }
+
+  Future<void> saveRunMode(RunMode mode) async {
+    await _prefs.setString(_kRunMode, mode.wireName);
+  }
+
+  Future<void> saveHotspotBindEnabled(bool value) async {
+    await _prefs.setBool(_kHotspotBindEnabled, value);
+  }
+
+  Future<void> saveHttpProxyAuthEnabled(bool value) async {
+    await _prefs.setBool(_kHttpProxyAuthEnabled, value);
+  }
+
+  Future<void> saveSniffingRouteOnly(bool value) async {
+    await _prefs.setBool(_kSniffingRouteOnly, value);
+  }
+
+  Future<void> saveConnectionPolicy(ConnectionPolicySettings settings) async {
+    await _prefs.setString(
+      _kConnectionPolicy,
+      settings.normalized().encode(),
+    );
   }
 
   GeoDataMetadata loadGeoDataMetadata(GeoDataKind kind) {

@@ -4,7 +4,7 @@ class ProfileFileExporter {
   const ProfileFileExporter();
 
   static const MethodChannel _channel = MethodChannel(
-    'org.voidtunnel.vpn/service',
+    'org.voidlex.vpn/service',
   );
 
   Future<bool> export({

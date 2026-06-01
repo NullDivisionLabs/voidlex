@@ -92,7 +92,7 @@ class AppLogBridge {
   const AppLogBridge();
 
   static const MethodChannel _channel = MethodChannel(
-    'org.voidtunnel.vpn/service',
+    'org.voidlex.vpn/service',
   );
 
   Future<String> read({

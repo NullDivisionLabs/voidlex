@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:voidtunnel/core/tunnel_fragment_settings.dart';
+import 'package:voidlex/core/tunnel_fragment_settings.dart';
 
 void main() {
   test('uses screenshot defaults for new fragment settings', () {

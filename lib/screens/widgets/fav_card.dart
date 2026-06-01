@@ -1,15 +1,13 @@
 import 'package:flutter/material.dart';
 
 import '../../theme.dart';
-import 'node_row.dart';
 
 class FavCard extends StatelessWidget {
   const FavCard({
     super.key,
     required this.name,
     required this.protocol,
-    required this.ping,
-    required this.pingTone,
+    required this.pingSlot,
     this.selected = false,
     this.onTap,
     this.onLongPressStart,
@@ -18,8 +16,7 @@ class FavCard extends StatelessWidget {
 
   final String name;
   final String protocol;
-  final String ping;
-  final NodePingTone pingTone;
+  final Widget pingSlot;
   final bool selected;
   final VoidCallback? onTap;
   final GestureLongPressStartCallback? onLongPressStart;
@@ -28,7 +25,6 @@ class FavCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final t = VoidTokens.of(context);
-    final pingColor = pingTone.colorIn(t);
     return GestureDetector(
       behavior: HitTestBehavior.translucent,
       onLongPressStart: onLongPressStart,
@@ -85,15 +81,7 @@ class FavCard extends StatelessWidget {
                         color: t.fg3,
                       ),
                     ),
-                    Text(
-                      ping,
-                      style: VoidType.mono(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: pingColor,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
-                    ),
+                    pingSlot,
                   ],
                 ),
               ],

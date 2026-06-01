@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter/material.dart';
-import 'package:voidtunnel/core/app_locale.dart';
+import 'package:voidlex/core/app_locale.dart';
 
 void main() {
   group('resolveEffectiveLocale', () {

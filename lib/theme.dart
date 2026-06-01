@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// Design tokens for the VoidTunnel "strict / minimalist / futuristic" palette.
+/// Design tokens for the VoidLex "strict / minimalist / futuristic" palette.
 ///
 /// Two parallel sets — light and dark — accessed via [VoidTokens.of] from a
 /// [BuildContext]. The semantic names mirror the design canvas (`bg`,

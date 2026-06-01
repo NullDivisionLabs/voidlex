@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../../theme.dart';
+import 'tv_settings_focus.dart';
+import '../tv_focus_ring.dart';
 
 /// Visual constants shared by every TV settings card so spacing,
 /// borders, and typography stay locked to the preset-overlay reference
@@ -22,7 +24,7 @@ const BorderRadius _tvCardRadius = BorderRadius.all(Radius.circular(14));
 ///   * Action-bearing (provide [trailing]) → the caller supplies the
 ///     control (switch / popup menu / segmented button etc.).
 ///   * Read-only (omit both) → behaves like an info card.
-class TvSettingsCard extends StatelessWidget {
+class TvSettingsCard extends StatefulWidget {
   const TvSettingsCard({
     super.key,
     required this.title,
@@ -32,6 +34,7 @@ class TvSettingsCard extends StatelessWidget {
     this.trailing,
     this.onTap,
     this.height = _tvCardHeight,
+    this.autofocus = false,
   });
 
   final String title;
@@ -51,11 +54,34 @@ class TvSettingsCard extends StatelessWidget {
   final VoidCallback? onTap;
   final double height;
 
+  /// When true and [onTap] is set, the card claims keyboard focus on
+  /// first build. Callers set this on the first interactive card of a
+  /// screen so the movable focus shadow appears as soon as the user
+  /// lands on the route via the D-pad.
+  final bool autofocus;
+
+  @override
+  State<TvSettingsCard> createState() => _TvSettingsCardState();
+}
+
+class _TvSettingsCardState extends State<TvSettingsCard> {
+  bool _focused = false;
+
+  bool get _isFocusable => widget.onTap != null || widget.trailing != null;
+
+  void _handleFocusChange(bool value) {
+    if (_focused == value) return;
+    setState(() => _focused = value);
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = VoidTokens.of(context);
+    final trailing = widget.trailing == null
+        ? null
+        : TvSettingsNonFocusTrailing(child: widget.trailing!);
     final body = SizedBox(
-      height: height,
+      height: widget.height,
       child: Container(
         padding: _tvCardPadding,
         decoration: BoxDecoration(
@@ -66,15 +92,21 @@ class TvSettingsCard extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            if (icon != null) ...[
-              Icon(icon, color: t.fg2, size: 28),
+            if (widget.icon != null) ...[
+              Icon(widget.icon, color: t.fg2, size: 28),
               const SizedBox(width: 22),
             ],
-            Expanded(child: _TextColumn(title: title, subtitle: subtitle, badge: badge)),
+            Expanded(
+              child: _TextColumn(
+                title: widget.title,
+                subtitle: widget.subtitle,
+                badge: widget.badge,
+              ),
+            ),
             if (trailing != null) ...[
               const SizedBox(width: 18),
-              trailing!,
-            ] else if (onTap != null) ...[
+              trailing,
+            ] else if (widget.onTap != null) ...[
               const SizedBox(width: 18),
               Icon(Icons.chevron_right_rounded, size: 28, color: t.fg3),
             ],
@@ -83,13 +115,19 @@ class TvSettingsCard extends StatelessWidget {
       ),
     );
 
-    if (onTap == null) return body;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: _tvCardRadius,
-        child: body,
+    if (!_isFocusable) return body;
+    return TvFocusRing(
+      focused: _focused,
+      radius: 14,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          autofocus: widget.autofocus,
+          onTap: widget.onTap,
+          onFocusChange: _handleFocusChange,
+          borderRadius: _tvCardRadius,
+          child: body,
+        ),
       ),
     );
   }

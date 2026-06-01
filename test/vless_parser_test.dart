@@ -2,16 +2,16 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:voidtunnel/core/app_routing.dart';
-import 'package:voidtunnel/core/hysteria2_parser.dart';
-import 'package:voidtunnel/core/models/server_config.dart';
-import 'package:voidtunnel/core/models/server_subscription.dart';
-import 'package:voidtunnel/core/routing_rule.dart';
-import 'package:voidtunnel/core/server_config_exporter.dart';
-import 'package:voidtunnel/core/server_importer.dart';
-import 'package:voidtunnel/core/server_subscription_importer.dart';
-import 'package:voidtunnel/core/tun_engine_mode.dart';
-import 'package:voidtunnel/core/vless_parser.dart';
+import 'package:voidlex/core/app_routing.dart';
+import 'package:voidlex/core/hysteria2_parser.dart';
+import 'package:voidlex/core/models/server_config.dart';
+import 'package:voidlex/core/models/server_subscription.dart';
+import 'package:voidlex/core/routing_rule.dart';
+import 'package:voidlex/core/server_config_exporter.dart';
+import 'package:voidlex/core/server_importer.dart';
+import 'package:voidlex/core/server_subscription_importer.dart';
+import 'package:voidlex/core/tun_engine_mode.dart';
+import 'package:voidlex/core/vless_parser.dart';
 
 void main() {
   const parser = VlessParser();
@@ -192,6 +192,16 @@ void main() {
         'vless://$validUuid@example.net:443?security=xtls',
       );
       expect(result.error!.code, VlessParseError.unsupportedSecurity);
+    });
+
+    test('fails gracefully on malformed percent-encoding in query', () {
+      // An incomplete UTF-8 escape makes Uri.queryParameters throw; the
+      // parser must surface a failure result, not let the exception escape.
+      final result = parser.parse(
+        'vless://$validUuid@example.net:443?sni=%E0%A4%A#node',
+      );
+      expect(result.isError, isTrue);
+      expect(result.error!.code, VlessParseError.malformedUri);
     });
   });
 

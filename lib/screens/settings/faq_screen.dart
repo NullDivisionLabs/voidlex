@@ -66,37 +66,60 @@ class _FaqScreenState extends State<_FaqScreen> {
         enabled: useTvChrome,
         title: l.faqTitle,
         subtitle: l.faqSubtitle,
-        child: SingleChildScrollView(
-          padding: useTvChrome
-              ? EdgeInsets.zero
-              : const EdgeInsets.fromLTRB(20, 12, 20, 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.only(bottom: 12, left: 2),
-                child: Text(
-                  l.faqHint,
-                  style: VoidType.mono(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w600,
-                    letterSpacing: 1.6,
-                    color: t.fg3,
-                  ),
+        child: useTvChrome
+            ? TvSettingsScrollView(
+                child: _buildFaqList(
+                  l: l,
+                  t: t,
+                  entries: entries,
+                  useTvChrome: useTvChrome,
+                ),
+              )
+            : SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+                child: _buildFaqList(
+                  l: l,
+                  t: t,
+                  entries: entries,
+                  useTvChrome: useTvChrome,
                 ),
               ),
-              for (var i = 0; i < entries.length; i++) ...[
-                if (i != 0) const SizedBox(height: 8),
-                _FaqCard(
-                  index: i + 1,
-                  question: entries[i].$1,
-                  answer: entries[i].$2,
-                ),
-              ],
-            ],
+      ),
+    );
+  }
+
+  Widget _buildFaqList({
+    required AppLocalizations l,
+    required VoidTokens t,
+    required List<(String, String)> entries,
+    required bool useTvChrome,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(bottom: 12, left: 2),
+          child: Text(
+            l.faqHint,
+            style: VoidType.mono(
+              fontSize: 10,
+              fontWeight: FontWeight.w600,
+              letterSpacing: 1.6,
+              color: t.fg3,
+            ),
           ),
         ),
-      ),
+        for (var i = 0; i < entries.length; i++) ...[
+          if (i != 0) SizedBox(height: useTvChrome ? 12 : 8),
+          _FaqCard(
+            index: i + 1,
+            question: entries[i].$1,
+            answer: entries[i].$2,
+            useTvChrome: useTvChrome,
+            autofocus: useTvChrome && i == 0,
+          ),
+        ],
+      ],
     );
   }
 
@@ -134,11 +157,15 @@ class _FaqCard extends StatefulWidget {
     required this.index,
     required this.question,
     required this.answer,
+    this.useTvChrome = false,
+    this.autofocus = false,
   });
 
   final int index;
   final String question;
   final String answer;
+  final bool useTvChrome;
+  final bool autofocus;
 
   @override
   State<_FaqCard> createState() => _FaqCardState();
@@ -146,6 +173,7 @@ class _FaqCard extends StatefulWidget {
 
 class _FaqCardState extends State<_FaqCard> {
   bool _expanded = false;
+  bool _focused = false;
 
   void _toggle() => setState(() => _expanded = !_expanded);
 
@@ -153,12 +181,19 @@ class _FaqCardState extends State<_FaqCard> {
   Widget build(BuildContext context) {
     final t = VoidTokens.of(context);
     final number = widget.index.toString().padLeft(2, '0');
-    return Material(
+    final card = Material(
       color: t.surface,
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
+        autofocus: widget.autofocus,
         borderRadius: BorderRadius.circular(10),
         onTap: _toggle,
+        onFocusChange: widget.useTvChrome
+            ? (value) {
+                if (_focused == value) return;
+                setState(() => _focused = value);
+              }
+            : null,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 140),
           curve: Curves.easeOut,
@@ -237,6 +272,8 @@ class _FaqCardState extends State<_FaqCard> {
         ),
       ),
     );
+    if (!widget.useTvChrome) return card;
+    return TvFocusRing(focused: _focused, radius: 10, child: card);
   }
 }
 

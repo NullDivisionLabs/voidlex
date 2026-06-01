@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:voidtunnel/core/routing_rule.dart';
+import 'package:voidlex/core/routing_rule.dart';
 
 void main() {
   test('imports wrapped Xray field rules in priority order', () {

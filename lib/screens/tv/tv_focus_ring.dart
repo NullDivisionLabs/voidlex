@@ -14,12 +14,19 @@ class TvFocusRing extends StatelessWidget {
     required this.child,
     this.radius = 12,
     this.scaleWhenFocused = 1.04,
+    this.scaleAlignment = Alignment.center,
+    this.showGlow = true,
   });
 
   final bool focused;
   final Widget child;
   final double radius;
   final double scaleWhenFocused;
+  final Alignment scaleAlignment;
+
+  /// When false, only the focus border is drawn — no outer glow. Use on
+  /// dense lists so adjacent rows do not visually bleed into each other.
+  final bool showGlow;
 
   @override
   Widget build(BuildContext context) {
@@ -28,6 +35,7 @@ class TvFocusRing extends StatelessWidget {
     return AnimatedScale(
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
+      alignment: scaleAlignment,
       scale: focused ? scaleWhenFocused : 1.0,
       child: Stack(
         clipBehavior: Clip.none,
@@ -40,7 +48,7 @@ class TvFocusRing extends StatelessWidget {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(radius),
                   border: Border.all(color: ringColor, width: 2),
-                  boxShadow: focused
+                  boxShadow: focused && showGlow
                       ? [
                           BoxShadow(
                             color: t.fg1.withValues(alpha: 0.35),

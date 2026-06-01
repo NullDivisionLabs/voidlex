@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/services.dart';
 
-/// Bridges OS-level `voidtunnel://...` deep links from the platform into
+/// Bridges OS-level `voidlex://...` deep links from the platform into
 /// Dart. Mirrors the [VpnEventBridge] singleton pattern on Android: the
 /// native side buffers links until Flutter listens, and replays them on
 /// connect so cold-launch links are never dropped.
@@ -23,7 +23,7 @@ class DeepLinkChannel {
   final EventChannel _events;
   Stream<String>? _cachedStream;
 
-  /// Stream of incoming `voidtunnel://...` URLs received while Flutter is
+  /// Stream of incoming `voidlex://...` URLs received while Flutter is
   /// running. Cached so multiple subscribers share one platform listener.
   Stream<String> get incomingLinks {
     return _cachedStream ??= _events

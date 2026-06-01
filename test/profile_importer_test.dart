@@ -3,23 +3,23 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:voidtunnel/core/app_routing.dart';
-import 'package:voidtunnel/core/deep_link_channel.dart';
-import 'package:voidtunnel/core/installed_apps.dart';
-import 'package:voidtunnel/core/models/server_config.dart';
-import 'package:voidtunnel/core/models/server_subscription.dart';
-import 'package:voidtunnel/core/profile_exporter.dart';
-import 'package:voidtunnel/core/profile_importer.dart';
-import 'package:voidtunnel/core/routing_preset.dart';
-import 'package:voidtunnel/core/routing_rule.dart';
-import 'package:voidtunnel/core/server_repository.dart';
-import 'package:voidtunnel/core/vpn_controller.dart';
+import 'package:voidlex/core/app_routing.dart';
+import 'package:voidlex/core/deep_link_channel.dart';
+import 'package:voidlex/core/installed_apps.dart';
+import 'package:voidlex/core/models/server_config.dart';
+import 'package:voidlex/core/models/server_subscription.dart';
+import 'package:voidlex/core/profile_exporter.dart';
+import 'package:voidlex/core/profile_importer.dart';
+import 'package:voidlex/core/routing_preset.dart';
+import 'package:voidlex/core/routing_rule.dart';
+import 'package:voidlex/core/server_repository.dart';
+import 'package:voidlex/core/vpn_controller.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  const serviceChannel = MethodChannel('org.voidtunnel.vpn/service');
-  const stateChannel = MethodChannel('org.voidtunnel.vpn/state');
+  const serviceChannel = MethodChannel('org.voidlex.vpn/service');
+  const stateChannel = MethodChannel('org.voidlex.vpn/state');
 
   setUp(() {
     SharedPreferences.setMockInitialValues({});

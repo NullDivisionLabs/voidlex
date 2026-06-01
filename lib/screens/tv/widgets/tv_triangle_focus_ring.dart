@@ -65,17 +65,28 @@ class _TvTriangleFocusRingState extends State<TvTriangleFocusRing>
       child: AnimatedOpacity(
         duration: const Duration(milliseconds: 220),
         opacity: widget.focused ? 1 : 0,
-        child: SizedBox(
-          width: width,
-          height: height,
-          child: AnimatedBuilder(
-            animation: _slide,
-            builder: (context, _) => CustomPaint(
-              painter: _TriangleEchoPainter(
-                color: t.fg1,
-                phase: _slide.value,
-                padding: widget.padding,
-              ),
+        child: AnimatedScale(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          scale: widget.focused ? 1.04 : 1,
+          child: SizedBox(
+            width: width,
+            height: height,
+            child: Stack(
+              clipBehavior: Clip.none,
+              fit: StackFit.expand,
+              children: [
+                AnimatedBuilder(
+                  animation: _slide,
+                  builder: (context, _) => CustomPaint(
+                    painter: _TriangleEchoPainter(
+                      color: t.fg1,
+                      phase: _slide.value,
+                      padding: widget.padding,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -97,6 +108,28 @@ class _TriangleEchoPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    final path = _trianglePath(size);
+    final glowFill = Paint()
+      ..color = color.withValues(alpha: 0.24)
+      ..style = PaintingStyle.fill
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 26);
+    canvas.drawPath(path, glowFill);
+
+    final glowRing = Paint()
+      ..color = color.withValues(alpha: 0.16)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 8
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 14);
+    canvas.drawPath(path, glowRing);
+
+    final paint = Paint()
+      ..color = color.withValues(alpha: 0.65)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    _drawDashed(canvas, path, paint, dashLength: 6, gapLength: 8, phase: phase);
+  }
+
+  Path _trianglePath(Size size) {
     final innerW = size.width - padding * 2;
     final innerH = size.height - padding * 2;
     final cx = size.width / 2;
@@ -106,12 +139,7 @@ class _TriangleEchoPainter extends CustomPainter {
       Offset(padding + innerW * 0.06, padding + innerH * 0.94),
     ];
     final r = math.min(innerW, innerH) * 0.045;
-    final path = _roundedPolygon(corners, r);
-    final paint = Paint()
-      ..color = color.withValues(alpha: 0.65)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-    _drawDashed(canvas, path, paint, dashLength: 6, gapLength: 8, phase: phase);
+    return _roundedPolygon(corners, r);
   }
 
   Path _roundedPolygon(List<Offset> points, double r) {

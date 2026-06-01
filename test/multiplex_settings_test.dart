@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:voidtunnel/core/multiplex_settings.dart';
+import 'package:voidlex/core/multiplex_settings.dart';
 
 void main() {
   test('exports multiplex settings for native Xray mux', () {

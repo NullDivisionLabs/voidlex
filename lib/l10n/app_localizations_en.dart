@@ -9,7 +9,7 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
-  String get appTitle => 'VoidTunnel';
+  String get appTitle => 'Void//Lex';
 
   @override
   String get cancel => 'Cancel';
@@ -209,7 +209,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get profileImportTitle => 'Import profile';
 
   @override
-  String get profileImportSubtitle => 'Load a VoidTunnel profile JSON file.';
+  String get profileImportSubtitle => 'Load a Void//Lex profile JSON file.';
 
   @override
   String get profileImportModeTitle => 'Import profile';
@@ -239,7 +239,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get profileImportUnsupportedFormat =>
-      'File is not a VoidTunnel profile.';
+      'File is not a Void//Lex profile.';
 
   @override
   String get profileImportUnsupportedVersion =>
@@ -248,6 +248,52 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get profileImportEmptyProfile =>
       'Profile does not contain importable data.';
+
+  @override
+  String get profileImportTooLarge => 'Profile file is too large (max 4 MB).';
+
+  @override
+  String get secureStorageWriteFailed =>
+      'Could not save the password to secure storage. Try again.';
+
+  @override
+  String get deepLinkVpnControlColdStart =>
+      'Open Void//Lex and use Connect in the app. VPN control links are ignored on cold start.';
+
+  @override
+  String get deepLinkRulesetInvalidUrl =>
+      'Ruleset URL must be a valid http(s) address.';
+
+  @override
+  String get deepLinkRulesetTimeout => 'Ruleset download timed out.';
+
+  @override
+  String get deepLinkRulesetTooLarge => 'Ruleset file is too large.';
+
+  @override
+  String get deepLinkRulesetEmpty => 'Ruleset file is empty.';
+
+  @override
+  String get deepLinkRulesetNoRules =>
+      'No supported routing rules found in the file.';
+
+  @override
+  String get deepLinkRulesetInvalidJson => 'Ruleset JSON is malformed.';
+
+  @override
+  String deepLinkRulesetHttpStatus(int code) {
+    return 'Ruleset download returned HTTP $code';
+  }
+
+  @override
+  String deepLinkRulesetRequestFailed(String detail) {
+    return 'Ruleset download failed: $detail';
+  }
+
+  @override
+  String deepLinkRulesetImported(int count) {
+    return 'Imported $count routing rules from link.';
+  }
 
   @override
   String profileImportedText(int manualNodes, int subscriptions, int presets) {
@@ -626,6 +672,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get tooltipScanPing => 'Scan ping';
+
+  @override
+  String get tooltipSearchNodes => 'Search nodes';
+
+  @override
+  String get tooltipCloseSearch => 'Close search';
+
+  @override
+  String get searchNodesHint => 'Search by name';
+
+  @override
+  String get searchNoResults => 'No matches';
 
   @override
   String get statusIdle => 'IDLE';
@@ -1043,7 +1101,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get providerAutoUpdateIntervalSubtitle =>
-      'Refresh all saved provider subscriptions at the selected interval while VoidTunnel is running.';
+      'Refresh all saved provider subscriptions at the selected interval while Void//Lex is running.';
 
   @override
   String get providerAutoUpdateIntervalTooltip => 'Auto-update interval';
@@ -1093,6 +1151,12 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get subscriptionShareEncryptedFailed =>
       'Failed to generate encrypted code.';
+
+  @override
+  String get subscriptionHideNa => 'Hide N/A';
+
+  @override
+  String get subscriptionShowNa => 'Show N/A';
 
   @override
   String get subscriptionImportEncryptedFailed =>
@@ -1952,7 +2016,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get faqA16 =>
-      'The toggle lives in **Settings → Application**, but on a number of Android skins the OS battery policy blocks background service auto-start. Disable battery optimisation for VoidTunnel, and consider Android\'s system **Always-on VPN** (Settings → Network → VPN → VoidTunnel) — it brings the tunnel up reliably at boot.';
+      'The toggle lives in **Settings → Application**, but on a number of Android skins the OS battery policy blocks background service auto-start. Disable battery optimisation for Void//Lex, and consider Android\'s system **Always-on VPN** (Settings → Network → VPN → Void//Lex) — it brings the tunnel up reliably at boot.';
 
   @override
   String get faqQ17 => 'Can I point another app at the local proxy?';
@@ -1981,4 +2045,115 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get faqA20 =>
       '**Android TV / Google TV** — yes, a dedicated full-screen UI with D-pad support; the nodes and subscriptions are shared with the mobile version. **iOS / iPadOS** — a full client is in development.';
+
+  @override
+  String get autoConnectOnBootTitle => 'Auto-connect on device boot';
+
+  @override
+  String get autoConnectOnBootSubtitle =>
+      'Open the system \"Always-on VPN\" settings page — enable «Always-on VPN» + «Block connections without VPN» so the tunnel comes up at boot.';
+
+  @override
+  String get killSwitchTitle => 'Kill Switch';
+
+  @override
+  String get killSwitchSubtitle =>
+      'Block internet if the tunnel drops unexpectedly. Manual disconnect still restores the network.';
+
+  @override
+  String get runModeSectionTitle => 'Run mode';
+
+  @override
+  String get runModeTunTitle => 'VPN tunnel (TUN)';
+
+  @override
+  String get runModeTunSubtitle =>
+      'Standard mode. Routes all traffic via the VPN service; the Android key icon is visible in the status bar.';
+
+  @override
+  String get runModeProxyOnlyTitle => 'Hide icon (proxy-only)';
+
+  @override
+  String get runModeProxyOnlySubtitle =>
+      'Run a local HTTP/SOCKS5 proxy without the VPN icon. Only apps that support a proxy will use it; mobile data routes directly. Configure the proxy manually in Wi-Fi / browser.';
+
+  @override
+  String get httpProxyAuthTitle => 'HTTP proxy authorization';
+
+  @override
+  String get httpProxyAuthSubtitle =>
+      'Protect the HTTP proxy on port 10809 with the same username and password as SOCKS5.';
+
+  @override
+  String get tunnelRouteOnlyTitle => 'Domain-only routing (routeOnly)';
+
+  @override
+  String get tunnelRouteOnlySubtitle =>
+      'Use SNI/host from sniffing only for routing — do not rewrite the destination. Keep on unless sniffing breaks the network.';
+
+  @override
+  String get connectionPolicySectionTitle => 'Advanced settings';
+
+  @override
+  String get connectionPolicySectionSubtitle =>
+      'Idle timeout. TCP / UDP connection limits.';
+
+  @override
+  String get connectionPolicyConnectionsGroup => 'Connections';
+
+  @override
+  String get connectionPolicyIdleTitle => 'Idle timeout';
+
+  @override
+  String get connectionPolicyIdleSubtitle =>
+      'Wait time for inactive connections, seconds.';
+
+  @override
+  String get connectionPolicyMaxTcpTitle => 'TCP connections';
+
+  @override
+  String get connectionPolicyMaxTcpSubtitle =>
+      'Maximum concurrent TCP connections.';
+
+  @override
+  String get connectionPolicyMaxUdpTitle => 'UDP connections';
+
+  @override
+  String get connectionPolicyMaxUdpSubtitle =>
+      'Maximum concurrent UDP connections.';
+
+  @override
+  String get urlSchemesTitle => 'URL schemes';
+
+  @override
+  String get urlSchemesSubtitle =>
+      'Automate VoidLex via Shortcuts, Tasker, and other apps.';
+
+  @override
+  String get urlSchemesNote =>
+      'Use these schemes to automate via Shortcuts, Tasker or other apps. Tap a scheme to copy.';
+
+  @override
+  String get urlSchemesNoteHeader => 'Note';
+
+  @override
+  String get urlSchemesStartSection => 'START TUNNEL';
+
+  @override
+  String get urlSchemesStopSection => 'STOP CONNECTION';
+
+  @override
+  String get urlSchemesToggleSection => 'TOGGLE CONNECTION';
+
+  @override
+  String get urlSchemesRestartSection => 'RESTART CONNECTION';
+
+  @override
+  String get urlSchemesImportSection => 'ADD CONFIGURATION';
+
+  @override
+  String get urlSchemesImportRulesetSection => 'IMPORT RULESET';
+
+  @override
+  String get urlSchemeCopied => 'Copied to clipboard';
 }

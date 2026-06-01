@@ -1,4 +1,6 @@
 import 'dart:convert';
+
+import 'bounded_json.dart';
 import 'dart:math';
 
 import 'app_routing.dart';
@@ -138,8 +140,10 @@ class RoutingPreset {
     if (raw == null || raw.isEmpty) return const [];
     final Object? decoded;
     try {
-      decoded = jsonDecode(raw);
+      decoded = decodeJson(raw, maxBytes: JsonPayloadLimits.routingDocument);
     } on FormatException {
+      return const [];
+    } on JsonPayloadTooLargeException {
       return const [];
     }
     if (decoded is! List) return const [];

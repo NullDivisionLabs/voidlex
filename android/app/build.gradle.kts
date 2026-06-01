@@ -23,10 +23,10 @@ val hasReleaseKeystore = keystoreProperties.getProperty("storeFile")?.let {
 } ?: false
 val allowDebugReleaseSigning = (project.findProperty("allowDebugReleaseSigning") as? String)
     ?.equals("true", ignoreCase = true) == true
-val shippedAbis = listOf("arm64-v8a", "x86_64")
+val shippedAbis = listOf("arm64-v8a", "armeabi-v7a", "x86_64")
 
 android {
-    namespace = "com.voidtunnel.voidtunnel"
+    namespace = "com.voidlex.voidlex"
     compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
@@ -40,15 +40,16 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.voidtunnel.voidtunnel"
+        applicationId = "com.voidlex.voidlex"
         minSdk = flutter.minSdkVersion
         targetSdk = 36
         versionCode = flutter.versionCode
         versionName = flutter.versionName
 
-        // Xray is shipped only for 64-bit Android ABIs. Keeping this filter
-        // here prevents accidental universal APK/AAB outputs that install on
-        // 32-bit ARM and then fail when XrayRuntime resolves libxray.so.
+        // Xray and libbox are shipped for arm64-v8a, armeabi-v7a, and x86_64.
+        // 32-bit ARM is included because most Android TV devices in the wild
+        // are armv7. Keeping the filter explicit here pins the shipped ABI
+        // set so a transitive Android dependency cannot widen it implicitly.
         //
         // Skipped when Flutter runs `flutter build apk --split-per-abi`: that
         // mode injects `splits.abi` with a single ABI per Gradle invocation,
@@ -94,12 +95,12 @@ android {
         }
     }
 
-    // ABI policy: only arm64-v8a and x86_64 are shipped. There is no bundled
-    // 32-bit Android Xray core, and supporting legacy armv7 devices would mean
-    // owning a separate native build/provenance/test path. The Flutter
-    // `target-platform` project property narrows Flutter's own ABI set, while
-    // the package-level exclude below strips any armv7 native libraries that a
-    // transitive Android dependency still contributes.
+    // ABI policy: arm64-v8a, armeabi-v7a, and x86_64 are shipped. armv7 is
+    // included primarily for Android TV devices, which are still mostly 32-bit
+    // ARM. Both the Xray core (jniLibs/<abi>/libxray.so) and libbox
+    // (libs/libbox.aar) provide all three ABIs from the same upstream tags
+    // documented in THIRD_PARTY_NOTICES.md. The Flutter `target-platform`
+    // project property narrows Flutter's own ABI set when needed.
 
     packaging {
         jniLibs {
@@ -121,7 +122,6 @@ android {
             // worth the trade-off for this app.
             useLegacyPackaging = true
             keepDebugSymbols += "**/libxray.so"
-            excludes += "lib/armeabi-v7a/**"
         }
     }
 
@@ -129,6 +129,16 @@ android {
         cmake {
             path = file("src/main/cpp/CMakeLists.txt")
         }
+    }
+
+    testOptions {
+        // Unit tests run against the Android stub jar, which by default
+        // throws RuntimeException("... not mocked") for SystemClock,
+        // PowerManager, etc. Returning sensible defaults (0 for long,
+        // null for objects) lets pure-logic tests (VpnRuntimeState,
+        // route resolvers) run without Robolectric while still failing
+        // loudly for anything that actually needs a real Android impl.
+        unitTests.isReturnDefaultValues = true
     }
 
     // Slim build: pass `-PslimGeoData=true` to flutter/gradle to drop the

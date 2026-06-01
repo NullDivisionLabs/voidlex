@@ -17,7 +17,7 @@ class TvModeDetector {
   /// `PackageManager.FEATURE_LEANBACK[_ONLY]`.
   final bool isNativeTv;
 
-  static const MethodChannel _channel = MethodChannel('org.voidtunnel.tv/info');
+  static const MethodChannel _channel = MethodChannel('org.voidlex.tv/info');
 
   static Future<TvModeDetector> detect() async {
     return TvModeDetector._(await _queryNative());

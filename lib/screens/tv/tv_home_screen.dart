@@ -70,7 +70,11 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
   @override
   void initState() {
     super.initState();
-    _showRemoteFocus = widget.tvMode.isNativeTv;
+    // Show D-pad focus chrome immediately on the TV home canvas. Touch
+    // still hides it via [_handlePointerAction] until the user presses a
+    // remote key again — relying on [isNativeTv] alone left the CONNECT
+    // hub without a ring on phones/tablets in forced horizontal layout.
+    _showRemoteFocus = true;
     widget.controller.addListener(_handleControllerChanged);
     _focus.updateListLength(_flattenServers(_buildGroups(null)).length);
     _clockTimer = Timer.periodic(const Duration(seconds: 30), (_) {
@@ -150,14 +154,14 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
     }
     for (var i = 0; i < _controller.subscriptions.length; i++) {
       final sub = _controller.subscriptions[i];
-      final servers = dedup(sub.servers);
+      final servers = dedup(_controller.visibleSubscriptionServers(sub));
       if (servers.isEmpty) continue;
       TvSubscriptionSummary? summary;
       if (i == 0 && l != null) {
         summary = TvSubscriptionSummary(
           name: sub.name,
           expiryLabel: _expiryLabel(l, sub),
-          nodeCount: sub.servers.length,
+          nodeCount: servers.length,
           refreshedLabel: _refreshedLabel(l, sub),
         );
       }
@@ -599,10 +603,15 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            TvTopStrip(
-              connectionState: _controller.connectionState,
-              latencyMs: _latencyMs(),
-              now: _now,
+            ValueListenableBuilder<int>(
+              valueListenable: _controller.latencyScanTickListenable,
+              builder: (context, tick, child) {
+                return TvTopStrip(
+                  connectionState: _controller.connectionState,
+                  latencyMs: _latencyMs(),
+                  now: _now,
+                );
+              },
             ),
             Expanded(
               child: Padding(
@@ -615,7 +624,6 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
                       child: TvLeftPanel(
                         connectionState: _controller.connectionState,
                         hubFocused:
-                            showFocus &&
                             _focus.column == TvFocusColumn.hub &&
                             !_focus.isOverlayOpen,
                         sideRailFocusedIndex:
@@ -636,16 +644,8 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
                         regionLabel: TvRegionLabel.regionFor(
                           exitServer?.name ?? selectedServer?.name,
                         ),
-                        downValueLabel:
-                            _controller.connectionState ==
-                                VpnConnectionState.connected
-                            ? '12.7 MB/S'
-                            : '— MB/S',
-                        upValueLabel:
-                            _controller.connectionState ==
-                                VpnConnectionState.connected
-                            ? '1.42 MB/S'
-                            : '— MB/S',
+                        downHistory: _controller.downloadBpsHistory,
+                        upHistory: _controller.uploadBpsHistory,
                         onHubTap: () => _handlePointerAction(
                           () => unawaited(_controller.toggleConnection()),
                         ),

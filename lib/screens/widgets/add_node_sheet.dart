@@ -68,7 +68,7 @@ Future<void> showAddNodeSheet(
                 },
               ),
               _AddSheetTile(
-                icon: Icons.upload_file_rounded,
+                icon: Icons.upload_file_outlined,
                 title: l.addNodeFromJsonFile,
                 onTap: () async {
                   Navigator.pop(ctx);

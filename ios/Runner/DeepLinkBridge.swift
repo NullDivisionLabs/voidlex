@@ -1,7 +1,7 @@
 import Flutter
 import Foundation
 
-/// iOS counterpart of the Android `DeepLinkBridge`. Buffers `voidtunnel://`
+/// iOS counterpart of the Android `DeepLinkBridge`. Buffers `voidlex://`
 /// URLs emitted by the scene delegate and pushes them onto the
 /// `void.deeplink/events` EventChannel. The cold-launch URL is also
 /// exposed once via the `void.deeplink` MethodChannel's `consumeInitial`

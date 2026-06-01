@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:voidtunnel/core/tunnel_network_settings.dart';
+import 'package:voidlex/core/tunnel_network_settings.dart';
 
 void main() {
   test('exports tunnel network settings for native runtime', () {

@@ -1,5 +1,7 @@
 import 'dart:convert';
 
+import 'bounded_json.dart';
+
 enum AppRoutingMode {
   off,
   proxy,
@@ -87,8 +89,10 @@ class AppRoutingPolicy {
     if (raw == null || raw.isEmpty) return <String>{};
     final Object? decoded;
     try {
-      decoded = jsonDecode(raw);
+      decoded = decodeJson(raw, maxBytes: JsonPayloadLimits.settingsBlob);
     } on FormatException {
+      return <String>{};
+    } on JsonPayloadTooLargeException {
       return <String>{};
     }
     if (decoded is! List) return <String>{};

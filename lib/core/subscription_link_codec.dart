@@ -4,7 +4,7 @@ import 'dart:typed_data';
 
 import 'package:cryptography/cryptography.dart';
 
-/// Result of decoding a `voidtunnel://1/...` blob: the original subscription
+/// Result of decoding a `voidlex://1/...` blob: the original subscription
 /// URL and the optional human-readable name that was packed into it.
 class DecodedSubscriptionLink {
   const DecodedSubscriptionLink({required this.url, this.name});
@@ -31,7 +31,7 @@ class SubscriptionLinkException implements Exception {
 }
 
 /// Encodes/decodes encrypted subscription codes of the form
-/// `voidtunnel://1/<base64url(payload)>`.
+/// `voidlex://1/<base64url(payload)>`.
 ///
 /// The encryption is intentionally **obfuscation-grade**: the master key is
 /// baked into the app source, so anyone with the APK can derive it. The goal
@@ -41,7 +41,7 @@ class SubscriptionLinkException implements Exception {
 /// Payload binary layout (all multi-byte fields are big-endian where
 /// applicable; varints use unsigned LEB128):
 ///
-///   magic     : 4 bytes  "VTN1"
+///   magic     : 4 bytes  "VLX1"
 ///   version   : 1 byte   0x01
 ///   flags     : 1 byte   bit0 = hasName
 ///   salt      : 16 bytes (random per encode, fed to HKDF)
@@ -53,16 +53,16 @@ class SubscriptionLinkException implements Exception {
 class SubscriptionLinkCodec {
   const SubscriptionLinkCodec();
 
-  static const String scheme = 'voidtunnel';
+  static const String scheme = 'voidlex';
   static const int _currentVersion = 1;
   static const String _versionPath = '1';
-  static const List<int> _magic = [0x56, 0x54, 0x4E, 0x31]; // "VTN1"
+  static const List<int> _magic = [0x56, 0x4C, 0x58, 0x31]; // "VLX1"
   static const int _flagHasName = 0x01;
   static const int _saltLength = 16;
   static const int _nonceLength = 12;
-  static const String _hkdfInfo = 'voidtunnel.subscription.v1';
+  static const String _hkdfInfo = 'voidlex.subscription.v1';
 
-  // App-baked master secret. Generated once for VoidTunnel; treat it as a
+  // App-baked master secret. Generated once for VoidLex; treat it as a
   // fixed-but-private constant. Rotating it would invalidate all previously
   // shared codes, so don't change it casually — bump the version byte and
   // route through a multi-key decoder if a rotation is ever needed.
@@ -77,7 +77,7 @@ class SubscriptionLinkCodec {
   static final Hkdf _hkdf = Hkdf(hmac: Hmac.sha256(), outputLength: 32);
   static final Random _random = Random.secure();
 
-  /// True when [raw] looks like a `voidtunnel://...` URL. Cheap check; does not
+  /// True when [raw] looks like a `voidlex://...` URL. Cheap check; does not
   /// validate the payload.
   static bool looksLikeLink(String raw) {
     final trimmed = raw.trim();
@@ -85,7 +85,7 @@ class SubscriptionLinkCodec {
     return trimmed.toLowerCase().startsWith('$scheme://');
   }
 
-  /// Encrypts [url] (+ optional [name]) and returns a `voidtunnel://1/...`
+  /// Encrypts [url] (+ optional [name]) and returns a `voidlex://1/...`
   /// string. `salt` and `nonce` parameters are exposed for deterministic
   /// testing only — production callers should leave them null so fresh random
   /// values are used.
@@ -125,7 +125,7 @@ class SubscriptionLinkCodec {
     return '$scheme://$_versionPath/${_base64UrlNoPad(payload.toBytes())}';
   }
 
-  /// Decodes a `voidtunnel://1/...` string back to [DecodedSubscriptionLink].
+  /// Decodes a `voidlex://1/...` string back to [DecodedSubscriptionLink].
   /// Throws [SubscriptionLinkException] on any malformed input, unknown
   /// version, or authentication failure.
   Future<DecodedSubscriptionLink> decode(String linkOrCode) async {
@@ -133,7 +133,7 @@ class SubscriptionLinkCodec {
     if (!looksLikeLink(trimmed)) {
       throw const SubscriptionLinkException(
         SubscriptionLinkError.notALink,
-        'Not a voidtunnel:// link',
+        'Not a voidlex:// link',
       );
     }
     final uri = Uri.tryParse(trimmed);
@@ -144,7 +144,7 @@ class SubscriptionLinkCodec {
       );
     }
 
-    // Both `voidtunnel://1/abc...` and `voidtunnel:1/abc...` end up with the
+    // Both `voidlex://1/abc...` and `voidlex:1/abc...` end up with the
     // version as the first segment and the base64url payload as the second.
     // Reassemble from `host + path` to be tolerant of either form.
     final raw = StringBuffer();
