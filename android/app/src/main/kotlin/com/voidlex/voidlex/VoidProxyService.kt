@@ -90,6 +90,20 @@ internal class VoidProxyService : Service() {
             runMode = RunMode.PROXY_ONLY,
             hotspotBindEnabled = true,
         )
+        val naiveRestriction = NaiveRuntimeConstraints.validationError(
+            protocol = config.protocol,
+            detourProtocol = config.detourServer?.protocol,
+            tunEngineMode = config.tunEngineMode,
+            runMode = config.runMode,
+            isBridge = config.detourServer != null,
+        )
+        if (naiveRestriction != null) {
+            val reason = naiveRestriction
+            VpnRuntimeState.markError(reason)
+            VpnEventBridge.emit("error", reason)
+            stopSelf()
+            return START_NOT_STICKY
+        }
         serverConfig = config
 
         val generation = nextGeneration()

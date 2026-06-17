@@ -106,7 +106,7 @@ class Hysteria2Parser {
     }
 
     final obfs = _firstQueryValue(query, const ['obfs'])?.toLowerCase();
-    if (obfs != null && obfs != 'salamander') {
+    if (obfs != null && obfs != 'salamander' && obfs != 'gecko') {
       return Hysteria2ParseResult.fail(
         Hysteria2ParseError.unsupportedObfs,
         'Obfuscation "$obfs" is not supported',
@@ -165,6 +165,7 @@ class Hysteria2Parser {
               'tlsInsecure',
             ]) ??
             false,
+        hysteria2ObfsType: obfs ?? '',
         hysteria2ObfsPassword: obfsPassword,
         hysteria2HopPorts: portConfig.hopPorts,
       ),
@@ -306,7 +307,6 @@ class Hysteria2Parser {
       return null;
     }
   }
-
 }
 
 class _ParsedHysteria2Link {

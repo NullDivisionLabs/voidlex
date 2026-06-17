@@ -2,13 +2,16 @@ package com.voidlex.voidlex
 
 import android.Manifest
 import android.app.Activity
+import android.app.ActivityManager
 import android.app.UiModeManager
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.res.Configuration
 import android.net.Uri
 import android.net.VpnService
 import android.os.Build
+import android.os.Process
 import android.provider.OpenableColumns
 import androidx.annotation.NonNull
 import androidx.core.app.ActivityCompat
@@ -114,6 +117,7 @@ class MainActivity: FlutterActivity() {
                 "exportAppLogs" -> handleExportAppLogs(call.arguments as? Map<*, *>, result)
                 "exportProfileFile" -> handleExportProfileFile(call.arguments as? Map<*, *>, result)
                 "getDeviceHwid" -> handleGetDeviceHwid(result)
+                "getAppMemoryPssKb" -> handleGetAppMemoryPssKb(result)
                 "requestNotificationPermission" -> handleRequestNotificationPermission(result)
                 "updateShowSpeedInNotification" ->
                     handleUpdateShowSpeedInNotification(call.arguments as? Boolean, result)
@@ -155,6 +159,15 @@ class MainActivity: FlutterActivity() {
             android.provider.Settings.Secure.ANDROID_ID,
         ) ?: ""
         result.success(hwid)
+    }
+
+    private fun handleGetAppMemoryPssKb(result: MethodChannel.Result) {
+        val activityManager = getSystemService(Context.ACTIVITY_SERVICE) as? ActivityManager
+        val pssKb = activityManager
+            ?.getProcessMemoryInfo(intArrayOf(Process.myPid()))
+            ?.firstOrNull()
+            ?.totalPss
+        result.success(pssKb)
     }
 
     private fun handleSecureGetString(key: String?, result: MethodChannel.Result) {
@@ -648,6 +661,10 @@ class MainActivity: FlutterActivity() {
                     (args?.get("keepAwake") as? Boolean) ?: false,
                 )
                 putExtra(
+                    VoidVpnService.EXTRA_VERBOSE_XRAY_LOGS,
+                    (args?.get("verboseXrayLogs") as? Boolean) ?: false,
+                )
+                putExtra(
                     VoidVpnService.EXTRA_PROXY_USER,
                     (args?.get("proxyUser") as? String) ?: "",
                 )
@@ -829,6 +846,10 @@ class MainActivity: FlutterActivity() {
                 putExtra(
                     VoidVpnService.EXTRA_PROXY_PASSWORD,
                     (args?.get("proxyPassword") as? String) ?: "",
+                )
+                putExtra(
+                    VoidVpnService.EXTRA_VERBOSE_XRAY_LOGS,
+                    (args?.get("verboseXrayLogs") as? Boolean) ?: false,
                 )
                 putExtra(
                     VoidVpnService.EXTRA_FRAGMENT_ENABLED,
@@ -1245,6 +1266,18 @@ class MainActivity: FlutterActivity() {
         )
         intent.putExtra(extraPrefix + VoidVpnService.EXTRA_TRANSPORT_HOST, readString("transportHost"))
         intent.putExtra(extraPrefix + VoidVpnService.EXTRA_TRANSPORT_MODE, readString("transportMode"))
+        intent.putExtra(
+            extraPrefix + VoidVpnService.EXTRA_XHTTP_PADDING,
+            readString("xhttpPadding"),
+        )
+        intent.putExtra(
+            extraPrefix + VoidVpnService.EXTRA_XHTTP_MAX_POST_BYTES,
+            readString("xhttpMaxPostBytes"),
+        )
+        intent.putExtra(
+            extraPrefix + VoidVpnService.EXTRA_XHTTP_MIN_POST_INTERVAL,
+            readString("xhttpMinPostInterval"),
+        )
         intent.putExtra(extraPrefix + VoidVpnService.EXTRA_TLS_ENABLED, readBoolean("tlsEnabled", true))
         intent.putExtra(extraPrefix + VoidVpnService.EXTRA_TLS_SNI, readString("tlsSni"))
         intent.putExtra(
@@ -1252,19 +1285,95 @@ class MainActivity: FlutterActivity() {
             readBoolean("tlsInsecure", false),
         )
         intent.putExtra(extraPrefix + VoidVpnService.EXTRA_FLOW, readString("flow"))
+        intent.putExtra(
+            extraPrefix + VoidVpnService.EXTRA_VLESS_ENCRYPTION,
+            readString("vlessEncryption"),
+        )
         intent.putExtra(extraPrefix + VoidVpnService.EXTRA_SECURITY, readString("security"))
         intent.putExtra(extraPrefix + VoidVpnService.EXTRA_REALITY_PBK, readString("pbk"))
         intent.putExtra(extraPrefix + VoidVpnService.EXTRA_REALITY_SID, readString("sid"))
         intent.putExtra(extraPrefix + VoidVpnService.EXTRA_REALITY_SPIDER_X, readString("spx"))
+        intent.putExtra(
+            extraPrefix + VoidVpnService.EXTRA_REALITY_MLDSA65_VERIFY,
+            readString("mldsa65Verify"),
+        )
         intent.putExtra(extraPrefix + VoidVpnService.EXTRA_FINGERPRINT, readString("fp"))
         intent.putExtra(extraPrefix + VoidVpnService.EXTRA_ALPN, readString("alpn"))
+        intent.putExtra(
+            extraPrefix + VoidVpnService.EXTRA_HYSTERIA2_OBFS_TYPE,
+            readString("hysteria2ObfsType"),
+        )
         intent.putExtra(
             extraPrefix + VoidVpnService.EXTRA_HYSTERIA2_OBFS_PASSWORD,
             readString("hysteria2ObfsPassword"),
         )
         intent.putExtra(
+            extraPrefix + VoidVpnService.EXTRA_HYSTERIA2_OBFS_MIN_PACKET_SIZE,
+            readInt("hysteria2ObfsMinPacketSize", 0),
+        )
+        intent.putExtra(
+            extraPrefix + VoidVpnService.EXTRA_HYSTERIA2_OBFS_MAX_PACKET_SIZE,
+            readInt("hysteria2ObfsMaxPacketSize", 0),
+        )
+        intent.putExtra(
             extraPrefix + VoidVpnService.EXTRA_HYSTERIA2_HOP_PORTS,
             readString("hysteria2HopPorts"),
+        )
+        intent.putExtra(
+            extraPrefix + VoidVpnService.EXTRA_HYSTERIA2_HOP_INTERVAL,
+            readString("hysteria2HopInterval"),
+        )
+        intent.putExtra(
+            extraPrefix + VoidVpnService.EXTRA_HYSTERIA2_HOP_INTERVAL_MAX,
+            readString("hysteria2HopIntervalMax"),
+        )
+        intent.putExtra(
+            extraPrefix + VoidVpnService.EXTRA_HYSTERIA2_UP_MBPS,
+            readInt("hysteria2UpMbps", 0),
+        )
+        intent.putExtra(
+            extraPrefix + VoidVpnService.EXTRA_HYSTERIA2_DOWN_MBPS,
+            readInt("hysteria2DownMbps", 0),
+        )
+        intent.putExtra(
+            extraPrefix + VoidVpnService.EXTRA_HYSTERIA2_NETWORK,
+            readString("hysteria2Network"),
+        )
+        intent.putExtra(
+            extraPrefix + VoidVpnService.EXTRA_HYSTERIA2_BBR_PROFILE,
+            readString("hysteria2BbrProfile"),
+        )
+        intent.putExtra(
+            extraPrefix + VoidVpnService.EXTRA_NAIVE_USERNAME,
+            readString("naiveUsername"),
+        )
+        intent.putExtra(
+            extraPrefix + VoidVpnService.EXTRA_NAIVE_PASSWORD,
+            readString("naivePassword"),
+        )
+        intent.putExtra(
+            extraPrefix + VoidVpnService.EXTRA_NAIVE_QUIC,
+            readBoolean("naiveQuic", false),
+        )
+        intent.putExtra(
+            extraPrefix + VoidVpnService.EXTRA_NAIVE_QUIC_CONGESTION_CONTROL,
+            readString("naiveQuicCongestionControl"),
+        )
+        intent.putExtra(
+            extraPrefix + VoidVpnService.EXTRA_NAIVE_INSECURE_CONCURRENCY,
+            readInt("naiveInsecureConcurrency", 0),
+        )
+        intent.putExtra(
+            extraPrefix + VoidVpnService.EXTRA_NAIVE_EXTRA_HEADERS_JSON,
+            readString("naiveExtraHeadersJson", "{}"),
+        )
+        intent.putExtra(
+            extraPrefix + VoidVpnService.EXTRA_NAIVE_UDP_OVER_TCP,
+            readBoolean("naiveUdpOverTcp", false),
+        )
+        intent.putExtra(
+            extraPrefix + VoidVpnService.EXTRA_NAIVE_UDP_OVER_TCP_VERSION,
+            readInt("naiveUdpOverTcpVersion", 0),
         )
     }
 

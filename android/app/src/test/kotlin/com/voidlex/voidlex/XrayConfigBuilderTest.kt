@@ -10,6 +10,46 @@ import org.junit.Test
 
 class XrayConfigBuilderTest {
     @Test
+    fun `builds VLESS encryption and advanced Reality settings`() {
+        val config = ServerConfig(
+            isGlobalProxy = true,
+            server = "reality.example.com",
+            serverPort = 443,
+            uuid = "00000000-0000-4000-8000-000000000000",
+            transport = "tcp",
+            transportPath = "/",
+            transportServiceName = "",
+            transportHost = "",
+            tlsEnabled = true,
+            tlsSni = "www.example.com",
+            tlsInsecure = false,
+            flow = "xtls-rprx-vision",
+            vlessEncryption = "mlkem768x25519plus",
+            security = "reality",
+            realityPbk = "public-key",
+            realitySid = "abcd",
+            realitySpiderX = "/crawler",
+            realityMldsa65Verify = "verify-key",
+            fingerprint = "chrome",
+            alpn = "",
+        )
+
+        val proxy = JSONObject(XrayConfigBuilder.build(config))
+            .getJSONArray("outbounds")
+            .getJSONObject(0)
+        val user = proxy.getJSONObject("settings")
+            .getJSONArray("vnext")
+            .getJSONObject(0)
+            .getJSONArray("users")
+            .getJSONObject(0)
+        assertEquals("xtls-rprx-vision", user.getString("flow"))
+        assertEquals("mlkem768x25519plus", user.getString("encryption"))
+        val reality = proxy.getJSONObject("streamSettings").getJSONObject("realitySettings")
+        assertEquals("/crawler", reality.getString("spiderX"))
+        assertEquals("verify-key", reality.getString("mldsa65Verify"))
+    }
+
+    @Test
     fun `builds grpc service name and authority for xray`() {
         val config = ServerConfig(
             isGlobalProxy = true,
@@ -1051,6 +1091,34 @@ class XrayConfigBuilderTest {
             serverPort = 443,
             protocol = "hysteria2",
             uuid = "secret-auth",
+            transport = "tcp",
+            transportPath = "/",
+            transportServiceName = "",
+            transportHost = "",
+            tlsEnabled = true,
+            tlsSni = "edge.example.com",
+            tlsInsecure = false,
+            flow = "",
+            security = "tls",
+            realityPbk = "",
+            realitySid = "",
+            fingerprint = "",
+            alpn = "",
+        )
+
+        assertThrows(IllegalArgumentException::class.java) {
+            XrayConfigBuilder.build(config)
+        }
+    }
+
+    @Test
+    fun `rejects naive protocol in xray config`() {
+        val config = ServerConfig(
+            isGlobalProxy = true,
+            server = "naive.example.com",
+            serverPort = 443,
+            protocol = "naive",
+            uuid = "",
             transport = "tcp",
             transportPath = "/",
             transportServiceName = "",

@@ -10,6 +10,8 @@ String protocolLabel(AppLocalizations l, ServerProtocol protocol) {
       return l.protocolVless;
     case ServerProtocol.hysteria2:
       return l.protocolHysteria2;
+    case ServerProtocol.naive:
+      return l.protocolNaive;
   }
 }
 

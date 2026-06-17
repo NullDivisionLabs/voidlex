@@ -90,8 +90,8 @@ internal object XrayConfigBuilder {
                 put("dns", dns)
             }
             put("inbounds", buildRuntimeInbounds(config, inbounds))
-            require(!isHysteria2(config)) {
-                "Hysteria2 must not reach XrayConfigBuilder; route it through libbox instead."
+            require(!usesDirectLibbox(config)) {
+                "${config.protocol} must not reach XrayConfigBuilder; route it through libbox instead."
             }
             put("outbounds", JSONArray().apply {
                 val usesFragment = config.fragmentSettings.enabled
@@ -354,14 +354,11 @@ internal object XrayConfigBuilder {
     }
 
     internal fun buildExternalIpProbeInbound(config: ServerConfig): JSONObject {
-        // The probe inbound shares credentials with SOCKS only when the user
-        // has opted into proxy-auth for the public HTTP port, or when the
-        // inbound is exposed to the LAN (hotspot/proxy-only). In the default
-        // localhost-only case it stays open so the in-app IP probe keeps
-        // working without juggling credentials internally.
-        val isExposed = config.hotspotBindEnabled || config.runMode == RunMode.PROXY_ONLY
-        val hasAuth = (config.httpProxyAuthEnabled || isExposed) &&
-            config.proxyUser.isNotEmpty() && config.proxyPassword.isNotEmpty()
+        // Whenever proxy credentials are configured the probe inbound enforces
+        // them too, regardless of run mode or LAN exposure. This keeps the
+        // local HTTP port from ever being an unauthenticated side door onto
+        // the active tunnel, matching the SOCKS inbound's behaviour.
+        val hasAuth = config.proxyUser.isNotEmpty() && config.proxyPassword.isNotEmpty()
         val bindHost = resolveBindHost(config)
         return JSONObject().apply {
             put("tag", EXTERNAL_IP_PROBE_INBOUND_TAG)
@@ -459,7 +456,7 @@ internal object XrayConfigBuilder {
                         if (config.flow.isNotBlank()) {
                             put("flow", config.flow)
                         }
-                        put("encryption", "none")
+                        put("encryption", config.vlessEncryption.ifBlank { "none" })
                     }))
                 }))
             })
@@ -521,10 +518,12 @@ internal object XrayConfigBuilder {
             left.tlsSni == right.tlsSni &&
             left.tlsInsecure == right.tlsInsecure &&
             left.flow == right.flow &&
+            left.vlessEncryption == right.vlessEncryption &&
             left.security == right.security &&
             left.realityPbk == right.realityPbk &&
             left.realitySid == right.realitySid &&
             left.realitySpiderX == right.realitySpiderX &&
+            left.realityMldsa65Verify == right.realityMldsa65Verify &&
             left.fingerprint == right.fingerprint &&
             left.alpn == right.alpn
     }
@@ -532,6 +531,14 @@ internal object XrayConfigBuilder {
     internal fun isHysteria2(config: ServerConfig): Boolean {
         return config.protocol.equals("hysteria2", ignoreCase = true) ||
             config.protocol.equals("hy2", ignoreCase = true)
+    }
+
+    internal fun isNaive(config: ServerConfig): Boolean {
+        return NaiveRuntimeConstraints.isNaive(config.protocol)
+    }
+
+    internal fun usesDirectLibbox(config: ServerConfig): Boolean {
+        return isHysteria2(config) || isNaive(config)
     }
 
     private fun buildStreamSettings(config: ServerConfig): JSONObject {
@@ -566,6 +573,9 @@ internal object XrayConfigBuilder {
                     put("shortId", config.realitySid)
                     if (config.realitySpiderX.isNotBlank()) {
                         put("spiderX", config.realitySpiderX)
+                    }
+                    if (config.realityMldsa65Verify.isNotBlank()) {
+                        put("mldsa65Verify", config.realityMldsa65Verify)
                     }
                     // xhttp negotiates HTTP/2 internally, but advertising
                     // ONLY h2 in the ClientHello is itself a distinguishing

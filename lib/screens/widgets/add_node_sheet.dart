@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../core/hysteria2_parser.dart';
+import '../../core/naive_parser.dart';
 import '../../core/server_importer.dart';
 import '../../core/text_file_picker.dart';
 import '../../core/vless_parser.dart';
@@ -220,6 +221,8 @@ String _humanizeImportError(
   if (hysteria2Error != null) {
     return _humanizeHysteria2Error(hysteria2Error, l, source);
   }
+  final naiveError = error.naiveError;
+  if (naiveError != null) return _humanizeNaiveError(naiveError, l, source);
 
   switch (error.code) {
     case ServerImportError.empty:
@@ -244,10 +247,32 @@ String _humanizeImportError(
       }
     case ServerImportError.invalidVless:
     case ServerImportError.invalidHysteria2:
+    case ServerImportError.invalidNaive:
       return error.message;
     case ServerImportError.invalidSubscription:
     case ServerImportError.subscriptionNetwork:
       return error.message;
+  }
+}
+
+String _humanizeNaiveError(
+  NaiveParseException e,
+  AppLocalizations l,
+  String source,
+) {
+  switch (e.code) {
+    case NaiveParseError.notNaiveScheme:
+      return l.importNaiveWrongScheme;
+    case NaiveParseError.malformedUri:
+      return l.importNaiveMalformedUri;
+    case NaiveParseError.missingHost:
+      return l.importNaiveMissingHost;
+    case NaiveParseError.invalidPort:
+      return l.importNaiveInvalidPort;
+    case NaiveParseError.invalidMode:
+      return l.importNaiveInvalidMode;
+    case NaiveParseError.invalidCongestionControl:
+      return l.importNaiveInvalidCongestionControl;
   }
 }
 

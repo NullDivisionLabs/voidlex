@@ -68,6 +68,30 @@ Widget tvDpadEscapeTextField(Widget textField) {
   );
 }
 
+/// On TV, prevents [RadioGroup] from trapping vertical D-pad navigation.
+/// This must wrap the group's child so it handles arrows before the group.
+Widget tvDpadEscapeRadioGroup({required bool enabled, required Widget child}) {
+  if (!enabled) return child;
+  return Focus(
+    canRequestFocus: false,
+    skipTraversal: true,
+    onKeyEvent: (node, event) {
+      if (event is! KeyDownEvent) return KeyEventResult.ignored;
+      final direction = switch (event.logicalKey) {
+        LogicalKeyboardKey.arrowDown => TraversalDirection.down,
+        LogicalKeyboardKey.arrowUp => TraversalDirection.up,
+        _ => null,
+      };
+      if (direction == null) return KeyEventResult.ignored;
+      final scope = node.nearestScope;
+      if (scope == null) return KeyEventResult.ignored;
+      scope.focusInDirection(direction);
+      return KeyEventResult.handled;
+    },
+    child: child,
+  );
+}
+
 /// Compact list row (tunnel settings blocks) with the same TV focus ring as
 /// [TvSettingsCard], for toggles inside grouped containers.
 class TvCompactFocusRow extends StatefulWidget {

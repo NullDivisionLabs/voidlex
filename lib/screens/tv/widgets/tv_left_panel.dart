@@ -100,6 +100,9 @@ class TvLeftPanel extends StatelessWidget {
                           const SizedBox(height: 6),
                           Text(
                             statusLabel.toUpperCase(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            softWrap: false,
                             style: VoidType.sans(
                               fontSize: 44,
                               fontWeight: FontWeight.w700,

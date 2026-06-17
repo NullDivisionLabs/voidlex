@@ -236,6 +236,36 @@ abstract class AppLocalizations {
   /// **'Theme'**
   String get themeSection;
 
+  /// No description provided for @settingsGroupInterface.
+  ///
+  /// In en, this message translates to:
+  /// **'Interface'**
+  String get settingsGroupInterface;
+
+  /// No description provided for @settingsGroupConnection.
+  ///
+  /// In en, this message translates to:
+  /// **'Connection'**
+  String get settingsGroupConnection;
+
+  /// No description provided for @settingsGroupNodes.
+  ///
+  /// In en, this message translates to:
+  /// **'Nodes'**
+  String get settingsGroupNodes;
+
+  /// No description provided for @settingsGroupProfile.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile'**
+  String get settingsGroupProfile;
+
+  /// No description provided for @settingsGroupAdvanced.
+  ///
+  /// In en, this message translates to:
+  /// **'Advanced'**
+  String get settingsGroupAdvanced;
+
   /// No description provided for @themeLight.
   ///
   /// In en, this message translates to:
@@ -410,6 +440,42 @@ abstract class AppLocalizations {
   /// **'Show the full-tunnel button on the home screen.'**
   String get applicationSettingsGlobalProxySubtitle;
 
+  /// No description provided for @applicationSettingsShowExitNodeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Exit/Node widget'**
+  String get applicationSettingsShowExitNodeTitle;
+
+  /// No description provided for @applicationSettingsShowExitNodeSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Show connection details on the home screen.'**
+  String get applicationSettingsShowExitNodeSubtitle;
+
+  /// No description provided for @exitInfoSpeedLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'SPEED'**
+  String get exitInfoSpeedLabel;
+
+  /// No description provided for @exitInfoDownLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'DOWN'**
+  String get exitInfoDownLabel;
+
+  /// No description provided for @exitInfoUpLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'UP'**
+  String get exitInfoUpLabel;
+
+  /// No description provided for @exitInfoMemoryLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'MEM'**
+  String get exitInfoMemoryLabel;
+
   /// No description provided for @applicationSettingsAutoSortServersByPingTitle.
   ///
   /// In en, this message translates to:
@@ -449,8 +515,26 @@ abstract class AppLocalizations {
   /// No description provided for @profileExportProtectedSubscriptionsEncrypted.
   ///
   /// In en, this message translates to:
-  /// **'Profile exported. Protected subscriptions are stored as encrypted codes.'**
+  /// **'Profile exported. Protected subscriptions are saved as obfuscated codes — hidden from casual viewing, not strong encryption.'**
   String get profileExportProtectedSubscriptionsEncrypted;
+
+  /// No description provided for @profileExportWarningTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Export profile?'**
+  String get profileExportWarningTitle;
+
+  /// No description provided for @profileExportWarningBody.
+  ///
+  /// In en, this message translates to:
+  /// **'The exported JSON contains your manual nodes in full, including UUIDs and passwords, in plain text. Store and share the file carefully.'**
+  String get profileExportWarningBody;
+
+  /// No description provided for @profileExportWarningConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Export'**
+  String get profileExportWarningConfirm;
 
   /// No description provided for @profileExportFailed.
   ///
@@ -547,6 +631,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Open Void//Lex and use Connect in the app. VPN control links are ignored on cold start.'**
   String get deepLinkVpnControlColdStart;
+
+  /// No description provided for @deepLinkConsentTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Open external link?'**
+  String get deepLinkConsentTitle;
+
+  /// No description provided for @deepLinkConsentImportServers.
+  ///
+  /// In en, this message translates to:
+  /// **'This link wants to add one or more servers to Void//Lex.'**
+  String get deepLinkConsentImportServers;
+
+  /// No description provided for @deepLinkConsentImportRuleset.
+  ///
+  /// In en, this message translates to:
+  /// **'This link wants to download routing rules and add them. This may restart your active connection.'**
+  String get deepLinkConsentImportRuleset;
+
+  /// No description provided for @deepLinkConsentImportSubscription.
+  ///
+  /// In en, this message translates to:
+  /// **'This link wants to import a subscription or server into Void//Lex.'**
+  String get deepLinkConsentImportSubscription;
+
+  /// No description provided for @deepLinkConsentSourceLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Source'**
+  String get deepLinkConsentSourceLabel;
+
+  /// No description provided for @deepLinkConsentHttpWarning.
+  ///
+  /// In en, this message translates to:
+  /// **'This link uses plain HTTP (no TLS). Its contents can be read or modified in transit.'**
+  String get deepLinkConsentHttpWarning;
+
+  /// No description provided for @deepLinkConsentConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Import'**
+  String get deepLinkConsentConfirm;
 
   /// No description provided for @deepLinkRulesetInvalidUrl.
   ///
@@ -757,6 +883,48 @@ abstract class AppLocalizations {
   /// **'Password / Auth'**
   String get editServerPasswordLabel;
 
+  /// No description provided for @editServerNaiveUsernameLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'NaiveProxy username (optional)'**
+  String get editServerNaiveUsernameLabel;
+
+  /// No description provided for @editServerNaivePasswordLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'NaiveProxy password (optional)'**
+  String get editServerNaivePasswordLabel;
+
+  /// No description provided for @editServerNaiveModeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'NaiveProxy transport'**
+  String get editServerNaiveModeLabel;
+
+  /// No description provided for @editServerNaiveModeHttps.
+  ///
+  /// In en, this message translates to:
+  /// **'HTTPS / HTTP2'**
+  String get editServerNaiveModeHttps;
+
+  /// No description provided for @editServerNaiveModeQuic.
+  ///
+  /// In en, this message translates to:
+  /// **'QUIC'**
+  String get editServerNaiveModeQuic;
+
+  /// No description provided for @editServerNaiveCongestionControlLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'QUIC congestion control'**
+  String get editServerNaiveCongestionControlLabel;
+
+  /// No description provided for @editServerNaiveCongestionControlAuto.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto (BBR)'**
+  String get editServerNaiveCongestionControlAuto;
+
   /// No description provided for @editServerProtocolLabel.
   ///
   /// In en, this message translates to:
@@ -864,6 +1032,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Password is required'**
   String get editServerPasswordRequired;
+
+  /// No description provided for @editServerUuidRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'UUID is required'**
+  String get editServerUuidRequired;
 
   /// No description provided for @editServerNameDuplicate.
   ///
@@ -973,6 +1147,228 @@ abstract class AppLocalizations {
   /// **'Default: 10-50 (packet-up only)'**
   String get editServerXhttpMinIntervalHelper;
 
+  /// No description provided for @editServerAdvancedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Advanced'**
+  String get editServerAdvancedTitle;
+
+  /// No description provided for @editServerAuto.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto'**
+  String get editServerAuto;
+
+  /// No description provided for @editServerFlowLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'VLESS flow'**
+  String get editServerFlowLabel;
+
+  /// No description provided for @editServerFlowHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'XTLS Vision flow. Usually used with TCP + TLS/Reality.'**
+  String get editServerFlowHelper;
+
+  /// No description provided for @editServerEncryptionLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'VLESS encryption'**
+  String get editServerEncryptionLabel;
+
+  /// No description provided for @editServerEncryptionHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave blank for none. Advanced values may be long.'**
+  String get editServerEncryptionHelper;
+
+  /// No description provided for @editServerRealitySpiderXLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Reality spiderX'**
+  String get editServerRealitySpiderXLabel;
+
+  /// No description provided for @editServerRealitySpiderXHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'Optional initial crawler path.'**
+  String get editServerRealitySpiderXHelper;
+
+  /// No description provided for @editServerRealityMldsaLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Reality ML-DSA-65 verify'**
+  String get editServerRealityMldsaLabel;
+
+  /// No description provided for @editServerRealityMldsaHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'Optional post-quantum verification key.'**
+  String get editServerRealityMldsaHelper;
+
+  /// No description provided for @editServerHysteriaObfsTypeLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Obfuscation'**
+  String get editServerHysteriaObfsTypeLabel;
+
+  /// No description provided for @editServerHysteriaObfsNone.
+  ///
+  /// In en, this message translates to:
+  /// **'None'**
+  String get editServerHysteriaObfsNone;
+
+  /// No description provided for @editServerHysteriaObfsMinPacketLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Gecko minimum packet size'**
+  String get editServerHysteriaObfsMinPacketLabel;
+
+  /// No description provided for @editServerHysteriaObfsMaxPacketLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Gecko maximum packet size'**
+  String get editServerHysteriaObfsMaxPacketLabel;
+
+  /// No description provided for @editServerHysteriaHopIntervalLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Port hopping interval'**
+  String get editServerHysteriaHopIntervalLabel;
+
+  /// No description provided for @editServerHysteriaHopIntervalMaxLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Maximum port hopping interval'**
+  String get editServerHysteriaHopIntervalMaxLabel;
+
+  /// No description provided for @editServerHysteriaUpMbpsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Upload bandwidth (Mbps)'**
+  String get editServerHysteriaUpMbpsLabel;
+
+  /// No description provided for @editServerHysteriaDownMbpsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Download bandwidth (Mbps)'**
+  String get editServerHysteriaDownMbpsLabel;
+
+  /// No description provided for @editServerHysteriaNetworkLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Proxied network'**
+  String get editServerHysteriaNetworkLabel;
+
+  /// No description provided for @editServerHysteriaNetworkBoth.
+  ///
+  /// In en, this message translates to:
+  /// **'TCP and UDP'**
+  String get editServerHysteriaNetworkBoth;
+
+  /// No description provided for @editServerHysteriaBbrProfileLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'BBR profile'**
+  String get editServerHysteriaBbrProfileLabel;
+
+  /// No description provided for @editServerNaiveInsecureConcurrencyLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Insecure concurrency'**
+  String get editServerNaiveInsecureConcurrencyLabel;
+
+  /// No description provided for @editServerNaiveInsecureConcurrencyHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'Extra parallel connections used before authentication is confirmed.'**
+  String get editServerNaiveInsecureConcurrencyHelper;
+
+  /// No description provided for @editServerNaiveExtraHeadersLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Extra HTTP headers'**
+  String get editServerNaiveExtraHeadersLabel;
+
+  /// No description provided for @editServerNaiveAddHeader.
+  ///
+  /// In en, this message translates to:
+  /// **'Add header'**
+  String get editServerNaiveAddHeader;
+
+  /// No description provided for @editServerNaiveHeaderNameLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Header'**
+  String get editServerNaiveHeaderNameLabel;
+
+  /// No description provided for @editServerNaiveHeaderValueLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Value'**
+  String get editServerNaiveHeaderValueLabel;
+
+  /// No description provided for @editServerNaiveUdpOverTcpLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'UDP over TCP'**
+  String get editServerNaiveUdpOverTcpLabel;
+
+  /// No description provided for @editServerNaiveUdpOverTcpVersionLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'UDP over TCP version'**
+  String get editServerNaiveUdpOverTcpVersionLabel;
+
+  /// No description provided for @editServerAdvancedObfsPasswordRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Obfs password is required'**
+  String get editServerAdvancedObfsPasswordRequired;
+
+  /// No description provided for @editServerAdvancedRangeOrder.
+  ///
+  /// In en, this message translates to:
+  /// **'Maximum must be greater than or equal to minimum'**
+  String get editServerAdvancedRangeOrder;
+
+  /// No description provided for @editServerAdvancedPositiveInteger.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a positive integer'**
+  String get editServerAdvancedPositiveInteger;
+
+  /// No description provided for @editServerAdvancedIntegerMax.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a positive integer up to 2048'**
+  String get editServerAdvancedIntegerMax;
+
+  /// No description provided for @editServerAdvancedDurationInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Use a Go duration such as 30s or 1m30s'**
+  String get editServerAdvancedDurationInvalid;
+
+  /// No description provided for @editServerAdvancedHeaderRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Header name is required'**
+  String get editServerAdvancedHeaderRequired;
+
+  /// No description provided for @editServerAdvancedHeaderDuplicate.
+  ///
+  /// In en, this message translates to:
+  /// **'Header names must be unique'**
+  String get editServerAdvancedHeaderDuplicate;
+
+  /// No description provided for @editServerAdvancedHeaderNewline.
+  ///
+  /// In en, this message translates to:
+  /// **'New lines are not allowed'**
+  String get editServerAdvancedHeaderNewline;
+
   /// No description provided for @protocolVless.
   ///
   /// In en, this message translates to:
@@ -984,6 +1380,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Hysteria2'**
   String get protocolHysteria2;
+
+  /// No description provided for @protocolNaive.
+  ///
+  /// In en, this message translates to:
+  /// **'NaiveProxy'**
+  String get protocolNaive;
 
   /// No description provided for @transportTcp.
   ///
@@ -1138,7 +1540,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsProtocolValue.
   ///
   /// In en, this message translates to:
-  /// **'VLESS · Hysteria2'**
+  /// **'VLESS · Hysteria2 · NaiveProxy'**
   String get settingsProtocolValue;
 
   /// No description provided for @settingsXrayCoreLabel.
@@ -1174,7 +1576,7 @@ abstract class AppLocalizations {
   /// No description provided for @logsCopiedText.
   ///
   /// In en, this message translates to:
-  /// **'Logs copied.'**
+  /// **'Logs copied. They may contain sensitive details — keep them private.'**
   String get logsCopiedText;
 
   /// No description provided for @logsNoExportText.
@@ -1216,7 +1618,7 @@ abstract class AppLocalizations {
   /// No description provided for @homeServerCopied.
   ///
   /// In en, this message translates to:
-  /// **'Server copied.'**
+  /// **'Server link copied. It contains your credentials — keep it private.'**
   String get homeServerCopied;
 
   /// No description provided for @homeNodePresetTitle.
@@ -1608,6 +2010,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'VPN connection timed out'**
   String get vpnConnectionTimedOut;
+
+  /// No description provided for @vpnNaiveRequiresLibbox.
+  ///
+  /// In en, this message translates to:
+  /// **'NaiveProxy requires the libbox TUN engine'**
+  String get vpnNaiveRequiresLibbox;
+
+  /// No description provided for @vpnNaiveTunOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'NaiveProxy is not available in proxy-only mode'**
+  String get vpnNaiveTunOnly;
+
+  /// No description provided for @vpnNaiveBridgeUnsupported.
+  ///
+  /// In en, this message translates to:
+  /// **'NaiveProxy cannot be used in a two-hop chain'**
+  String get vpnNaiveBridgeUnsupported;
+
+  /// No description provided for @vpnNaiveExitUnsupported.
+  ///
+  /// In en, this message translates to:
+  /// **'NaiveProxy cannot be selected as an exit node'**
+  String get vpnNaiveExitUnsupported;
 
   /// No description provided for @vpnEventChannelError.
   ///
@@ -2065,6 +2491,84 @@ abstract class AppLocalizations {
   /// **'JSON config'**
   String get editServerCopyAsJson;
 
+  /// No description provided for @editServerCopyAsQr.
+  ///
+  /// In en, this message translates to:
+  /// **'QR code'**
+  String get editServerCopyAsQr;
+
+  /// No description provided for @editServerQrTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Server QR code'**
+  String get editServerQrTitle;
+
+  /// No description provided for @editServerQrHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Scan to import this server'**
+  String get editServerQrHint;
+
+  /// No description provided for @editServerUrlCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Server URL copied. It contains your credentials — keep it private.'**
+  String get editServerUrlCopied;
+
+  /// No description provided for @editServerJsonCopied.
+  ///
+  /// In en, this message translates to:
+  /// **'Server JSON copied. It contains your credentials — keep it private.'**
+  String get editServerJsonCopied;
+
+  /// No description provided for @editServerAdvancedUrlOmitted.
+  ///
+  /// In en, this message translates to:
+  /// **'URL/QR omits non-standard advanced tuning. Use JSON or a Voidlex profile for a complete export.'**
+  String get editServerAdvancedUrlOmitted;
+
+  /// No description provided for @editServerShowJson.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit as JSON'**
+  String get editServerShowJson;
+
+  /// No description provided for @editServerShowForm.
+  ///
+  /// In en, this message translates to:
+  /// **'Return to form'**
+  String get editServerShowForm;
+
+  /// No description provided for @editServerJsonEditorLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Voidlex server JSON'**
+  String get editServerJsonEditorLabel;
+
+  /// No description provided for @editServerJsonEditorHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit one supported server configuration. Saving applies the JSON to this server.'**
+  String get editServerJsonEditorHelper;
+
+  /// No description provided for @editServerJsonInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'JSON must contain exactly one valid supported server configuration.'**
+  String get editServerJsonInvalid;
+
+  /// No description provided for @settingsHwidLoading.
+  ///
+  /// In en, this message translates to:
+  /// **'Loading…'**
+  String get settingsHwidLoading;
+
+  /// No description provided for @settingsHwidUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'Unavailable'**
+  String get settingsHwidUnavailable;
+
   /// No description provided for @providerSettingsTitle.
   ///
   /// In en, this message translates to:
@@ -2152,25 +2656,25 @@ abstract class AppLocalizations {
   /// No description provided for @providerProtectSubscriptionsSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Disable editing of subscription nodes and export subscriptions only as encrypted codes.'**
+  /// **'Disable editing of subscription nodes and export subscriptions only as obfuscated codes (hidden from casual viewing, not strong encryption).'**
   String get providerProtectSubscriptionsSubtitle;
 
   /// No description provided for @subscriptionShareEncrypted.
   ///
   /// In en, this message translates to:
-  /// **'Share encrypted code'**
+  /// **'Share obfuscated code'**
   String get subscriptionShareEncrypted;
 
   /// No description provided for @subscriptionShareEncryptedCopied.
   ///
   /// In en, this message translates to:
-  /// **'Encrypted subscription code copied to clipboard.'**
+  /// **'Obfuscated subscription code copied. It still contains your subscription URL — keep it private.'**
   String get subscriptionShareEncryptedCopied;
 
   /// No description provided for @subscriptionShareEncryptedFailed.
   ///
   /// In en, this message translates to:
-  /// **'Failed to generate encrypted code.'**
+  /// **'Failed to generate obfuscated code.'**
   String get subscriptionShareEncryptedFailed;
 
   /// No description provided for @subscriptionHideNa.
@@ -2188,7 +2692,7 @@ abstract class AppLocalizations {
   /// No description provided for @subscriptionImportEncryptedFailed.
   ///
   /// In en, this message translates to:
-  /// **'Invalid or corrupted encrypted code.'**
+  /// **'Invalid or corrupted code.'**
   String get subscriptionImportEncryptedFailed;
 
   /// No description provided for @subscriptionIntervalOneHour.
@@ -2226,6 +2730,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Geo files'**
   String get geoFilesAppBarTitle;
+
+  /// No description provided for @geoAutoUpdateTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Geo file auto-update'**
+  String get geoAutoUpdateTitle;
+
+  /// No description provided for @geoAutoUpdateSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatically updates Geo files that use saved URLs.'**
+  String get geoAutoUpdateSubtitle;
+
+  /// No description provided for @geoAutoUpdateDisabled.
+  ///
+  /// In en, this message translates to:
+  /// **'Disabled'**
+  String get geoAutoUpdateDisabled;
+
+  /// No description provided for @geoAutoUpdateOneDay.
+  ///
+  /// In en, this message translates to:
+  /// **'Every day'**
+  String get geoAutoUpdateOneDay;
+
+  /// No description provided for @geoAutoUpdateThreeDays.
+  ///
+  /// In en, this message translates to:
+  /// **'Every 3 days'**
+  String get geoAutoUpdateThreeDays;
+
+  /// No description provided for @geoAutoUpdateSevenDays.
+  ///
+  /// In en, this message translates to:
+  /// **'Every 7 days'**
+  String get geoAutoUpdateSevenDays;
 
   /// No description provided for @geoUpdateFileTitle.
   ///
@@ -2623,6 +3163,42 @@ abstract class AppLocalizations {
   /// **'Salamander obfuscation password is missing'**
   String get importHy2MissingObfsPassword;
 
+  /// No description provided for @importNaiveWrongScheme.
+  ///
+  /// In en, this message translates to:
+  /// **'Link is not a supported NaiveProxy link'**
+  String get importNaiveWrongScheme;
+
+  /// No description provided for @importNaiveMalformedUri.
+  ///
+  /// In en, this message translates to:
+  /// **'NaiveProxy link is malformed'**
+  String get importNaiveMalformedUri;
+
+  /// No description provided for @importNaiveMissingHost.
+  ///
+  /// In en, this message translates to:
+  /// **'NaiveProxy host is missing'**
+  String get importNaiveMissingHost;
+
+  /// No description provided for @importNaiveInvalidPort.
+  ///
+  /// In en, this message translates to:
+  /// **'NaiveProxy port is out of range'**
+  String get importNaiveInvalidPort;
+
+  /// No description provided for @importNaiveInvalidMode.
+  ///
+  /// In en, this message translates to:
+  /// **'NaiveProxy mode must be HTTPS or QUIC'**
+  String get importNaiveInvalidMode;
+
+  /// No description provided for @importNaiveInvalidCongestionControl.
+  ///
+  /// In en, this message translates to:
+  /// **'NaiveProxy QUIC congestion control is not supported'**
+  String get importNaiveInvalidCongestionControl;
+
   /// No description provided for @importVlessMalformedUri.
   ///
   /// In en, this message translates to:
@@ -2718,6 +3294,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Tunnel settings'**
   String get tunnelSettingsTitle;
+
+  /// No description provided for @tunnelGroupNetwork.
+  ///
+  /// In en, this message translates to:
+  /// **'Network'**
+  String get tunnelGroupNetwork;
+
+  /// No description provided for @tunnelGroupTrafficDns.
+  ///
+  /// In en, this message translates to:
+  /// **'Traffic and DNS'**
+  String get tunnelGroupTrafficDns;
+
+  /// No description provided for @tunnelGroupOptimization.
+  ///
+  /// In en, this message translates to:
+  /// **'Optimization'**
+  String get tunnelGroupOptimization;
+
+  /// No description provided for @tunnelGroupAdvanced.
+  ///
+  /// In en, this message translates to:
+  /// **'Advanced'**
+  String get tunnelGroupAdvanced;
+
+  /// No description provided for @tunnelGroupLocalProxy.
+  ///
+  /// In en, this message translates to:
+  /// **'Local proxy'**
+  String get tunnelGroupLocalProxy;
 
   /// No description provided for @tunnelUseLocalDns.
   ///
@@ -3238,8 +3844,20 @@ abstract class AppLocalizations {
   /// No description provided for @tvSidePresetSub.
   ///
   /// In en, this message translates to:
-  /// **'STREAMING'**
+  /// **'RULE SET'**
   String get tvSidePresetSub;
+
+  /// No description provided for @tvSideSettings.
+  ///
+  /// In en, this message translates to:
+  /// **'SETTINGS'**
+  String get tvSideSettings;
+
+  /// No description provided for @tvSideSettingsSub.
+  ///
+  /// In en, this message translates to:
+  /// **'CONFIG'**
+  String get tvSideSettingsSub;
 
   /// No description provided for @tvActionConnect.
   ///
@@ -3334,7 +3952,7 @@ abstract class AppLocalizations {
   /// No description provided for @tvHintRemoteFooter.
   ///
   /// In en, this message translates to:
-  /// **'D-PAD · NAVIGATE  ·  HOLD OK FOR DETAILS'**
+  /// **'D-PAD · NAVIGATE'**
   String get tvHintRemoteFooter;
 
   /// No description provided for @tvOverlaySubscriptionsTitle.
@@ -3346,7 +3964,7 @@ abstract class AppLocalizations {
   /// No description provided for @tvOverlaySubscriptionsSubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Select to expand · MENU for actions'**
+  /// **'Imported subscriptions · BACK to close'**
   String get tvOverlaySubscriptionsSubtitle;
 
   /// No description provided for @tvOverlaySubscriptionsEmpty.
@@ -3778,7 +4396,7 @@ abstract class AppLocalizations {
   /// No description provided for @runModeProxyOnlySubtitle.
   ///
   /// In en, this message translates to:
-  /// **'Run a local HTTP/SOCKS5 proxy without the VPN icon. Only apps that support a proxy will use it; mobile data routes directly. Configure the proxy manually in Wi-Fi / browser.'**
+  /// **'Run a local HTTP/SOCKS5 proxy without the VPN icon. Only apps that support a proxy will use it; mobile data routes directly. Configure the proxy manually in Wi-Fi / browser. Note: the proxy port is reachable by other devices on the same Wi-Fi / hotspot (a username and password are required).'**
   String get runModeProxyOnlySubtitle;
 
   /// No description provided for @httpProxyAuthTitle.

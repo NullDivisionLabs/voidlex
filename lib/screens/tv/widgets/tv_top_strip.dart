@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../../core/subscription_client_identity.dart';
 import '../../../core/vpn_controller.dart';
 import '../../../theme.dart';
 
@@ -11,7 +12,7 @@ class TvTopStrip extends StatelessWidget {
     required this.connectionState,
     required this.latencyMs,
     required this.now,
-    this.versionLabel = 'TV · v1.0.1-beta',
+    this.versionLabel = 'TV · v${SubscriptionClientIdentity.appVersion}',
   });
 
   final VpnConnectionState connectionState;

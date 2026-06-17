@@ -21,6 +21,10 @@ abstract final class Msg {
   static const vpnFailedToReconnect = 'vpnFailedToReconnect';
   static const vpnUnknownError = 'vpnUnknownError';
   static const vpnConnectionTimedOut = 'vpnConnectionTimedOut';
+  static const vpnNaiveRequiresLibbox = 'vpnNaiveRequiresLibbox';
+  static const vpnNaiveTunOnly = 'vpnNaiveTunOnly';
+  static const vpnNaiveBridgeUnsupported = 'vpnNaiveBridgeUnsupported';
+  static const vpnNaiveExitUnsupported = 'vpnNaiveExitUnsupported';
 
   static const subImportInvalidUrl = 'subImportInvalidUrl';
   static const subImportTimeout = 'subImportTimeout';
@@ -37,8 +41,7 @@ abstract final class Msg {
   static String vpnEventChannelError(String detail) =>
       'vpnEventChannelError:$detail';
 
-  static const deepLinkVpnControlColdStart =
-      'deepLinkVpnControlColdStart';
+  static const deepLinkVpnControlColdStart = 'deepLinkVpnControlColdStart';
   static const deepLinkRulesetInvalidUrl = 'deepLinkRulesetInvalidUrl';
   static const deepLinkRulesetTimeout = 'deepLinkRulesetTimeout';
   static const deepLinkRulesetTooLarge = 'deepLinkRulesetTooLarge';

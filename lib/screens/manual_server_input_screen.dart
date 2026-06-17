@@ -6,6 +6,7 @@ import '../core/vpn_controller.dart';
 import '../theme.dart';
 import 'widgets/orientation_gate.dart';
 import 'widgets/protocol_selector.dart';
+import 'widgets/server_advanced_fields.dart';
 
 class ManualServerInputScreen extends StatefulWidget {
   const ManualServerInputScreen({super.key, required this.controller});
@@ -21,6 +22,7 @@ class _ManualServerInputScreenState extends State<ManualServerInputScreen> {
   static const _supportedProtocols = <ServerProtocol>[
     ServerProtocol.vless,
     ServerProtocol.hysteria2,
+    ServerProtocol.naive,
   ];
 
   final _formKey = GlobalKey<FormState>();
@@ -36,8 +38,8 @@ class _ManualServerInputScreenState extends State<ManualServerInputScreen> {
   late final TextEditingController _alpnController;
   late final TextEditingController _shortIdController;
   late final TextEditingController _publicKeyController;
-  late final TextEditingController _obfsPasswordController;
-  late final TextEditingController _hopPortsController;
+  late final TextEditingController _naiveUsernameController;
+  late final TextEditingController _naivePasswordController;
   late final TextEditingController _xhttpPaddingController;
   late final TextEditingController _xhttpMaxPostController;
   late final TextEditingController _xhttpMinIntervalController;
@@ -53,6 +55,9 @@ class _ManualServerInputScreenState extends State<ManualServerInputScreen> {
   // chrome specifically for xhttp at build time.
   String _fingerprint = '';
   bool _tlsInsecure = false;
+  bool _naiveQuic = false;
+  String _naiveQuicCongestionControl = '';
+  ServerAdvancedSettings _advanced = const ServerAdvancedSettings();
   bool _isSaving = false;
 
   static const _xhttpModeOptions = <String>[
@@ -92,8 +97,8 @@ class _ManualServerInputScreenState extends State<ManualServerInputScreen> {
     _alpnController = TextEditingController();
     _shortIdController = TextEditingController();
     _publicKeyController = TextEditingController();
-    _obfsPasswordController = TextEditingController();
-    _hopPortsController = TextEditingController();
+    _naiveUsernameController = TextEditingController();
+    _naivePasswordController = TextEditingController();
     _xhttpPaddingController = TextEditingController();
     _xhttpMaxPostController = TextEditingController();
     _xhttpMinIntervalController = TextEditingController();
@@ -112,8 +117,8 @@ class _ManualServerInputScreenState extends State<ManualServerInputScreen> {
     _alpnController.dispose();
     _shortIdController.dispose();
     _publicKeyController.dispose();
-    _obfsPasswordController.dispose();
-    _hopPortsController.dispose();
+    _naiveUsernameController.dispose();
+    _naivePasswordController.dispose();
     _xhttpPaddingController.dispose();
     _xhttpMaxPostController.dispose();
     _xhttpMinIntervalController.dispose();
@@ -140,6 +145,8 @@ class _ManualServerInputScreenState extends State<ManualServerInputScreen> {
   }
 
   bool get _isHysteria2 => _protocol == ServerProtocol.hysteria2;
+  bool get _isNaive => _protocol == ServerProtocol.naive;
+  bool get _isVless => _protocol == ServerProtocol.vless;
 
   ServerConfig _serverFromFields() {
     if (_isHysteria2) {
@@ -156,8 +163,42 @@ class _ManualServerInputScreenState extends State<ManualServerInputScreen> {
             ? 'h3'
             : _alpnController.text.trim(),
         tlsInsecure: _tlsInsecure,
-        hysteria2ObfsPassword: _obfsPasswordController.text.trim(),
-        hysteria2HopPorts: _hopPortsController.text.trim(),
+        hysteria2ObfsType: _advanced.hysteria2ObfsType,
+        hysteria2ObfsPassword: _advanced.hysteria2ObfsPassword,
+        hysteria2ObfsMinPacketSize: _advanced.hysteria2ObfsMinPacketSize,
+        hysteria2ObfsMaxPacketSize: _advanced.hysteria2ObfsMaxPacketSize,
+        hysteria2HopPorts: _advanced.hysteria2HopPorts,
+        hysteria2HopInterval: _advanced.hysteria2HopInterval,
+        hysteria2HopIntervalMax: _advanced.hysteria2HopIntervalMax,
+        hysteria2UpMbps: _advanced.hysteria2UpMbps,
+        hysteria2DownMbps: _advanced.hysteria2DownMbps,
+        hysteria2Network: _advanced.hysteria2Network,
+        hysteria2BbrProfile: _advanced.hysteria2BbrProfile,
+      );
+    }
+    if (_isNaive) {
+      return ServerConfig(
+        name: _aliasController.text.trim(),
+        address: _addressController.text.trim(),
+        port: int.parse(_portController.text.trim()),
+        uuid: '',
+        transport: VlessTransport.tcp,
+        security: VlessSecurity.tls,
+        serverProtocol: ServerProtocol.naive,
+        sni: _sniController.text.trim(),
+        naiveUsername: _naiveUsernameController.text.trim(),
+        naivePassword: _naivePasswordController.text,
+        naiveQuic: _naiveQuic,
+        naiveQuicCongestionControl: _naiveQuic
+            ? _naiveQuicCongestionControl
+            : '',
+        naiveInsecureConcurrency: _advanced.naiveInsecureConcurrency,
+        naiveExtraHeaders: _advanced.naiveExtraHeaders,
+        naiveUdpOverTcp: _advanced.naiveUdpOverTcp,
+        naiveUdpOverTcpVersion: _advanced.naiveUdpOverTcp
+            ? _advanced.naiveUdpOverTcpVersion
+            : 0,
+        tlsInsecure: _tlsInsecure,
       );
     }
 
@@ -185,9 +226,17 @@ class _ManualServerInputScreenState extends State<ManualServerInputScreen> {
       sni: _sniController.text.trim(),
       alpn: _alpnController.text.trim(),
       tlsInsecure: _tlsInsecure,
+      flow: _advanced.flow,
+      vlessEncryption: _advanced.vlessEncryption,
       fingerprint: _fingerprint.trim(),
       realityShortId: _shortIdController.text.trim(),
       realityPublicKey: _publicKeyController.text.trim(),
+      realitySpiderX: _security == VlessSecurity.reality
+          ? _advanced.realitySpiderX
+          : '',
+      realityMldsa65Verify: _security == VlessSecurity.reality
+          ? _advanced.realityMldsa65Verify
+          : '',
     );
   }
 
@@ -216,221 +265,244 @@ class _ManualServerInputScreenState extends State<ManualServerInputScreen> {
     return OrientationGate(
       controller: widget.controller,
       child: Scaffold(
-      body: NestedScrollView(
-        headerSliverBuilder: (context, innerBoxIsScrolled) {
-          return [
-            SliverAppBar(
-              pinned: true,
-              floating: false,
-              snap: false,
-              backgroundColor: theme.scaffoldBackgroundColor,
-              surfaceTintColor: Colors.transparent,
-              leading: IconButton(
-                onPressed: () => Navigator.of(context).maybePop(),
-                icon: const Icon(Icons.arrow_back_rounded),
-              ),
-              title: Text(l.addServerTitle),
-              actions: [
-                TextButton(
-                  onPressed: _isSaving ? null : _save,
-                  child: Text(
-                    l.add,
-                    style: TextStyle(
-                      color: _isSaving
-                          ? theme.disabledColor
-                          : theme.colorScheme.primary,
-                      fontWeight: FontWeight.w700,
+        body: NestedScrollView(
+          headerSliverBuilder: (context, innerBoxIsScrolled) {
+            return [
+              SliverAppBar(
+                pinned: true,
+                floating: false,
+                snap: false,
+                backgroundColor: theme.scaffoldBackgroundColor,
+                surfaceTintColor: Colors.transparent,
+                leading: IconButton(
+                  onPressed: () => Navigator.of(context).maybePop(),
+                  icon: const Icon(Icons.arrow_back_rounded),
+                ),
+                title: Text(l.addServerTitle),
+                actions: [
+                  TextButton(
+                    onPressed: _isSaving ? null : _save,
+                    child: Text(
+                      l.add,
+                      style: TextStyle(
+                        color: _isSaving
+                            ? theme.disabledColor
+                            : theme.colorScheme.primary,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
-          ];
-        },
-        body: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                ProtocolSelector(
-                  protocols: _supportedProtocols,
-                  selected: _protocol,
-                  enabled: !_isSaving,
-                  onSelected: _onProtocolChanged,
-                ),
-                const SizedBox(height: 16),
-                _SectionCard(
-                  title: l.editServerSectionPrimary,
-                  children: [
-                    _buildTextField(
-                      controller: _aliasController,
-                      label: l.editServerAliasLabel,
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return l.editServerAliasRequired;
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 14),
-                    _buildTextField(
-                      controller: _addressController,
-                      label: l.editServerAddressLabel,
-                      mono: true,
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return l.editServerAddressRequired;
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 14),
-                    _buildTextField(
-                      controller: _portController,
-                      label: l.editServerPortLabel,
-                      keyboardType: TextInputType.number,
-                      mono: true,
-                      validator: (value) {
-                        if (value == null || value.trim().isEmpty) {
-                          return l.editServerPortRequired;
-                        }
-                        final port = int.tryParse(value.trim());
-                        if (port == null || port < 1 || port > 65535) {
-                          return l.editServerPortInvalid;
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 14),
-                    _buildTextField(
-                      controller: _uuidController,
-                      label: _isHysteria2
-                          ? l.editServerPasswordLabel
-                          : l.editServerUuidLabel,
-                      mono: true,
-                      validator: (value) {
-                        if (_isHysteria2 &&
-                            (value == null || value.trim().isEmpty)) {
-                          return l.editServerPasswordRequired;
-                        }
-                        return null;
-                      },
-                    ),
-                    if (!_isHysteria2) ...[
-                      const SizedBox(height: 14),
-                      _buildTransportField(),
-                      const SizedBox(height: 14),
-                      _buildSecurityField(),
-                    ],
-                  ],
-                ),
-                if (!_isHysteria2) ...[
+                ],
+              ),
+            ];
+          },
+          body: Form(
+            key: _formKey,
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ProtocolSelector(
+                    protocols: _supportedProtocols,
+                    selected: _protocol,
+                    enabled: !_isSaving,
+                    onSelected: _onProtocolChanged,
+                  ),
                   const SizedBox(height: 16),
                   _SectionCard(
-                    title: l.editServerSectionTransport,
+                    title: l.editServerSectionPrimary,
                     children: [
-                      if (_transport == VlessTransport.ws ||
-                          _transport == VlessTransport.http ||
-                          _transport == VlessTransport.httpupgrade ||
-                          _transport == VlessTransport.xhttp) ...[
+                      _buildTextField(
+                        controller: _aliasController,
+                        label: l.editServerAliasLabel,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return l.editServerAliasRequired;
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 14),
+                      _buildTextField(
+                        controller: _addressController,
+                        label: l.editServerAddressLabel,
+                        mono: true,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return l.editServerAddressRequired;
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 14),
+                      _buildTextField(
+                        controller: _portController,
+                        label: l.editServerPortLabel,
+                        keyboardType: TextInputType.number,
+                        mono: true,
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return l.editServerPortRequired;
+                          }
+                          final port = int.tryParse(value.trim());
+                          if (port == null || port < 1 || port > 65535) {
+                            return l.editServerPortInvalid;
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 14),
+                      if (_isNaive) ...[
                         _buildTextField(
-                          controller: _pathController,
-                          label: l.editServerPathLabel,
+                          controller: _naiveUsernameController,
+                          label: l.editServerNaiveUsernameLabel,
                           mono: true,
                         ),
                         const SizedBox(height: 14),
                         _buildTextField(
-                          controller: _hostController,
-                          label: l.editServerHostLabel,
+                          controller: _naivePasswordController,
+                          label: l.editServerNaivePasswordLabel,
                           mono: true,
                         ),
-                      ],
-                      if (_transport == VlessTransport.grpc)
+                      ] else
                         _buildTextField(
-                          controller: _serviceNameController,
-                          label: l.editServerServiceNameLabel,
+                          controller: _uuidController,
+                          label: _isHysteria2
+                              ? l.editServerPasswordLabel
+                              : l.editServerUuidLabel,
                           mono: true,
+                          validator: (value) {
+                            if (value == null || value.trim().isEmpty) {
+                              return _isHysteria2
+                                  ? l.editServerPasswordRequired
+                                  : l.editServerUuidRequired;
+                            }
+                            return null;
+                          },
                         ),
-                      if (_transport == VlessTransport.tcp)
-                        _buildTextField(
-                          controller: _hostController,
-                          label: l.editServerHostLabel,
-                          mono: true,
-                        ),
-                      if (_transport == VlessTransport.xhttp) ...[
-                        const SizedBox(height: 18),
-                        _buildXhttpTuning(l, theme),
+                      if (_isVless) ...[
+                        const SizedBox(height: 14),
+                        _buildTransportField(),
+                        const SizedBox(height: 14),
+                        _buildSecurityField(),
                       ],
                     ],
                   ),
-                ],
-                const SizedBox(height: 16),
-                _SectionCard(
-                  title: l.editServerSectionTls,
-                  children: [
-                    _buildTextField(
-                      controller: _sniController,
-                      label: l.editServerSniLabel,
-                      mono: true,
+                  if (_isVless) ...[
+                    const SizedBox(height: 16),
+                    _SectionCard(
+                      title: l.editServerSectionTransport,
+                      children: [
+                        if (_transport == VlessTransport.ws ||
+                            _transport == VlessTransport.http ||
+                            _transport == VlessTransport.httpupgrade ||
+                            _transport == VlessTransport.xhttp) ...[
+                          _buildTextField(
+                            controller: _pathController,
+                            label: l.editServerPathLabel,
+                            mono: true,
+                          ),
+                          const SizedBox(height: 14),
+                          _buildTextField(
+                            controller: _hostController,
+                            label: l.editServerHostLabel,
+                            mono: true,
+                          ),
+                        ],
+                        if (_transport == VlessTransport.grpc)
+                          _buildTextField(
+                            controller: _serviceNameController,
+                            label: l.editServerServiceNameLabel,
+                            mono: true,
+                          ),
+                        if (_transport == VlessTransport.tcp)
+                          _buildTextField(
+                            controller: _hostController,
+                            label: l.editServerHostLabel,
+                            mono: true,
+                          ),
+                        if (_transport == VlessTransport.xhttp) ...[
+                          const SizedBox(height: 18),
+                          _buildXhttpTuning(l, theme),
+                        ],
+                      ],
                     ),
-                    const SizedBox(height: 14),
-                    _buildTextField(
-                      controller: _alpnController,
-                      label: l.editServerAlpnLabel,
-                      mono: true,
-                    ),
-                    const SizedBox(height: 14),
-                    _buildFingerprintField(),
-                    const SizedBox(height: 14),
-                    SwitchListTile.adaptive(
-                      value: _tlsInsecure,
-                      onChanged: _isSaving
-                          ? null
-                          : (value) => setState(() => _tlsInsecure = value),
-                      title: Text(
-                        l.editServerAllowInsecureLabel,
-                      ),
-                      contentPadding: EdgeInsets.zero,
-                    ),
-                    if (_isHysteria2) ...[
-                      const SizedBox(height: 14),
-                      _buildTextField(
-                        controller: _obfsPasswordController,
-                        label: l.editServerObfsPasswordLabel,
-                        mono: true,
-                      ),
-                      const SizedBox(height: 14),
-                      _buildTextField(
-                        controller: _hopPortsController,
-                        label: l.editServerHopPortsLabel,
-                        mono: true,
-                      ),
-                    ],
-                    if (!_isHysteria2 &&
-                        _security == VlessSecurity.reality) ...[
-                      const SizedBox(height: 14),
-                      _buildTextField(
-                        controller: _shortIdController,
-                        label: l.editServerShortIdLabel,
-                        mono: true,
-                      ),
-                      const SizedBox(height: 14),
-                      _buildTextField(
-                        controller: _publicKeyController,
-                        label: l.editServerPublicKeyLabel,
-                        mono: true,
-                      ),
-                    ],
                   ],
-                ),
-                const SizedBox(height: 16),
-              ],
+                  const SizedBox(height: 16),
+                  _SectionCard(
+                    title: l.editServerSectionTls,
+                    children: [
+                      _buildTextField(
+                        controller: _sniController,
+                        label: l.editServerSniLabel,
+                        mono: true,
+                      ),
+                      if (_isNaive) ...[
+                        const SizedBox(height: 14),
+                        _buildNaiveModeField(),
+                        if (_naiveQuic) ...[
+                          const SizedBox(height: 14),
+                          _buildNaiveCongestionControlField(),
+                        ],
+                        const SizedBox(height: 14),
+                        SwitchListTile.adaptive(
+                          value: _tlsInsecure,
+                          onChanged: _isSaving
+                              ? null
+                              : (value) => setState(() => _tlsInsecure = value),
+                          title: Text(l.editServerAllowInsecureLabel),
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ] else ...[
+                        const SizedBox(height: 14),
+                        _buildTextField(
+                          controller: _alpnController,
+                          label: l.editServerAlpnLabel,
+                          mono: true,
+                        ),
+                        const SizedBox(height: 14),
+                        _buildFingerprintField(),
+                        const SizedBox(height: 14),
+                        SwitchListTile.adaptive(
+                          value: _tlsInsecure,
+                          onChanged: _isSaving
+                              ? null
+                              : (value) => setState(() => _tlsInsecure = value),
+                          title: Text(l.editServerAllowInsecureLabel),
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ],
+                      if (_isVless && _security == VlessSecurity.reality) ...[
+                        const SizedBox(height: 14),
+                        _buildTextField(
+                          controller: _shortIdController,
+                          label: l.editServerShortIdLabel,
+                          mono: true,
+                        ),
+                        const SizedBox(height: 14),
+                        _buildTextField(
+                          controller: _publicKeyController,
+                          label: l.editServerPublicKeyLabel,
+                          mono: true,
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  ServerAdvancedFields(
+                    protocol: _protocol,
+                    security: _security,
+                    enabled: !_isSaving,
+                    initial: _advanced,
+                    onChanged: (value) => _advanced = value,
+                  ),
+                  const SizedBox(height: 16),
+                ],
+              ),
             ),
           ),
         ),
-      ),
       ),
     );
   }
@@ -439,9 +511,7 @@ class _ManualServerInputScreenState extends State<ManualServerInputScreen> {
     final l = AppLocalizations.of(context);
     return DropdownButtonFormField<VlessTransport>(
       initialValue: _transport,
-      decoration: InputDecoration(
-        labelText: l.editServerTransportLabel,
-      ),
+      decoration: InputDecoration(labelText: l.editServerTransportLabel),
       items: VlessTransport.values
           .map(
             (transport) => DropdownMenuItem<VlessTransport>(
@@ -488,13 +558,55 @@ class _ManualServerInputScreenState extends State<ManualServerInputScreen> {
     );
   }
 
+  Widget _buildNaiveModeField() {
+    final l = AppLocalizations.of(context);
+    return DropdownButtonFormField<bool>(
+      initialValue: _naiveQuic,
+      decoration: InputDecoration(labelText: l.editServerNaiveModeLabel),
+      items: [
+        DropdownMenuItem(value: false, child: Text(l.editServerNaiveModeHttps)),
+        DropdownMenuItem(value: true, child: Text(l.editServerNaiveModeQuic)),
+      ],
+      onChanged: _isSaving
+          ? null
+          : (value) {
+              if (value == null) return;
+              setState(() => _naiveQuic = value);
+            },
+    );
+  }
+
+  Widget _buildNaiveCongestionControlField() {
+    final l = AppLocalizations.of(context);
+    return DropdownButtonFormField<String>(
+      initialValue: _naiveQuicCongestionControl,
+      decoration: InputDecoration(
+        labelText: l.editServerNaiveCongestionControlLabel,
+      ),
+      items: const ['', 'bbr', 'bbr2', 'cubic', 'reno']
+          .map(
+            (value) => DropdownMenuItem(
+              value: value,
+              child: Text(
+                value.isEmpty ? l.editServerNaiveCongestionControlAuto : value,
+              ),
+            ),
+          )
+          .toList(),
+      onChanged: _isSaving
+          ? null
+          : (value) {
+              if (value == null) return;
+              setState(() => _naiveQuicCongestionControl = value);
+            },
+    );
+  }
+
   Widget _buildSecurityField() {
     final l = AppLocalizations.of(context);
     return DropdownButtonFormField<VlessSecurity>(
       initialValue: _security,
-      decoration: InputDecoration(
-        labelText: l.editServerSecurityLabel,
-      ),
+      decoration: InputDecoration(labelText: l.editServerSecurityLabel),
       items: VlessSecurity.values
           .map(
             (security) => DropdownMenuItem<VlessSecurity>(
@@ -527,10 +639,7 @@ class _ManualServerInputScreenState extends State<ManualServerInputScreen> {
         fontFamily: mono ? 'monospace' : null,
         fontWeight: FontWeight.w500,
       ),
-      decoration: InputDecoration(
-        labelText: label,
-        helperText: helperText,
-      ),
+      decoration: InputDecoration(labelText: label, helperText: helperText),
     );
   }
 

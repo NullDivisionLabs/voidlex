@@ -21,6 +21,29 @@ enum GeoDataKind {
   }
 }
 
+enum GeoDataAutoUpdateInterval {
+  disabled(0, 'disabled'),
+  oneDay(1, '1d'),
+  threeDays(3, '3d'),
+  sevenDays(7, '7d');
+
+  const GeoDataAutoUpdateInterval(this.days, this.wireName);
+
+  final int days;
+  final String wireName;
+
+  bool get enabled => this != GeoDataAutoUpdateInterval.disabled;
+
+  Duration get duration => Duration(days: days);
+
+  static GeoDataAutoUpdateInterval parse(String? raw) {
+    return GeoDataAutoUpdateInterval.values.firstWhere(
+      (interval) => interval.wireName == raw,
+      orElse: () => GeoDataAutoUpdateInterval.disabled,
+    );
+  }
+}
+
 enum GeoDataSource {
   unknown,
   bundled,

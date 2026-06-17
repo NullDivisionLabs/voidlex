@@ -2,6 +2,7 @@ import 'bounded_json.dart';
 import 'hysteria2_parser.dart';
 import 'models/server_config.dart';
 import 'models/server_subscription.dart';
+import 'naive_parser.dart';
 import 'server_link_parse_utils.dart';
 import 'vless_parser.dart';
 
@@ -9,6 +10,7 @@ enum ServerImportError {
   empty,
   invalidVless,
   invalidHysteria2,
+  invalidNaive,
   invalidJson,
   unsupportedFormat,
   invalidSubscription,
@@ -21,12 +23,14 @@ class ServerImportException implements Exception {
     this.message, {
     this.vlessError,
     this.hysteria2Error,
+    this.naiveError,
   });
 
   final ServerImportError code;
   final String message;
   final VlessParseException? vlessError;
   final Hysteria2ParseException? hysteria2Error;
+  final NaiveParseException? naiveError;
 
   @override
   String toString() => 'ServerImportException($code): $message';
@@ -58,12 +62,14 @@ class ServerImportResult {
     String message, {
     VlessParseException? vlessError,
     Hysteria2ParseException? hysteria2Error,
+    NaiveParseException? naiveError,
   }) => ServerImportResult._(
     error: ServerImportException(
       code,
       message,
       vlessError: vlessError,
       hysteria2Error: hysteria2Error,
+      naiveError: naiveError,
     ),
   );
 }
@@ -72,10 +78,12 @@ class ServerImporter {
   const ServerImporter({
     this.vlessParser = const VlessParser(),
     this.hysteria2Parser = const Hysteria2Parser(),
+    this.naiveParser = const NaiveParser(),
   });
 
   final VlessParser vlessParser;
   final Hysteria2Parser hysteria2Parser;
+  final NaiveParser naiveParser;
 
   ServerImportResult parse(String raw, {Set<String> existingNames = const {}}) {
     final trimmed = raw.trim();
@@ -106,7 +114,10 @@ class ServerImporter {
     final lower = raw.trimLeft().toLowerCase();
     return lower.startsWith('vless://') ||
         lower.startsWith('hysteria2://') ||
-        lower.startsWith('hy2://');
+        lower.startsWith('hy2://') ||
+        lower.startsWith('naive://') ||
+        lower.startsWith('naive+https://') ||
+        lower.startsWith('naive+quic://');
   }
 
   ServerImportResult _parseServerLinkLines(
@@ -128,13 +139,24 @@ class ServerImporter {
           );
         }
         config = result.config!;
-      } else {
+      } else if (lower.startsWith('hysteria2://') ||
+          lower.startsWith('hy2://')) {
         final result = hysteria2Parser.parse(line, existingNames: names);
         if (result.isError) {
           return ServerImportResult.fail(
             ServerImportError.invalidHysteria2,
             result.error!.message,
             hysteria2Error: result.error,
+          );
+        }
+        config = result.config!;
+      } else {
+        final result = naiveParser.parse(line, existingNames: names);
+        if (result.isError) {
+          return ServerImportResult.fail(
+            ServerImportError.invalidNaive,
+            result.error!.message,
+            naiveError: result.error,
           );
         }
         config = result.config!;
@@ -175,9 +197,13 @@ class ServerImporter {
     void addConfig(ServerConfig config) {
       if (config.address.trim().isEmpty) return;
       if (config.port < 1 || config.port > 65535) return;
-      if (config.isHysteria2 && config.uuid.isEmpty) return;
+      // VLESS and Hysteria2 require their UUID/auth value. NaiveProxy
+      // authentication is optional and stored in dedicated fields.
+      if (!config.isNaive && config.uuid.isEmpty) return;
       final fallback = config.isHysteria2
           ? 'Imported Hysteria2'
+          : config.isNaive
+          ? 'Imported NaiveProxy'
           : 'Imported VLESS';
       final name = ensureUniqueServerName(
         config.name,
@@ -281,10 +307,53 @@ class ServerImporter {
           _string(raw['hysteria2ObfsPassword']) ??
           _string(raw['obfsPassword']) ??
           _string(raw['obfs-password']);
+      map['hysteria2ObfsType'] ??=
+          _string(raw['hysteria2ObfsType']) ?? _string(raw['obfsType']);
+      map['hysteria2ObfsMinPacketSize'] ??=
+          _int(raw['hysteria2ObfsMinPacketSize']) ??
+          _int(raw['obfsMinPacketSize']);
+      map['hysteria2ObfsMaxPacketSize'] ??=
+          _int(raw['hysteria2ObfsMaxPacketSize']) ??
+          _int(raw['obfsMaxPacketSize']);
       map['hysteria2HopPorts'] ??=
           _string(raw['hysteria2HopPorts']) ??
           _string(raw['ports']) ??
           _string(raw['hopPorts']);
+      map['hysteria2HopInterval'] ??=
+          _string(raw['hysteria2HopInterval']) ?? _string(raw['hop_interval']);
+      map['hysteria2HopIntervalMax'] ??=
+          _string(raw['hysteria2HopIntervalMax']) ??
+          _string(raw['hop_interval_max']);
+      map['hysteria2UpMbps'] ??=
+          _int(raw['hysteria2UpMbps']) ?? _int(raw['up_mbps']);
+      map['hysteria2DownMbps'] ??=
+          _int(raw['hysteria2DownMbps']) ?? _int(raw['down_mbps']);
+      map['hysteria2Network'] ??=
+          _string(raw['hysteria2Network']) ?? _string(raw['network']);
+      map['hysteria2BbrProfile'] ??=
+          _string(raw['hysteria2BbrProfile']) ?? _string(raw['bbr_profile']);
+    } else if (protocol == ServerProtocol.naive) {
+      map['uuid'] = '';
+      map['transport'] ??= 'tcp';
+      map['security'] ??= 'tls';
+      map['naiveUsername'] ??=
+          _string(raw['naiveUsername']) ?? _string(raw['username']);
+      map['naivePassword'] ??=
+          _string(raw['naivePassword']) ?? _string(raw['password']);
+      map['naiveQuic'] ??= _bool(raw['naiveQuic']) ?? _bool(raw['quic']);
+      map['naiveQuicCongestionControl'] ??=
+          _string(raw['naiveQuicCongestionControl']) ??
+          _string(raw['quic_congestion_control']);
+      map['naiveInsecureConcurrency'] ??=
+          _int(raw['naiveInsecureConcurrency']) ??
+          _int(raw['insecure_concurrency']);
+      map['naiveExtraHeaders'] ??= raw['extra_headers'];
+      map['naiveUdpOverTcp'] ??=
+          _bool(raw['naiveUdpOverTcp']) ??
+          _bool(_stringMap(raw['udp_over_tcp'])?['enabled']);
+      map['naiveUdpOverTcpVersion'] ??=
+          _int(raw['naiveUdpOverTcpVersion']) ??
+          _int(_stringMap(raw['udp_over_tcp'])?['version']);
     } else {
       map['transport'] ??= _string(raw['network']) ?? _string(raw['type']);
     }
@@ -295,6 +364,7 @@ class ServerImporter {
       }
     }
     map['transportPath'] ??= _string(raw['path']);
+    map['vlessEncryption'] ??= _string(raw['encryption']);
     map['transportServiceName'] ??=
         _string(raw['serviceName']) ?? _string(raw['service_name']);
     map['transportHost'] ??=
@@ -320,6 +390,8 @@ class ServerImporter {
         _string(raw['spiderX']) ??
         _string(raw['spider_x']) ??
         _string(raw['spider-x']);
+    map['realityMldsa65Verify'] ??=
+        _string(raw['mldsa65Verify']) ?? _string(raw['mldsa65_verify']);
     map['tlsInsecure'] ??=
         _bool(raw['tlsInsecure']) ??
         _bool(raw['allowInsecure']) ??
@@ -383,10 +455,12 @@ class ServerImporter {
             sni: streamConfig.sni,
             alpn: streamConfig.alpn,
             flow: _string(user['flow']) ?? '',
+            vlessEncryption: _string(user['encryption']) ?? '',
             fingerprint: streamConfig.fingerprint,
             realityPublicKey: streamConfig.realityPublicKey,
             realityShortId: streamConfig.realityShortId,
             realitySpiderX: streamConfig.realitySpiderX,
+            realityMldsa65Verify: streamConfig.realityMldsa65Verify,
             tlsInsecure: streamConfig.tlsInsecure,
           ),
         );
@@ -405,6 +479,9 @@ class ServerImporter {
         outbound,
         fallbackName: fallbackName,
       );
+    }
+    if (type == 'naive') {
+      return _singBoxNaiveOutboundConfig(outbound, fallbackName: fallbackName);
     }
     if (type != 'vless') return null;
     final address = _string(outbound['server']);
@@ -437,9 +514,16 @@ class ServerImporter {
       sni: _string(tls?['server_name']) ?? '',
       alpn: _joinStringList(tls?['alpn']),
       flow: _string(outbound['flow']) ?? '',
+      vlessEncryption: _string(outbound['encryption']) ?? '',
       fingerprint: _string(_stringMap(tls?['utls'])?['fingerprint']) ?? '',
       realityPublicKey: _string(reality?['public_key']) ?? '',
       realityShortId: _string(reality?['short_id']) ?? '',
+      realityMldsa65Verify: _string(reality?['mldsa65_verify']) ?? '',
+      tlsInsecure:
+          _bool(tls?['insecure']) ??
+          _bool(tls?['skip_cert_verify']) ??
+          _bool(tls?['skip-cert-verify']) ??
+          false,
     );
   }
 
@@ -464,7 +548,8 @@ class ServerImporter {
         ?.toLowerCase();
 
     return ServerConfig(
-      name: fallbackName ??
+      name:
+          fallbackName ??
           _string(outbound['tag']) ??
           _string(outbound['name']) ??
           address,
@@ -489,16 +574,78 @@ class ServerImporter {
           _bool(tls?['skip-cert-verify']) ??
           _bool(outbound['skip-cert-verify']) ??
           false,
-      hysteria2ObfsPassword: obfsType == 'salamander'
+      hysteria2ObfsPassword: obfsType == 'salamander' || obfsType == 'gecko'
           ? (_string(obfs?['password']) ??
                 _string(outbound['obfs-password']) ??
                 _string(outbound['obfsPassword']) ??
                 '')
           : '',
+      hysteria2ObfsType: obfsType ?? '',
+      hysteria2ObfsMinPacketSize: _int(obfs?['min_packet_size']) ?? 0,
+      hysteria2ObfsMaxPacketSize: _int(obfs?['max_packet_size']) ?? 0,
       hysteria2HopPorts:
           _hopPortsFromSingBox(outbound['server_ports']) ??
           _string(outbound['ports']) ??
           '',
+      hysteria2HopInterval: _string(outbound['hop_interval']) ?? '',
+      hysteria2HopIntervalMax: _string(outbound['hop_interval_max']) ?? '',
+      hysteria2UpMbps: _int(outbound['up_mbps']) ?? 0,
+      hysteria2DownMbps: _int(outbound['down_mbps']) ?? 0,
+      hysteria2Network: _string(outbound['network']) ?? '',
+      hysteria2BbrProfile: _string(outbound['bbr_profile']) ?? '',
+    );
+  }
+
+  ServerConfig? _singBoxNaiveOutboundConfig(
+    Map<String, dynamic> outbound, {
+    String? fallbackName,
+  }) {
+    final address = _string(outbound['server']);
+    final port =
+        _int(outbound['server_port']) ??
+        _int(outbound['serverPort']) ??
+        _int(outbound['port']);
+    if (address == null || port == null) return null;
+
+    final tls = _stringMap(outbound['tls']);
+    final extraHeaders = _stringMap(outbound['extra_headers']);
+    final udpOverTcp = _stringMap(outbound['udp_over_tcp']);
+    return ServerConfig(
+      name:
+          fallbackName ??
+          _string(outbound['tag']) ??
+          _string(outbound['name']) ??
+          address,
+      address: address,
+      port: port,
+      uuid: '',
+      transport: VlessTransport.tcp,
+      security: VlessSecurity.tls,
+      serverProtocol: ServerProtocol.naive,
+      sni:
+          _string(tls?['server_name']) ??
+          _string(tls?['serverName']) ??
+          _string(outbound['sni']) ??
+          '',
+      tlsInsecure:
+          _bool(tls?['insecure']) ??
+          _bool(tls?['skip_cert_verify']) ??
+          _bool(tls?['skip-cert-verify']) ??
+          false,
+      naiveUsername: _string(outbound['username']) ?? '',
+      naivePassword: _string(outbound['password']) ?? '',
+      naiveQuic: _bool(outbound['quic']) ?? false,
+      naiveQuicCongestionControl:
+          _string(outbound['quic_congestion_control']) ?? '',
+      naiveInsecureConcurrency: _int(outbound['insecure_concurrency']) ?? 0,
+      naiveExtraHeaders: extraHeaders == null
+          ? const {}
+          : {
+              for (final entry in extraHeaders.entries)
+                if (entry.value is String) entry.key: entry.value as String,
+            },
+      naiveUdpOverTcp: _bool(udpOverTcp?['enabled']) ?? false,
+      naiveUdpOverTcpVersion: _int(udpOverTcp?['version']) ?? 0,
     );
   }
 
@@ -564,6 +711,7 @@ class ServerImporter {
       realityPublicKey: _string(reality?['publicKey']) ?? '',
       realityShortId: _firstString(reality?['shortId']) ?? '',
       realitySpiderX: _string(reality?['spiderX']) ?? '',
+      realityMldsa65Verify: _string(reality?['mldsa65Verify']) ?? '',
       tlsInsecure:
           tls?['allowInsecure'] == true || reality?['allowInsecure'] == true,
     );
@@ -665,6 +813,7 @@ class _StreamImportConfig {
     this.realityPublicKey = '',
     this.realityShortId = '',
     this.realitySpiderX = '',
+    this.realityMldsa65Verify = '',
     this.tlsInsecure = false,
   });
 
@@ -683,5 +832,6 @@ class _StreamImportConfig {
   final String realityPublicKey;
   final String realityShortId;
   final String realitySpiderX;
+  final String realityMldsa65Verify;
   final bool tlsInsecure;
 }

@@ -84,6 +84,21 @@ class AppLocalizationsRu extends AppLocalizations {
   String get themeSection => 'Тема';
 
   @override
+  String get settingsGroupInterface => 'Интерфейс';
+
+  @override
+  String get settingsGroupConnection => 'Подключение';
+
+  @override
+  String get settingsGroupNodes => 'Узлы';
+
+  @override
+  String get settingsGroupProfile => 'Профиль';
+
+  @override
+  String get settingsGroupAdvanced => 'Расширенные';
+
+  @override
   String get themeLight => 'Светлая';
 
   @override
@@ -177,6 +192,25 @@ class AppLocalizationsRu extends AppLocalizations {
       'Показывать кнопку полного туннеля на главном экране.';
 
   @override
+  String get applicationSettingsShowExitNodeTitle => 'Виджет Exit/Node';
+
+  @override
+  String get applicationSettingsShowExitNodeSubtitle =>
+      'Показывать сведения о подключении на главном экране.';
+
+  @override
+  String get exitInfoSpeedLabel => 'SPEED';
+
+  @override
+  String get exitInfoDownLabel => 'DOWN';
+
+  @override
+  String get exitInfoUpLabel => 'UP';
+
+  @override
+  String get exitInfoMemoryLabel => 'MEM';
+
+  @override
   String get applicationSettingsAutoSortServersByPingTitle =>
       'Сортировка по пингу';
 
@@ -200,7 +234,17 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get profileExportProtectedSubscriptionsEncrypted =>
-      'Профиль экспортирован. Защищённые подписки сохранены в виде зашифрованных кодов.';
+      'Профиль экспортирован. Защищённые подписки сохранены в виде обфусцированных кодов — скрыты от случайного просмотра, это не стойкое шифрование.';
+
+  @override
+  String get profileExportWarningTitle => 'Экспортировать профиль?';
+
+  @override
+  String get profileExportWarningBody =>
+      'Экспортируемый JSON содержит ваши ручные узлы целиком, включая UUID и пароли, в открытом виде. Храните и передавайте файл осторожно.';
+
+  @override
+  String get profileExportWarningConfirm => 'Экспортировать';
 
   @override
   String profileExportFailed(String error) {
@@ -261,6 +305,31 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get deepLinkVpnControlColdStart =>
       'Откройте Void//Lex и подключитесь из приложения. Ссылки connect/disconnect при холодном запуске игнорируются.';
+
+  @override
+  String get deepLinkConsentTitle => 'Открыть внешнюю ссылку?';
+
+  @override
+  String get deepLinkConsentImportServers =>
+      'Эта ссылка хочет добавить один или несколько серверов в Void//Lex.';
+
+  @override
+  String get deepLinkConsentImportRuleset =>
+      'Эта ссылка хочет скачать правила маршрутизации и добавить их. Это может перезапустить активное подключение.';
+
+  @override
+  String get deepLinkConsentImportSubscription =>
+      'Эта ссылка хочет импортировать подписку или сервер в Void//Lex.';
+
+  @override
+  String get deepLinkConsentSourceLabel => 'Источник';
+
+  @override
+  String get deepLinkConsentHttpWarning =>
+      'Ссылка использует обычный HTTP (без TLS). Её содержимое можно прочитать или изменить при передаче.';
+
+  @override
+  String get deepLinkConsentConfirm => 'Импортировать';
 
   @override
   String get deepLinkRulesetInvalidUrl =>
@@ -384,6 +453,29 @@ class AppLocalizationsRu extends AppLocalizations {
   String get editServerPasswordLabel => 'Пароль / авторизация';
 
   @override
+  String get editServerNaiveUsernameLabel => 'Логин NaiveProxy (необязательно)';
+
+  @override
+  String get editServerNaivePasswordLabel =>
+      'Пароль NaiveProxy (необязательно)';
+
+  @override
+  String get editServerNaiveModeLabel => 'Транспорт NaiveProxy';
+
+  @override
+  String get editServerNaiveModeHttps => 'HTTPS / HTTP2';
+
+  @override
+  String get editServerNaiveModeQuic => 'QUIC';
+
+  @override
+  String get editServerNaiveCongestionControlLabel =>
+      'Управление перегрузкой QUIC';
+
+  @override
+  String get editServerNaiveCongestionControlAuto => 'Авто (BBR)';
+
+  @override
   String get editServerProtocolLabel => 'Протокол';
 
   @override
@@ -436,6 +528,9 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get editServerPasswordRequired => 'Укажите пароль';
+
+  @override
+  String get editServerUuidRequired => 'Укажите UUID';
 
   @override
   String get editServerNameDuplicate => 'Сервер с таким именем уже есть';
@@ -498,10 +593,138 @@ class AppLocalizationsRu extends AppLocalizations {
       'По умолчанию: 10-50 (только packet-up)';
 
   @override
+  String get editServerAdvancedTitle => 'Расширенные';
+
+  @override
+  String get editServerAuto => 'Авто';
+
+  @override
+  String get editServerFlowLabel => 'Flow VLESS';
+
+  @override
+  String get editServerFlowHelper =>
+      'Flow XTLS Vision. Обычно используется с TCP + TLS/Reality.';
+
+  @override
+  String get editServerEncryptionLabel => 'Шифрование VLESS';
+
+  @override
+  String get editServerEncryptionHelper =>
+      'Оставьте пустым для none. Расширенное значение может быть длинным.';
+
+  @override
+  String get editServerRealitySpiderXLabel => 'Reality spiderX';
+
+  @override
+  String get editServerRealitySpiderXHelper =>
+      'Необязательный начальный путь краулера.';
+
+  @override
+  String get editServerRealityMldsaLabel => 'Reality ML-DSA-65 verify';
+
+  @override
+  String get editServerRealityMldsaHelper =>
+      'Необязательный ключ постквантовой проверки.';
+
+  @override
+  String get editServerHysteriaObfsTypeLabel => 'Обфускация';
+
+  @override
+  String get editServerHysteriaObfsNone => 'Нет';
+
+  @override
+  String get editServerHysteriaObfsMinPacketLabel =>
+      'Минимальный размер пакета Gecko';
+
+  @override
+  String get editServerHysteriaObfsMaxPacketLabel =>
+      'Максимальный размер пакета Gecko';
+
+  @override
+  String get editServerHysteriaHopIntervalLabel => 'Интервал прыжков по портам';
+
+  @override
+  String get editServerHysteriaHopIntervalMaxLabel =>
+      'Максимальный интервал прыжков';
+
+  @override
+  String get editServerHysteriaUpMbpsLabel => 'Скорость отправки (Мбит/с)';
+
+  @override
+  String get editServerHysteriaDownMbpsLabel => 'Скорость загрузки (Мбит/с)';
+
+  @override
+  String get editServerHysteriaNetworkLabel => 'Проксируемая сеть';
+
+  @override
+  String get editServerHysteriaNetworkBoth => 'TCP и UDP';
+
+  @override
+  String get editServerHysteriaBbrProfileLabel => 'Профиль BBR';
+
+  @override
+  String get editServerNaiveInsecureConcurrencyLabel => 'Insecure concurrency';
+
+  @override
+  String get editServerNaiveInsecureConcurrencyHelper =>
+      'Дополнительные параллельные соединения до подтверждения авторизации.';
+
+  @override
+  String get editServerNaiveExtraHeadersLabel =>
+      'Дополнительные HTTP-заголовки';
+
+  @override
+  String get editServerNaiveAddHeader => 'Добавить заголовок';
+
+  @override
+  String get editServerNaiveHeaderNameLabel => 'Заголовок';
+
+  @override
+  String get editServerNaiveHeaderValueLabel => 'Значение';
+
+  @override
+  String get editServerNaiveUdpOverTcpLabel => 'UDP поверх TCP';
+
+  @override
+  String get editServerNaiveUdpOverTcpVersionLabel => 'Версия UDP поверх TCP';
+
+  @override
+  String get editServerAdvancedObfsPasswordRequired => 'Укажите пароль obfs';
+
+  @override
+  String get editServerAdvancedRangeOrder =>
+      'Максимум должен быть не меньше минимума';
+
+  @override
+  String get editServerAdvancedPositiveInteger =>
+      'Введите положительное целое число';
+
+  @override
+  String get editServerAdvancedIntegerMax =>
+      'Введите положительное целое число до 2048';
+
+  @override
+  String get editServerAdvancedDurationInvalid =>
+      'Используйте длительность Go, например 30s или 1m30s';
+
+  @override
+  String get editServerAdvancedHeaderRequired => 'Укажите имя заголовка';
+
+  @override
+  String get editServerAdvancedHeaderDuplicate =>
+      'Имена заголовков должны быть уникальны';
+
+  @override
+  String get editServerAdvancedHeaderNewline => 'Переносы строк запрещены';
+
+  @override
   String get protocolVless => 'VLESS';
 
   @override
   String get protocolHysteria2 => 'Hysteria2';
+
+  @override
+  String get protocolNaive => 'NaiveProxy';
 
   @override
   String get transportTcp => 'TCP';
@@ -580,7 +803,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get settingsProtocolLabel => 'Протокол';
 
   @override
-  String get settingsProtocolValue => 'VLESS · Hysteria2';
+  String get settingsProtocolValue => 'VLESS · Hysteria2 · NaiveProxy';
 
   @override
   String get settingsXrayCoreLabel => 'xray-core';
@@ -598,7 +821,8 @@ class AppLocalizationsRu extends AppLocalizations {
   String get logsNoCopyText => 'Нечего копировать.';
 
   @override
-  String get logsCopiedText => 'Скопировано.';
+  String get logsCopiedText =>
+      'Логи скопированы. Они могут содержать чувствительные данные — храните в тайне.';
 
   @override
   String get logsNoExportText => 'Нечего экспортировать.';
@@ -619,7 +843,8 @@ class AppLocalizationsRu extends AppLocalizations {
   String get logsClearTooltip => 'Очистить';
 
   @override
-  String get homeServerCopied => 'Сервер скопирован.';
+  String get homeServerCopied =>
+      'Ссылка на сервер скопирована. Она содержит ваши учётные данные — храните в тайне.';
 
   @override
   String get homeNodePresetTitle => 'Пресет узла';
@@ -834,6 +1059,20 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get vpnConnectionTimedOut => 'Таймаут подключения VPN';
+
+  @override
+  String get vpnNaiveRequiresLibbox => 'NaiveProxy требует движок TUN libbox';
+
+  @override
+  String get vpnNaiveTunOnly => 'NaiveProxy недоступен в режиме только прокси';
+
+  @override
+  String get vpnNaiveBridgeUnsupported =>
+      'NaiveProxy нельзя использовать в двухступенчатой цепочке';
+
+  @override
+  String get vpnNaiveExitUnsupported =>
+      'NaiveProxy нельзя выбрать выходным узлом';
 
   @override
   String vpnEventChannelError(String error) {
@@ -1094,6 +1333,50 @@ class AppLocalizationsRu extends AppLocalizations {
   String get editServerCopyAsJson => 'JSON';
 
   @override
+  String get editServerCopyAsQr => 'QR-код';
+
+  @override
+  String get editServerQrTitle => 'QR-код сервера';
+
+  @override
+  String get editServerQrHint => 'Отсканируйте, чтобы импортировать сервер';
+
+  @override
+  String get editServerUrlCopied =>
+      'Ссылка на сервер скопирована. Она содержит ваши учётные данные — храните в тайне.';
+
+  @override
+  String get editServerJsonCopied =>
+      'JSON-конфиг сервера скопирован. Он содержит ваши учётные данные — храните в тайне.';
+
+  @override
+  String get editServerAdvancedUrlOmitted =>
+      'URL/QR не содержит нестандартные расширенные настройки. Для полного экспорта используйте JSON или профиль Voidlex.';
+
+  @override
+  String get editServerShowJson => 'Редактировать как JSON';
+
+  @override
+  String get editServerShowForm => 'Вернуться к форме';
+
+  @override
+  String get editServerJsonEditorLabel => 'JSON сервера Voidlex';
+
+  @override
+  String get editServerJsonEditorHelper =>
+      'Отредактируйте конфигурацию одного поддерживаемого сервера. При сохранении JSON будет применён к этому серверу.';
+
+  @override
+  String get editServerJsonInvalid =>
+      'JSON должен содержать ровно одну корректную конфигурацию поддерживаемого сервера.';
+
+  @override
+  String get settingsHwidLoading => 'Загрузка…';
+
+  @override
+  String get settingsHwidUnavailable => 'Недоступно';
+
+  @override
   String get providerSettingsTitle => 'Параметры провайдера';
 
   @override
@@ -1142,18 +1425,18 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get providerProtectSubscriptionsSubtitle =>
-      'Запретить редактирование узлов подписок и экспортировать подписки только как зашифрованные коды.';
+      'Запретить редактирование узлов подписок и экспортировать подписки только как обфусцированные коды (скрыты от случайного просмотра, это не стойкое шифрование).';
 
   @override
-  String get subscriptionShareEncrypted => 'Поделиться зашифрованным кодом';
+  String get subscriptionShareEncrypted => 'Поделиться обфусцированным кодом';
 
   @override
   String get subscriptionShareEncryptedCopied =>
-      'Зашифрованный код подписки скопирован в буфер обмена.';
+      'Обфусцированный код подписки скопирован. Он всё ещё содержит URL вашей подписки — храните в тайне.';
 
   @override
   String get subscriptionShareEncryptedFailed =>
-      'Не удалось сгенерировать зашифрованный код.';
+      'Не удалось сгенерировать обфусцированный код.';
 
   @override
   String get subscriptionHideNa => 'Не отображать N/A';
@@ -1163,7 +1446,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get subscriptionImportEncryptedFailed =>
-      'Неверный или повреждённый зашифрованный код.';
+      'Неверный или повреждённый код.';
 
   @override
   String get subscriptionIntervalOneHour => '1 час';
@@ -1182,6 +1465,25 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get geoFilesAppBarTitle => 'Geo-файлы';
+
+  @override
+  String get geoAutoUpdateTitle => 'Автообновление Geo-файлов';
+
+  @override
+  String get geoAutoUpdateSubtitle =>
+      'Автоматически обновляет Geo-файлы с сохранёнными URL.';
+
+  @override
+  String get geoAutoUpdateDisabled => 'Отключено';
+
+  @override
+  String get geoAutoUpdateOneDay => 'Каждый день';
+
+  @override
+  String get geoAutoUpdateThreeDays => 'Каждые 3 дня';
+
+  @override
+  String get geoAutoUpdateSevenDays => 'Каждые 7 дней';
 
   @override
   String geoUpdateFileTitle(String fileName) {
@@ -1415,6 +1717,28 @@ class AppLocalizationsRu extends AppLocalizations {
       'Не указан пароль обфускации Salamander';
 
   @override
+  String get importNaiveWrongScheme =>
+      'Ссылка не является поддерживаемой ссылкой NaiveProxy';
+
+  @override
+  String get importNaiveMalformedUri => 'Некорректная ссылка NaiveProxy';
+
+  @override
+  String get importNaiveMissingHost => 'Не указан хост NaiveProxy';
+
+  @override
+  String get importNaiveInvalidPort =>
+      'Порт NaiveProxy вне допустимого диапазона';
+
+  @override
+  String get importNaiveInvalidMode =>
+      'Режим NaiveProxy должен быть HTTPS или QUIC';
+
+  @override
+  String get importNaiveInvalidCongestionControl =>
+      'Управление перегрузкой QUIC для NaiveProxy не поддерживается';
+
+  @override
   String get importVlessMalformedUri => 'Некорректная ссылка';
 
   @override
@@ -1468,6 +1792,21 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get tunnelSettingsTitle => 'Туннель';
+
+  @override
+  String get tunnelGroupNetwork => 'Сеть';
+
+  @override
+  String get tunnelGroupTrafficDns => 'Трафик и DNS';
+
+  @override
+  String get tunnelGroupOptimization => 'Оптимизация';
+
+  @override
+  String get tunnelGroupAdvanced => 'Расширенные';
+
+  @override
+  String get tunnelGroupLocalProxy => 'Локальный прокси';
 
   @override
   String get tunnelUseLocalDns => 'Локальный DNS';
@@ -1745,10 +2084,16 @@ class AppLocalizationsRu extends AppLocalizations {
   String get tvSideGlobalSub => 'ВЕСЬ ТРАФИК';
 
   @override
-  String get tvSidePreset => 'ПРЕСЕТ';
+  String get tvSidePreset => 'PRESET';
 
   @override
-  String get tvSidePresetSub => 'STREAMING';
+  String get tvSidePresetSub => 'НАБОР ПРАВИЛ';
+
+  @override
+  String get tvSideSettings => 'SETTINGS';
+
+  @override
+  String get tvSideSettingsSub => 'НАСТРОЙКИ';
 
   @override
   String get tvActionConnect => 'ПОДКЛЮЧИТЬ';
@@ -1796,15 +2141,14 @@ class AppLocalizationsRu extends AppLocalizations {
   String get tvActionPlayPauseKey => 'PLAY/PAUSE';
 
   @override
-  String get tvHintRemoteFooter =>
-      'D-PAD · НАВИГАЦИЯ  ·  УДЕРЖИВАЙТЕ OK ДЛЯ ДЕТАЛЕЙ';
+  String get tvHintRemoteFooter => 'D-PAD · НАВИГАЦИЯ';
 
   @override
   String get tvOverlaySubscriptionsTitle => 'ПОДПИСКИ';
 
   @override
   String get tvOverlaySubscriptionsSubtitle =>
-      'OK — раскрыть · MENU — действия';
+      'Импортированные подписки · BACK — закрыть';
 
   @override
   String get tvOverlaySubscriptionsEmpty => 'Подписки ещё не импортированы.';
@@ -2086,7 +2430,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get runModeProxyOnlySubtitle =>
-      'Запускать локальный HTTP/SOCKS5-прокси без значка VPN. Работают только приложения с поддержкой прокси, мобильные данные идут напрямую. Прокси настройте вручную в Wi-Fi / браузере.';
+      'Запускать локальный HTTP/SOCKS5-прокси без значка VPN. Работают только приложения с поддержкой прокси, мобильные данные идут напрямую. Прокси настройте вручную в Wi-Fi / браузере. Внимание: порт прокси доступен другим устройствам в той же сети Wi-Fi / точке доступа (требуются логин и пароль).';
 
   @override
   String get httpProxyAuthTitle => 'HTTP-прокси авторизация';

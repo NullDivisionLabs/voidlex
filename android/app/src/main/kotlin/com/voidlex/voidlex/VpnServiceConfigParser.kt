@@ -305,17 +305,54 @@ internal object VpnServiceConfigParser {
             tlsSni = intent.getStringExtra(key(VoidVpnService.EXTRA_TLS_SNI)) ?: server,
             tlsInsecure = intent.getBooleanExtra(key(VoidVpnService.EXTRA_TLS_INSECURE), false),
             flow = intent.getStringExtra(key(VoidVpnService.EXTRA_FLOW)) ?: "",
+            vlessEncryption =
+                intent.getStringExtra(key(VoidVpnService.EXTRA_VLESS_ENCRYPTION)) ?: "",
             security = intent.getStringExtra(key(VoidVpnService.EXTRA_SECURITY)) ?: "",
             realityPbk = intent.getStringExtra(key(VoidVpnService.EXTRA_REALITY_PBK)) ?: "",
             realitySid = intent.getStringExtra(key(VoidVpnService.EXTRA_REALITY_SID)) ?: "",
             realitySpiderX =
                 intent.getStringExtra(key(VoidVpnService.EXTRA_REALITY_SPIDER_X)) ?: "",
+            realityMldsa65Verify =
+                intent.getStringExtra(key(VoidVpnService.EXTRA_REALITY_MLDSA65_VERIFY)) ?: "",
             fingerprint = intent.getStringExtra(key(VoidVpnService.EXTRA_FINGERPRINT)) ?: "",
             alpn = intent.getStringExtra(key(VoidVpnService.EXTRA_ALPN)) ?: "",
+            hysteria2ObfsType =
+                intent.getStringExtra(key(VoidVpnService.EXTRA_HYSTERIA2_OBFS_TYPE)) ?: "",
             hysteria2ObfsPassword =
                 intent.getStringExtra(key(VoidVpnService.EXTRA_HYSTERIA2_OBFS_PASSWORD)) ?: "",
+            hysteria2ObfsMinPacketSize =
+                intent.getIntExtra(key(VoidVpnService.EXTRA_HYSTERIA2_OBFS_MIN_PACKET_SIZE), 0),
+            hysteria2ObfsMaxPacketSize =
+                intent.getIntExtra(key(VoidVpnService.EXTRA_HYSTERIA2_OBFS_MAX_PACKET_SIZE), 0),
             hysteria2HopPorts =
                 intent.getStringExtra(key(VoidVpnService.EXTRA_HYSTERIA2_HOP_PORTS)) ?: "",
+            hysteria2HopInterval =
+                intent.getStringExtra(key(VoidVpnService.EXTRA_HYSTERIA2_HOP_INTERVAL)) ?: "",
+            hysteria2HopIntervalMax =
+                intent.getStringExtra(key(VoidVpnService.EXTRA_HYSTERIA2_HOP_INTERVAL_MAX)) ?: "",
+            hysteria2UpMbps =
+                intent.getIntExtra(key(VoidVpnService.EXTRA_HYSTERIA2_UP_MBPS), 0),
+            hysteria2DownMbps =
+                intent.getIntExtra(key(VoidVpnService.EXTRA_HYSTERIA2_DOWN_MBPS), 0),
+            hysteria2Network =
+                intent.getStringExtra(key(VoidVpnService.EXTRA_HYSTERIA2_NETWORK)) ?: "",
+            hysteria2BbrProfile =
+                intent.getStringExtra(key(VoidVpnService.EXTRA_HYSTERIA2_BBR_PROFILE)) ?: "",
+            naiveUsername =
+                intent.getStringExtra(key(VoidVpnService.EXTRA_NAIVE_USERNAME)) ?: "",
+            naivePassword =
+                intent.getStringExtra(key(VoidVpnService.EXTRA_NAIVE_PASSWORD)) ?: "",
+            naiveQuic = intent.getBooleanExtra(key(VoidVpnService.EXTRA_NAIVE_QUIC), false),
+            naiveQuicCongestionControl =
+                intent.getStringExtra(key(VoidVpnService.EXTRA_NAIVE_QUIC_CONGESTION_CONTROL)) ?: "",
+            naiveInsecureConcurrency =
+                intent.getIntExtra(key(VoidVpnService.EXTRA_NAIVE_INSECURE_CONCURRENCY), 0),
+            naiveExtraHeadersJson =
+                intent.getStringExtra(key(VoidVpnService.EXTRA_NAIVE_EXTRA_HEADERS_JSON)) ?: "{}",
+            naiveUdpOverTcp =
+                intent.getBooleanExtra(key(VoidVpnService.EXTRA_NAIVE_UDP_OVER_TCP), false),
+            naiveUdpOverTcpVersion =
+                intent.getIntExtra(key(VoidVpnService.EXTRA_NAIVE_UDP_OVER_TCP_VERSION), 0),
         )
     }
 }

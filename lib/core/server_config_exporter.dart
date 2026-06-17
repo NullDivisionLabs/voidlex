@@ -5,12 +5,31 @@ import 'models/server_config.dart';
 class ServerConfigExporter {
   const ServerConfigExporter._();
 
+  static bool hasUrlOmittedAdvancedFields(ServerConfig server) {
+    if (server.isVless) return server.realityMldsa65Verify.trim().isNotEmpty;
+    if (server.isHysteria2) {
+      return server.hysteria2ObfsMinPacketSize > 0 ||
+          server.hysteria2ObfsMaxPacketSize > 0 ||
+          server.hysteria2HopInterval.trim().isNotEmpty ||
+          server.hysteria2HopIntervalMax.trim().isNotEmpty ||
+          server.hysteria2UpMbps > 0 ||
+          server.hysteria2DownMbps > 0 ||
+          server.hysteria2Network.trim().isNotEmpty ||
+          server.hysteria2BbrProfile.trim().isNotEmpty;
+    }
+    return server.naiveInsecureConcurrency > 0 ||
+        server.naiveExtraHeaders.isNotEmpty ||
+        server.naiveUdpOverTcp;
+  }
+
   static String toServerUrl(ServerConfig server) {
     switch (server.serverProtocol) {
       case ServerProtocol.vless:
         return toVlessUrl(server);
       case ServerProtocol.hysteria2:
         return toHysteria2Url(server);
+      case ServerProtocol.naive:
+        return toNaiveUrl(server);
     }
   }
 
@@ -29,6 +48,7 @@ class ServerConfigExporter {
     _addQuery(query, 'sni', server.sni);
     _addQuery(query, 'alpn', server.alpn);
     _addQuery(query, 'flow', server.flow);
+    _addQuery(query, 'encryption', server.vlessEncryption);
     _addQuery(query, 'fp', server.fingerprint);
     _addQuery(query, 'pbk', server.realityPublicKey);
     _addQuery(query, 'sid', server.realityShortId);
@@ -52,8 +72,9 @@ class ServerConfigExporter {
     _addQuery(query, 'sni', server.sni);
     _addQuery(query, 'alpn', server.alpn.isEmpty ? 'h3' : server.alpn);
     if (server.tlsInsecure) query['insecure'] = '1';
-    if (server.hysteria2ObfsPassword.trim().isNotEmpty) {
-      query['obfs'] = 'salamander';
+    if (server.effectiveHysteria2ObfsType.isNotEmpty &&
+        server.hysteria2ObfsPassword.trim().isNotEmpty) {
+      query['obfs'] = server.effectiveHysteria2ObfsType;
       query['obfs-password'] = server.hysteria2ObfsPassword.trim();
     }
 
@@ -68,6 +89,27 @@ class ServerConfigExporter {
         '${fragment.isEmpty ? '' : '#$fragment'}';
   }
 
+  static String toNaiveUrl(ServerConfig server) {
+    final query = <String, String>{};
+    _addQuery(query, 'sni', server.sni);
+    if (server.naiveQuic &&
+        server.naiveQuicCongestionControl.trim().isNotEmpty) {
+      query['congestion_control'] = server.naiveQuicCongestionControl
+          .trim()
+          .toLowerCase();
+    }
+    final scheme = server.naiveQuic ? 'naive+quic' : 'naive+https';
+    final auth = server.naiveUsername.isEmpty && server.naivePassword.isEmpty
+        ? ''
+        : '${Uri.encodeComponent(server.naiveUsername)}:'
+              '${Uri.encodeComponent(server.naivePassword)}@';
+    final queryText = Uri(queryParameters: query).query;
+    final fragment = Uri.encodeComponent(server.name);
+    return '$scheme://$auth${_formatHost(server.address)}:${server.port}'
+        '${queryText.isEmpty ? '' : '?$queryText'}'
+        '${fragment.isEmpty ? '' : '#$fragment'}';
+  }
+
   static String toXrayJson(ServerConfig server) =>
       const JsonEncoder.withIndent('  ').convert(toXrayConfig(server));
 
@@ -75,7 +117,7 @@ class ServerConfigExporter {
     // Hysteria2 is not a real Xray-core outbound; emit a sing-box config
     // instead, which is the runtime that actually carries Hysteria2 in
     // this app and the format other tunnels (mihomo, sing-box) can read.
-    if (server.isHysteria2) return _singBoxConfig(server);
+    if (server.usesDirectLibbox) return _singBoxConfig(server);
     return {
       'log': {'loglevel': 'warning'},
       'dns': {
@@ -120,7 +162,9 @@ class ServerConfigExporter {
     return {
       'log': {'level': 'warn', 'timestamp': true},
       'outbounds': [
-        _singBoxHysteria2Outbound(server),
+        server.isNaive
+            ? _singBoxNaiveOutbound(server)
+            : _singBoxHysteria2Outbound(server),
         {'type': 'direct', 'tag': 'direct'},
       ],
       'remarks': server.name,
@@ -140,11 +184,67 @@ class ServerConfigExporter {
     if (hopPorts != null) outbound['server_ports'] = hopPorts;
     if (server.hysteria2ObfsPassword.trim().isNotEmpty) {
       outbound['obfs'] = {
-        'type': 'salamander',
+        'type': server.effectiveHysteria2ObfsType,
         'password': server.hysteria2ObfsPassword.trim(),
+        if (server.effectiveHysteria2ObfsType == 'gecko' &&
+            server.hysteria2ObfsMinPacketSize > 0)
+          'min_packet_size': server.hysteria2ObfsMinPacketSize,
+        if (server.effectiveHysteria2ObfsType == 'gecko' &&
+            server.hysteria2ObfsMaxPacketSize > 0)
+          'max_packet_size': server.hysteria2ObfsMaxPacketSize,
       };
     }
+    if (server.hysteria2HopInterval.trim().isNotEmpty) {
+      outbound['hop_interval'] = server.hysteria2HopInterval.trim();
+    }
+    if (server.hysteria2HopIntervalMax.trim().isNotEmpty) {
+      outbound['hop_interval_max'] = server.hysteria2HopIntervalMax.trim();
+    }
+    if (server.hysteria2UpMbps > 0) {
+      outbound['up_mbps'] = server.hysteria2UpMbps;
+    }
+    if (server.hysteria2DownMbps > 0) {
+      outbound['down_mbps'] = server.hysteria2DownMbps;
+    }
+    if (server.hysteria2Network.trim().isNotEmpty) {
+      outbound['network'] = server.hysteria2Network.trim();
+    }
+    if (server.hysteria2BbrProfile.trim().isNotEmpty) {
+      outbound['bbr_profile'] = server.hysteria2BbrProfile.trim();
+    }
     return outbound;
+  }
+
+  static Map<String, dynamic> _singBoxNaiveOutbound(ServerConfig server) {
+    return <String, dynamic>{
+      'type': 'naive',
+      'tag': 'proxy',
+      'server': server.address,
+      'server_port': server.port,
+      if (server.naiveUsername.isNotEmpty) 'username': server.naiveUsername,
+      if (server.naivePassword.isNotEmpty) 'password': server.naivePassword,
+      if (server.naiveQuic) 'quic': true,
+      if (server.naiveQuic &&
+          server.naiveQuicCongestionControl.trim().isNotEmpty)
+        'quic_congestion_control': server.naiveQuicCongestionControl
+            .trim()
+            .toLowerCase(),
+      if (server.naiveInsecureConcurrency > 0)
+        'insecure_concurrency': server.naiveInsecureConcurrency,
+      if (server.naiveExtraHeaders.isNotEmpty)
+        'extra_headers': server.naiveExtraHeaders,
+      if (server.naiveUdpOverTcp)
+        'udp_over_tcp': {
+          'enabled': true,
+          if (server.naiveUdpOverTcpVersion > 0)
+            'version': server.naiveUdpOverTcpVersion,
+        },
+      'tls': {
+        'enabled': true,
+        'server_name': server.effectiveSni,
+        if (server.tlsInsecure) 'insecure': true,
+      },
+    };
   }
 
   static Map<String, dynamic> _singBoxHysteria2Tls(ServerConfig server) {
@@ -192,7 +292,7 @@ class ServerConfigExporter {
             'users': [
               {
                 'id': server.uuid,
-                'encryption': 'none',
+                'encryption': server.effectiveVlessEncryption,
                 'flow': server.flow,
                 'level': 8,
                 'security': 'auto',
@@ -254,6 +354,9 @@ class ServerConfigExporter {
     };
     if (server.realitySpiderX.trim().isNotEmpty) {
       settings['spiderX'] = server.realitySpiderX.trim();
+    }
+    if (server.realityMldsa65Verify.trim().isNotEmpty) {
+      settings['mldsa65Verify'] = server.realityMldsa65Verify.trim();
     }
     return settings;
   }

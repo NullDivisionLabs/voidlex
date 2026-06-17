@@ -1,5 +1,6 @@
 package com.voidlex.voidlex
 
+import org.json.JSONObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -143,5 +144,39 @@ class QuickSettingsVpnConfigStoreTest {
         assertNotNull(resolved)
         assertEquals("Entry", resolved!!.entry.name)
         assertFalse(resolved.isBridge)
+    }
+
+    @Test
+    fun storedServer_parsesNaiveQuickSettingsFields() {
+        val stored = QuickSettingsVpnConfigStore.StoredServer.fromJson(
+            JSONObject().apply {
+                put("name", "Naive")
+                put("address", "naive.example.com")
+                put("port", 443)
+                put("protocol", "naiveproxy")
+                put("security", "tls")
+                put("naiveUsername", "user")
+                put("naivePassword", "pass")
+                put("naiveQuic", true)
+                put("naiveQuicCongestionControl", "bbr")
+                put("naiveInsecureConcurrency", 4)
+                put("naiveExtraHeaders", JSONObject().put("X-Edge", "void"))
+                put("naiveUdpOverTcp", true)
+                put("naiveUdpOverTcpVersion", 2)
+            },
+        )
+
+        assertNotNull(stored)
+        assertTrue(stored!!.isNaive)
+        assertEquals("naive", stored.protocol)
+        assertEquals("user", stored.naiveUsername)
+        assertEquals("pass", stored.naivePassword)
+        assertTrue(stored.naiveQuic)
+        assertEquals("bbr", stored.naiveQuicCongestionControl)
+        assertEquals(4, stored.naiveInsecureConcurrency)
+        assertEquals("""{"X-Edge":"void"}""", stored.naiveExtraHeadersJson)
+        assertTrue(stored.naiveUdpOverTcp)
+        assertEquals(2, stored.naiveUdpOverTcpVersion)
+        assertEquals("naive.example.com", stored.effectiveSni)
     }
 }

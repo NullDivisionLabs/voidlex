@@ -59,14 +59,33 @@ class VoidVpnService : VpnService() {
         const val EXTRA_TLS_SNI = "tlsSni"
         const val EXTRA_TLS_INSECURE = "tlsInsecure"
         const val EXTRA_FLOW = "flow"
+        const val EXTRA_VLESS_ENCRYPTION = "vlessEncryption"
         const val EXTRA_SECURITY = "security"
         const val EXTRA_REALITY_PBK = "realityPbk"
         const val EXTRA_REALITY_SID = "realitySid"
         const val EXTRA_REALITY_SPIDER_X = "realitySpiderX"
+        const val EXTRA_REALITY_MLDSA65_VERIFY = "realityMldsa65Verify"
         const val EXTRA_FINGERPRINT = "fingerprint"
         const val EXTRA_ALPN = "alpn"
+        const val EXTRA_HYSTERIA2_OBFS_TYPE = "hysteria2ObfsType"
         const val EXTRA_HYSTERIA2_OBFS_PASSWORD = "hysteria2ObfsPassword"
+        const val EXTRA_HYSTERIA2_OBFS_MIN_PACKET_SIZE = "hysteria2ObfsMinPacketSize"
+        const val EXTRA_HYSTERIA2_OBFS_MAX_PACKET_SIZE = "hysteria2ObfsMaxPacketSize"
         const val EXTRA_HYSTERIA2_HOP_PORTS = "hysteria2HopPorts"
+        const val EXTRA_HYSTERIA2_HOP_INTERVAL = "hysteria2HopInterval"
+        const val EXTRA_HYSTERIA2_HOP_INTERVAL_MAX = "hysteria2HopIntervalMax"
+        const val EXTRA_HYSTERIA2_UP_MBPS = "hysteria2UpMbps"
+        const val EXTRA_HYSTERIA2_DOWN_MBPS = "hysteria2DownMbps"
+        const val EXTRA_HYSTERIA2_NETWORK = "hysteria2Network"
+        const val EXTRA_HYSTERIA2_BBR_PROFILE = "hysteria2BbrProfile"
+        const val EXTRA_NAIVE_USERNAME = "naiveUsername"
+        const val EXTRA_NAIVE_PASSWORD = "naivePassword"
+        const val EXTRA_NAIVE_QUIC = "naiveQuic"
+        const val EXTRA_NAIVE_QUIC_CONGESTION_CONTROL = "naiveQuicCongestionControl"
+        const val EXTRA_NAIVE_INSECURE_CONCURRENCY = "naiveInsecureConcurrency"
+        const val EXTRA_NAIVE_EXTRA_HEADERS_JSON = "naiveExtraHeadersJson"
+        const val EXTRA_NAIVE_UDP_OVER_TCP = "naiveUdpOverTcp"
+        const val EXTRA_NAIVE_UDP_OVER_TCP_VERSION = "naiveUdpOverTcpVersion"
         const val EXTRA_TUN_ENGINE = "tunEngine"
         const val EXTRA_APP_ROUTING_MODE = "appRoutingMode"
         const val EXTRA_APP_ROUTING_PACKAGES = "appRoutingPackages"
@@ -341,10 +360,21 @@ class VoidVpnService : VpnService() {
                     return@withLock
                 }
 
-                val isHysteria2 = XrayConfigBuilder.isHysteria2(config)
-                if (isHysteria2 && config.tunEngineMode == TunEngineMode.XRAY) {
+                val usesDirectLibbox = XrayConfigBuilder.usesDirectLibbox(config)
+                val naiveRestriction = NaiveRuntimeConstraints.validationError(
+                    protocol = config.protocol,
+                    detourProtocol = config.detourServer?.protocol,
+                    tunEngineMode = config.tunEngineMode,
+                    runMode = config.runMode,
+                    isBridge = config.detourServer != null,
+                )
+                if (naiveRestriction != null) {
+                    emitStartupErrorLocked(naiveRestriction)
+                    return@withLock
+                }
+                if (usesDirectLibbox && config.tunEngineMode == TunEngineMode.XRAY) {
                     emitStartupErrorLocked(
-                        "Hysteria2 requires the libbox TUN engine; switch the engine in settings.",
+                        "${config.protocol} requires the libbox TUN engine; switch the engine in settings.",
                     )
                     return@withLock
                 }
@@ -360,7 +390,7 @@ class VoidVpnService : VpnService() {
                     null
                 }
 
-                if (!isHysteria2) {
+                if (!usesDirectLibbox) {
                     val started = xrayRuntime.start(
                         config = config,
                         mode = when (config.tunEngineMode) {
@@ -390,7 +420,7 @@ class VoidVpnService : VpnService() {
                         proxyUser = config.proxyUser,
                         proxyPassword = config.proxyPassword,
                         tunnelNetworkSettings = config.tunnelNetworkSettings,
-                        proxyServer = if (isHysteria2) config else null,
+                        proxyServer = if (usesDirectLibbox) config else null,
                     )
                     if (!isCurrentGeneration(generation)) {
                         stopRuntimesLocked(removeForeground = false)
@@ -654,7 +684,7 @@ class VoidVpnService : VpnService() {
         current: UnderlyingNetworkResolver.Selection,
     ) {
         if (config.tunEngineMode != TunEngineMode.LIBBOX) return
-        if (XrayConfigBuilder.isHysteria2(config)) return
+        if (XrayConfigBuilder.usesDirectLibbox(config)) return
 
         val now = SystemClock.elapsedRealtime()
         val sinceLastRestart = now - lastNetworkTriggeredXrayRestartAtElapsed

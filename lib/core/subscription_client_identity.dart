@@ -6,7 +6,7 @@ import 'dart:io';
 /// show as an unknown client.
 abstract final class SubscriptionClientIdentity {
   static const String appName = 'VoidLex';
-  static const String appVersion = '1.0.1-beta';
+  static const String appVersion = '1.1.2-beta';
 
   /// Sent as the standard `User-Agent` header on subscription fetches.
   static const String userAgent = '$appName/$appVersion';

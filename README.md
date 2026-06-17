@@ -10,7 +10,7 @@
 
 A Flutter VPN client for Android. Device traffic is routed through a proxy powered by [Xray-core](https://github.com/XTLS/Xray-core); the on-device TUN is handled by [libbox](https://sing-box.sagernet.org/) (sing-box) or, in experimental mode, directly by Xray TUN.
 
-Supports **VLESS** and **Hysteria2**, flexible routing (per-app, domains, IP), provider subscriptions, profile import/export, and a dedicated Android TV interface.
+Supports **VLESS**, **Hysteria2**, and **NaiveProxy**, flexible routing (per-app, domains, IP), provider subscriptions, profile import/export, and a dedicated Android TV interface.
 
 ### About
 
@@ -18,7 +18,7 @@ Void//Lex is a full VPN client with its own UI — not a thin shell over a stati
 
 On Android it uses the system `VpnService`: traffic (all apps or a selected subset, depending on policy) goes through a local TUN, then into the Xray/libbox core with your routing rules.
 
-**Shipped version:** 1.0.1-beta · **Xray-core:** 26.5.9 · **libbox (sing-box):** 1.14.0-alpha.24
+**Shipped version:** 1.1.2-beta · **Xray-core:** 26.5.9 · **libbox (sing-box):** 1.14.0-alpha.24
 
 ### Features
 
@@ -36,15 +36,18 @@ On Android it uses the system `VpnService`: traffic (all apps or a selected subs
 | Protocol | Support |
 |----------|---------|
 | **VLESS** | TCP, WebSocket, gRPC, HTTP, HTTPUpgrade, **xHTTP** |
-| VLESS security | none, TLS, **REALITY**, **XTLS-Vision** flow |
-| **Hysteria2** | Salamander obfuscation, **port hopping** |
+| VLESS security | none, TLS, **REALITY**, **XTLS-Vision** flow, optional **encryption** |
+| **Hysteria2** | Salamander / **Gecko** obfuscation, **port hopping**, hop intervals, bandwidth caps, BBR profile |
+| **NaiveProxy** | HTTPS/HTTP2 and QUIC, auth, QUIC congestion control, extra headers, UDP-over-TCP |
 
-Add servers manually, from clipboard, QR, file, `voidlex://…` deep links, or subscriptions. **Edit**, **duplicate**, **share** as a link, or **delete**. Full **profile** import/export (servers, subscriptions, routing presets).
+Add servers manually, from clipboard, QR, file, `voidlex://…` deep links, or subscriptions. **Edit**, **duplicate**, **share** as a link, or **delete**. Full **profile** import/export (servers, subscriptions, routing presets). Per-server **Advanced** panel and **JSON / sing-box** editor for non-standard tuning.
+
+NaiveProxy and Hysteria2 run as direct **libbox** outbounds in single-hop VPN/TUN mode. For NaiveProxy, Xray TUN, proxy-only mode, exit-node selection, and bridge chains are intentionally unavailable.
 
 #### Servers & subscriptions
 
 - **Manual servers** — reorder (drag-and-drop), favorites, pin.
-- **Subscriptions** — URL with auto-refresh (1 h … never), refresh on launch, ping after update.
+- **Subscriptions** — URL with provider-wide auto-refresh (1 h … 12 h) or per-subscription override; refresh on launch, ping after update.
 - Subscription headers: expiry, traffic limits (upload/download/total), HWID when requested by the provider.
 - Optional protection against accidental edit/delete of subscription nodes.
 - **Latency probe** to the server endpoint or via local proxy; bulk scan; auto-sort by ping.
@@ -65,7 +68,7 @@ Add servers manually, from clipboard, QR, file, `voidlex://…` deep links, or s
 - DNS: local DNS, remote resolving, Xray TUN DNS.
 - Network stack: system / gVisor / mixed; IP mode: IPv4 / IPv6 / mixed; MTU; UDP block.
 - Optional proxy username/password.
-- **GeoIP / Geosite** — bundled `geoip.dat` & `geosite.dat` (~28 MB) or slim build with on-first-launch download (Settings → GeoData).
+- **GeoIP / Geosite** — bundled `geoip.dat` & `geosite.dat` (~28 MB) or slim build with on-first-launch download (Settings → GeoData). Update from URL, device import, or scheduled auto-refresh (1 / 3 / 7 days) for URL-sourced files (Settings → Application).
 
 #### UI & platforms
 
@@ -85,9 +88,9 @@ Add servers manually, from clipboard, QR, file, `voidlex://…` deep links, or s
                                                             TUN → rules → outbound
 ```
 
-- **Dart:** UI, VLESS/Hysteria2 parsers, repository, `VpnController` state machine.
+- **Dart:** UI, VLESS/Hysteria2/NaiveProxy parsers, repository, `VpnController` state machine.
 - **Kotlin:** `VpnService`, libbox/Xray config builders, native bridges.
-- **Native:** `libxray.so` (arm64-v8a, x86_64), JNI for Xray TUN mode.
+- **Native:** `libxray.so` (arm64-v8a, armeabi-v7a, x86_64), JNI for Xray TUN mode.
 
 ### Project layout
 
@@ -111,7 +114,7 @@ Add servers manually, from clipboard, QR, file, `voidlex://…` deep links, or s
 
 VPN-клиент для Android на Flutter. Трафик устройства направляется через прокси на базе [Xray-core](https://github.com/XTLS/Xray-core); на устройстве TUN поднимается через [libbox](https://sing-box.sagernet.org/) (sing-box) или, в экспериментальном режиме, напрямую через Xray TUN.
 
-Поддерживаются протоколы **VLESS** и **Hysteria2**, гибкая маршрутизация (по приложениям, доменам, IP), подписки провайдеров, импорт профилей и отдельный интерфейс для Android TV.
+Поддерживаются протоколы **VLESS**, **Hysteria2** и **NaiveProxy**, гибкая маршрутизация (по приложениям, доменам, IP), подписки провайдеров, импорт профилей и отдельный интерфейс для Android TV.
 
 ### О приложении
 
@@ -119,7 +122,7 @@ Void//Lex — полноценный VPN-клиент с собственным 
 
 На Android используется системный `VpnService`: весь трафик (или выбранные приложения — по политике) проходит через локальный TUN, затем в ядро Xray/libbox с вашими правилами маршрутизации.
 
-**Версия в сборке:** 1.0.1-beta · **Xray-core:** 26.5.9 · **libbox (sing-box):** 1.14.0-alpha.24
+**Версия в сборке:** 1.1.2-beta · **Xray-core:** 26.5.9 · **libbox (sing-box):** 1.14.0-alpha.24
 
 ### Возможности
 
@@ -137,15 +140,18 @@ Void//Lex — полноценный VPN-клиент с собственным 
 | Протокол | Поддержка |
 |----------|-----------|
 | **VLESS** | TCP, WebSocket, gRPC, HTTP, HTTPUpgrade, **xHTTP** |
-| Безопасность VLESS | без TLS, TLS, **REALITY**, flow **XTLS-Vision** |
-| **Hysteria2** | обфускация Salamander, **port hopping** |
+| Безопасность VLESS | без TLS, TLS, **REALITY**, flow **XTLS-Vision**, опциональное **encryption** |
+| **Hysteria2** | обфускация Salamander / **Gecko**, **port hopping**, интервалы hop, лимиты скорости, профиль BBR |
+| **NaiveProxy** | HTTPS/HTTP2 и QUIC, авторизация, congestion control для QUIC, extra headers, UDP-over-TCP |
 
-Узлы добавляются вручную, из буфера, QR, файла, deep link `voidlex://…` или из подписки. **Редактирование**, **дублирование**, **экспорт** в share-ссылку, **удаление**. Импорт/экспорт **полного профиля** (узлы, подписки, пресеты).
+Узлы добавляются вручную, из буфера, QR, файла, deep link `voidlex://…` или из подписки. **Редактирование**, **дублирование**, **экспорт** в share-ссылку, **удаление**. Импорт/экспорт **полного профиля** (узлы, подписки, пресеты). Панель **Расширенные** и редактор **JSON / sing-box** для нестандартных параметров.
+
+NaiveProxy и Hysteria2 работают как прямые outbound **libbox** в одиночном VPN/TUN. Для NaiveProxy намеренно недоступны Xray TUN, proxy-only, назначение exit-узлом и bridge-цепочки.
 
 #### Узлы и подписки
 
 - **Ручные узлы** — порядок drag-and-drop, избранное, закрепление.
-- **Подписки** — URL с автообновлением (от 1 часа до «никогда»), обновление при старте, пинг после обновления.
+- **Подписки** — URL с общим интервалом автообновления (1–12 ч) или переопределением на подписку; обновление при старте, пинг после обновления.
 - Заголовки: срок действия, лимиты трафика (upload/download/total), HWID для провайдера.
 - Защита подписок от случайного редактирования/удаления узлов.
 - **Замер задержки** к endpoint или через локальный прокси; массовое сканирование; автосортировка по ping.
@@ -166,7 +172,7 @@ Void//Lex — полноценный VPN-клиент с собственным 
 - DNS: локальный, резолвинг на сервере, DNS для Xray TUN.
 - Стек: system / gVisor / mixed; IP: IPv4 / IPv6 / mixed; MTU; блокировка UDP.
 - Прокси-аутентификация при необходимости.
-- **GeoIP / Geosite** — встроенные файлы (~28 MB) или slim-сборка с загрузкой при первом запуске (Настройки → GeoData).
+- **GeoIP / Geosite** — встроенные файлы (~28 MB) или slim-сборка с загрузкой при первом запуске (Настройки → GeoData). Обновление по URL, импорт с устройства, автообновление по расписанию (1 / 3 / 7 дней) для файлов с сохранённым URL (Настройки → Приложение).
 
 #### Интерфейс и платформы
 
@@ -186,9 +192,9 @@ Void//Lex — полноценный VPN-клиент с собственным 
                                                             TUN → правила → outbound
 ```
 
-- **Dart:** UI, парсеры VLESS/Hysteria2, репозиторий, `VpnController`.
+- **Dart:** UI, парсеры VLESS/Hysteria2/NaiveProxy, репозиторий, `VpnController`.
 - **Kotlin:** `VpnService`, сборка конфигов libbox/Xray, мосты в нативный код.
-- **Native:** `libxray.so` (arm64-v8a, x86_64), JNI для Xray TUN.
+- **Native:** `libxray.so` (arm64-v8a, armeabi-v7a, x86_64), JNI для Xray TUN.
 
 ### Структура проекта
 
@@ -218,10 +224,10 @@ flutter run                       # debug build / отладочная сбор�
 ### Release APK
 
 ```bash
-# Per-ABI APKs for sideload. Gradle filters output to arm64-v8a/x86_64.
-# APK по ABI для sideload. Gradle ограничивает сборку arm64-v8a/x86_64.
+# Per-ABI APKs for sideload. Gradle filters output to arm64-v8a/armeabi-v7a/x86_64.
+# APK по ABI для sideload. Gradle ограничивает сборку arm64-v8a/armeabi-v7a/x86_64.
 flutter build apk --release \
-    --target-platform android-arm64,android-x64 \
+    --target-platform android-arm,android-arm64,android-x64 \
     --split-per-abi
 
 # Play Store bundle (Google splits per ABI server-side)
@@ -232,14 +238,14 @@ flutter build appbundle --release
 # download on first launch: Settings → GeoData)
 # Slim-сборка без geoip/geosite (скачивание: Настройки → GeoData)
 flutter build apk --release \
-    --target-platform android-arm64,android-x64 \
+    --target-platform android-arm,android-arm64,android-x64 \
     --split-per-abi \
     -PslimGeoData=true
 ```
 
-> **EN:** `armeabi-v7a` is intentionally excluded — `libxray.so` is built only for 64-bit ABIs. See `android/app/build.gradle.kts`.
+> **EN:** `armeabi-v7a` is included for 32-bit Android TV devices; `arm64-v8a`, `armeabi-v7a`, and `x86_64` are the supported shipped ABIs. See `android/app/build.gradle.kts`.
 >
-> **RU:** `armeabi-v7a` не собирается — `libxray.so` только для 64-bit ABI. См. `android/app/build.gradle.kts`.
+> **RU:** `armeabi-v7a` включён для 32-битных Android TV устройств; поддерживаемые ABI поставки: `arm64-v8a`, `armeabi-v7a`, `x86_64`. См. `android/app/build.gradle.kts`.
 
 ### Release signing · Подпись release
 

@@ -127,7 +127,7 @@ class _VoidLexAppState extends State<VoidLexApp>
       case AppLifecycleState.resumed:
         if (_wasInBackground) {
           _wasInBackground = false;
-          unawaited(_scanPingOnAppVisible());
+          unawaited(_runVisibleTasks());
         }
         break;
       case AppLifecycleState.paused:
@@ -141,7 +141,13 @@ class _VoidLexAppState extends State<VoidLexApp>
   }
 
   Future<void> _runLaunchTasks() async {
+    await widget.controller.refreshDueGeoData();
     await _connectOnLaunchIfNeeded();
+    await _scanPingOnAppVisible();
+  }
+
+  Future<void> _runVisibleTasks() async {
+    await widget.controller.refreshDueGeoData();
     await _scanPingOnAppVisible();
   }
 

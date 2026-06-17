@@ -185,10 +185,7 @@ class VlessParser {
           ]) ??
           '',
       xhttpMaxPostBytes:
-          _firstQueryValue(uri, const [
-            'scMaxEachPostBytes',
-            'maxPostBytes',
-          ]) ??
+          _firstQueryValue(uri, const ['scMaxEachPostBytes', 'maxPostBytes']) ??
           '',
       xhttpMinPostInterval:
           _firstQueryValue(uri, const [
@@ -199,6 +196,7 @@ class VlessParser {
       sni: sni,
       alpn: _firstQueryValue(uri, const ['alpn']) ?? '',
       flow: _firstQueryValue(uri, const ['flow']) ?? '',
+      vlessEncryption: _firstQueryValue(uri, const ['encryption']) ?? '',
       fingerprint:
           _firstQueryValue(uri, const ['fp', 'fingerprint', 'utls']) ?? '',
       realityPublicKey:
@@ -223,6 +221,13 @@ class VlessParser {
             'spiderX',
             'spider_x',
             'spider-x',
+          ]) ??
+          '',
+      realityMldsa65Verify:
+          _firstQueryValue(uri, const [
+            'mldsa65Verify',
+            'mldsa65_verify',
+            'mldsa65-verify',
           ]) ??
           '',
       tlsInsecure:

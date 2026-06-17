@@ -104,15 +104,21 @@ class _GeoDataFilesScreenState extends State<_GeoDataFilesScreen> {
   Future<void> _updateByUrl(GeoDataKind kind) async {
     final l = AppLocalizations.of(context);
     final status = _statusFor(kind);
-    final url = await _showUrlDialog(
+    final result = await _showUrlDialog(
       status,
       initialUrl: status.savedUrl?.trim(),
     );
-    if (url == null || !mounted) return;
+    if (result == null || !mounted) return;
+    if (result.autoUpdateInterval != null) {
+      await widget.controller.setGeoDataAutoUpdateInterval(
+        result.autoUpdateInterval!,
+      );
+    }
+    if (!mounted) return;
     await _runGeoDataAction(
       kind,
       action: () =>
-          widget.controller.updateGeoDataFromUrl(kind: kind, url: url),
+          widget.controller.updateGeoDataFromUrl(kind: kind, url: result.url),
       successMessage: l.geoFileUpdated(kind.fileName),
     );
   }
@@ -170,11 +176,11 @@ class _GeoDataFilesScreenState extends State<_GeoDataFilesScreen> {
     }
   }
 
-  Future<String?> _showUrlDialog(
+  Future<_GeoDataUrlDialogResult?> _showUrlDialog(
     GeoDataFileStatus status, {
     String? initialUrl,
   }) async {
-    return showDialog<String>(
+    return showDialog<_GeoDataUrlDialogResult>(
       context: context,
       builder: (dialogContext) {
         final useTvChrome = _useTvSettingsChrome(
@@ -186,6 +192,8 @@ class _GeoDataFilesScreenState extends State<_GeoDataFilesScreen> {
         return _GeoDataUrlDialog(
           status: status,
           initialUrl: initialUrl,
+          initialAutoUpdateInterval:
+              widget.controller.geoDataAutoUpdateInterval,
           useTvChrome: useTvChrome,
         );
       },
@@ -239,11 +247,13 @@ class _GeoDataFilesScreenState extends State<_GeoDataFilesScreen> {
 class _GeoDataUrlDialog extends StatefulWidget {
   const _GeoDataUrlDialog({
     required this.status,
+    required this.initialAutoUpdateInterval,
     this.initialUrl,
     this.useTvChrome = false,
   });
 
   final GeoDataFileStatus status;
+  final GeoDataAutoUpdateInterval initialAutoUpdateInterval;
   final String? initialUrl;
   final bool useTvChrome;
 
@@ -254,6 +264,8 @@ class _GeoDataUrlDialog extends StatefulWidget {
 class _GeoDataUrlDialogState extends State<_GeoDataUrlDialog> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   late final TextEditingController _controller;
+  late GeoDataAutoUpdateInterval _autoUpdateInterval;
+  var _intervalChanged = false;
 
   @override
   void initState() {
@@ -261,6 +273,7 @@ class _GeoDataUrlDialogState extends State<_GeoDataUrlDialog> {
     _controller = TextEditingController(
       text: widget.initialUrl ?? widget.status.savedUrl ?? '',
     );
+    _autoUpdateInterval = widget.initialAutoUpdateInterval;
   }
 
   @override
@@ -271,7 +284,12 @@ class _GeoDataUrlDialogState extends State<_GeoDataUrlDialog> {
 
   void _submit() {
     if (_formKey.currentState?.validate() != true) return;
-    Navigator.of(context).pop(_controller.text.trim());
+    Navigator.of(context).pop(
+      _GeoDataUrlDialogResult(
+        url: _controller.text.trim(),
+        autoUpdateInterval: _intervalChanged ? _autoUpdateInterval : null,
+      ),
+    );
   }
 
   String? _validateUrl(String? value) {
@@ -357,6 +375,16 @@ class _GeoDataUrlDialogState extends State<_GeoDataUrlDialog> {
         ),
       ),
       actions: [
+        GeoDataAutoUpdateMenuButton(
+          interval: _autoUpdateInterval,
+          showLeadingIcon: true,
+          onSelected: (interval) {
+            setState(() {
+              _autoUpdateInterval = interval;
+              _intervalChanged = true;
+            });
+          },
+        ),
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: Text(l.cancel),
@@ -365,6 +393,16 @@ class _GeoDataUrlDialogState extends State<_GeoDataUrlDialog> {
       ],
     );
   }
+}
+
+class _GeoDataUrlDialogResult {
+  const _GeoDataUrlDialogResult({
+    required this.url,
+    this.autoUpdateInterval,
+  });
+
+  final String url;
+  final GeoDataAutoUpdateInterval? autoUpdateInterval;
 }
 
 class _GeoDataUrlPreset {

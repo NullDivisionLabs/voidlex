@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
@@ -5,8 +7,10 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 import '../core/app_locale.dart';
 import '../core/models/server_config.dart';
 import '../core/models/server_subscription.dart';
+import '../core/pending_deep_link.dart';
 import '../core/routing_preset.dart';
 import '../core/server_config_exporter.dart';
+import '../core/subscription_client_identity.dart';
 import '../core/vpn_controller.dart';
 import '../l10n/app_localizations.dart';
 import '../l10n/user_message_localizer.dart';
@@ -49,6 +53,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   String? _lastShownConnectionError;
+  bool _deepLinkDialogVisible = false;
   bool _manualNodesCollapsed = false;
   bool _favoritesMoveMode = false;
   bool _subscriptionsMoveMode = false;
@@ -117,6 +122,18 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }
 
+    final pendingDeepLink = _controller.pendingDeepLink;
+    if (pendingDeepLink != null && !_deepLinkDialogVisible) {
+      _deepLinkDialogVisible = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          _deepLinkDialogVisible = false;
+          return;
+        }
+        unawaited(_showDeepLinkConsentDialog(pendingDeepLink));
+      });
+    }
+
     final isErrorState =
         _controller.connectionState == VpnConnectionState.error;
     if (!isErrorState) {
@@ -163,6 +180,91 @@ class _HomeScreenState extends State<HomeScreen> {
       );
   }
 
+  String _deepLinkConsentDescription(
+    AppLocalizations l,
+    DeepLinkActionKind kind,
+  ) {
+    return switch (kind) {
+      DeepLinkActionKind.importServers => l.deepLinkConsentImportServers,
+      DeepLinkActionKind.importRuleset => l.deepLinkConsentImportRuleset,
+      DeepLinkActionKind.importSubscription =>
+        l.deepLinkConsentImportSubscription,
+    };
+  }
+
+  Future<void> _showDeepLinkConsentDialog(PendingDeepLink request) async {
+    final l = AppLocalizations.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        final theme = Theme.of(ctx);
+        return AlertDialog(
+          title: Text(l.deepLinkConsentTitle),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(_deepLinkConsentDescription(l, request.kind)),
+                const SizedBox(height: 12),
+                Text(
+                  l.deepLinkConsentSourceLabel,
+                  style: theme.textTheme.labelMedium,
+                ),
+                const SizedBox(height: 4),
+                SelectableText(
+                  request.displayUrl,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontFamily: 'monospace',
+                  ),
+                ),
+                if (request.isInsecureHttp) ...[
+                  const SizedBox(height: 12),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.warning_amber_rounded,
+                        color: theme.colorScheme.error,
+                        size: 18,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          l.deepLinkConsentHttpWarning,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: theme.colorScheme.error,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(false),
+              child: Text(l.cancel),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(ctx).pop(true),
+              child: Text(l.deepLinkConsentConfirm),
+            ),
+          ],
+        );
+      },
+    );
+    _deepLinkDialogVisible = false;
+    if (!mounted) return;
+    if (confirmed == true) {
+      await _controller.confirmPendingDeepLink();
+    } else {
+      _controller.cancelPendingDeepLink();
+    }
+  }
+
   // ── Connect / proxy ──────────────────────────────────────────────────
   Future<void> _toggleConnection() async {
     await _controller.toggleConnection();
@@ -170,6 +272,17 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _disableBridgeMode() async {
     await _controller.clearExitNode();
+  }
+
+  Future<void> _selectServer(String name) async {
+    final error = await _controller.selectServer(name);
+    if (error != null && mounted) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(content: Text(localizeUserMessage(context, error))),
+        );
+    }
   }
 
   // ── Server actions ───────────────────────────────────────────────────
@@ -194,7 +307,14 @@ class _HomeScreenState extends State<HomeScreen> {
         );
         break;
       case ServerMenuAction.toggleExitNode:
-        await _controller.toggleExitNode(server.name);
+        final error = await _controller.toggleExitNode(server.name);
+        if (error != null && mounted) {
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(
+              SnackBar(content: Text(localizeUserMessage(context, error))),
+            );
+        }
         break;
       case ServerMenuAction.assignRoutingPreset:
         await _assignRoutingPresetToServer(server);
@@ -203,7 +323,7 @@ class _HomeScreenState extends State<HomeScreen> {
         if (protectedSubscriptionServer) return;
         final messenger = ScaffoldMessenger.of(context);
         await Clipboard.setData(
-          ClipboardData(text: ServerConfigExporter.toXrayJson(server)),
+          ClipboardData(text: ServerConfigExporter.toServerUrl(server)),
         );
         if (!mounted) return;
         final l = AppLocalizations.of(context);
@@ -445,7 +565,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 builder: (context, _) {
                   final exitServer = _controller.exitServer;
                   return VoidTopBar(
-                    version: 'v1.0.1-beta',
+                    version: 'v${SubscriptionClientIdentity.appVersion}',
                     rightBadge: exitServer != null ? 'BRIDGE MODE' : null,
                     onRightBadgeDisable: exitServer != null
                         ? _disableBridgeMode
@@ -522,11 +642,23 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
         if (_controller.showGlobalProxyButton) const SizedBox(height: 14),
-        ExitInfoBar(
-          exitIp: _controller.isConnected
-              ? _exitIpLabel(context)
-              : AppLocalizations.of(context).ipPlaceholder,
-          node: _nodeLabel(),
+        AnimatedBuilder(
+          animation: _controller,
+          builder: (context, _) {
+            if (!_controller.showExitNodeInfoBar) {
+              return const SizedBox.shrink();
+            }
+            return ExitInfoBar(
+              exitIp: _controller.isConnected
+                  ? _exitIpLabel(context)
+                  : AppLocalizations.of(context).ipPlaceholder,
+              node: _nodeLabel(),
+              downloadSpeed: VpnController.formatBpsLabel(
+                _controller.downloadBps,
+              ),
+              uploadSpeed: VpnController.formatBpsLabel(_controller.uploadBps),
+            );
+          },
         ),
         Expanded(child: _buildList(context, t)),
       ],
@@ -730,7 +862,7 @@ class _HomeScreenState extends State<HomeScreen> {
       selected: _controller.selectedName == server.name,
       onTap: _favoritesMoveMode
           ? null
-          : () => _controller.selectServer(server.name),
+          : () => _selectServer(server.name),
       onLongPressStart: _favoritesMoveMode
           ? null
           : (details) => _showFavoriteMenu(server, details),
@@ -1128,10 +1260,7 @@ class _HomeScreenState extends State<HomeScreen> {
             borderRadius: BorderRadius.circular(10),
             onTap: _exitSubscriptionsMoveMode,
             child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 18,
-                vertical: 10,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
               child: Text(
                 l.done.toUpperCase(),
                 style: VoidType.mono(
@@ -1234,7 +1363,7 @@ class _HomeScreenState extends State<HomeScreen> {
       hasPreset: preset != null,
       presetName: preset?.name,
       protectSubscriptionActions: protectSubscriptionActions,
-      onTap: () => _controller.selectServer(server.name),
+      onTap: () => _selectServer(server.name),
       onMenuAction: (action) => _handleServerMenuAction(server, action),
     );
   }

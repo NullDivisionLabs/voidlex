@@ -77,7 +77,10 @@ class _ApplicationSettingsScreenState
   bool _keepAwake = false;
   bool _verboseXrayLogs = false;
   bool _showGlobalProxyButton = false;
+  bool _showExitNodeInfoBar = true;
   bool _autoSortServersByPing = false;
+  GeoDataAutoUpdateInterval _geoDataAutoUpdateInterval =
+      GeoDataAutoUpdateInterval.disabled;
   LatencyProbeTarget _latencyProbeTarget = LatencyProbeTarget.serverEndpoint;
   bool _profileImportBusy = false;
   bool _profileExportBusy = false;
@@ -96,7 +99,9 @@ class _ApplicationSettingsScreenState
     _restartOnSettingsChange =
         widget.controller.restartConnectionOnSettingsChanges;
     _showGlobalProxyButton = widget.controller.showGlobalProxyButton;
+    _showExitNodeInfoBar = widget.controller.showExitNodeInfoBar;
     _autoSortServersByPing = widget.controller.autoSortServersByPing;
+    _geoDataAutoUpdateInterval = widget.controller.geoDataAutoUpdateInterval;
     _latencyProbeTarget = widget.controller.latencyProbeTarget;
     _showSpeedInNotification = widget.controller.showSpeedInNotification;
     _keepAwake = widget.controller.keepAwake;
@@ -227,6 +232,16 @@ class _ApplicationSettingsScreenState
     });
   }
 
+  Future<void> _setShowExitNodeInfoBar(bool value) async {
+    if (_showExitNodeInfoBar == value) return;
+    setState(() => _showExitNodeInfoBar = value);
+    await widget.controller.setShowExitNodeInfoBar(value);
+    if (!mounted) return;
+    setState(() {
+      _showExitNodeInfoBar = widget.controller.showExitNodeInfoBar;
+    });
+  }
+
   Future<void> _setAutoSortServersByPing(bool value) async {
     if (_autoSortServersByPing == value) return;
     setState(() => _autoSortServersByPing = value);
@@ -235,6 +250,43 @@ class _ApplicationSettingsScreenState
     setState(() {
       _autoSortServersByPing = widget.controller.autoSortServersByPing;
     });
+  }
+
+  Future<void> _setGeoDataAutoUpdateInterval(
+    GeoDataAutoUpdateInterval interval,
+  ) async {
+    if (_geoDataAutoUpdateInterval == interval) return;
+    setState(() => _geoDataAutoUpdateInterval = interval);
+    await widget.controller.setGeoDataAutoUpdateInterval(interval);
+    if (!mounted) return;
+    setState(() {
+      _geoDataAutoUpdateInterval = widget.controller.geoDataAutoUpdateInterval;
+    });
+  }
+
+  Future<void> _showGeoDataAutoUpdateIntervalPicker(
+    BuildContext anchorContext,
+  ) async {
+    final l = AppLocalizations.of(context);
+    final box = anchorContext.findRenderObject() as RenderBox?;
+    final selected = await showMenu<GeoDataAutoUpdateInterval>(
+      context: context,
+      position: box == null
+          ? null
+          : RelativeRect.fromRect(
+              box.localToGlobal(Offset.zero) & box.size,
+              Offset.zero & MediaQuery.sizeOf(context),
+            ),
+      items: [
+        for (final interval in GeoDataAutoUpdateInterval.values)
+          SelectedPopupMenuItem<GeoDataAutoUpdateInterval>(
+            value: interval,
+            selected: interval == _geoDataAutoUpdateInterval,
+            label: geoDataAutoUpdateIntervalLabel(l, interval),
+          ),
+      ],
+    );
+    if (selected != null) await _setGeoDataAutoUpdateInterval(selected);
   }
 
   Future<void> _setLatencyProbeTarget(LatencyProbeTarget target) async {
@@ -327,6 +379,29 @@ class _ApplicationSettingsScreenState
     final hasProtectedSubscriptions =
         widget.controller.subscriptionProviderSettings.protectSubscriptions &&
         widget.controller.subscriptions.isNotEmpty;
+
+    // The exported JSON carries manual nodes verbatim, including UUIDs and
+    // passwords in plain text. Make the user acknowledge that before a file
+    // lands on disk / in a share sheet.
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(l.profileExportWarningTitle),
+        content: Text(l.profileExportWarningBody),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(l.cancel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(l.profileExportWarningConfirm),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+
     setState(() => _profileExportBusy = true);
     try {
       final content = await widget.controller.exportProfileAsJsonString();
@@ -717,6 +792,27 @@ class _ApplicationSettingsScreenState
     );
   }
 
+  List<Widget> _settingsGroup({
+    required bool useTvChrome,
+    required String label,
+    required List<Widget> rows,
+    bool first = false,
+  }) {
+    final rowGap = useTvChrome ? 14.0 : 10.0;
+    return [
+      SizedBox(height: first ? (useTvChrome ? 24 : 20) : (useTvChrome ? 28 : 24)),
+      if (useTvChrome)
+        TvSettingsSectionLabel(label)
+      else
+        _SettingsSectionHeading(label),
+      SizedBox(height: useTvChrome ? 14 : 8),
+      for (var i = 0; i < rows.length; i++) ...[
+        if (i != 0) SizedBox(height: rowGap),
+        rows[i],
+      ],
+    ];
+  }
+
   Widget _buildScaffold({
     required BuildContext context,
     required ThemeData theme,
@@ -773,255 +869,308 @@ class _ApplicationSettingsScreenState
     required AppLocalizations l,
     required bool useTvChrome,
   }) {
+    final languageRow = _row(
+      useTvChrome: useTvChrome,
+      icon: Icons.language_rounded,
+      title: l.appLanguageTitle,
+      subtitle: l.appLanguageSubtitle,
+      onTap: _showLanguageDialog,
+      autofocus: useTvChrome,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            _appLocaleLabel(l, _language),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.primary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(width: 4),
+          const Icon(Icons.expand_more_rounded),
+        ],
+      ),
+    );
+    final layoutRow = Builder(
+      builder: (rowContext) => _row(
+        useTvChrome: useTvChrome,
+        icon: Icons.view_quilt_outlined,
+        title: l.tvLayoutSectionTitle,
+        subtitle: l.tvLayoutSectionSubtitle,
+        onTap: useTvChrome
+            ? () => unawaited(_showTvLayoutPicker(rowContext))
+            : null,
+        trailing: PopupMenuButton<TvLayoutPreference>(
+          initialValue: _tvLayoutPreference,
+          tooltip: l.tvLayoutSectionTitle,
+          onSelected: (preference) {
+            unawaited(_setTvLayoutPreference(preference));
+          },
+          itemBuilder: (context) => [
+            for (final preference in TvLayoutPreference.values)
+              CheckedPopupMenuItem<TvLayoutPreference>(
+                value: preference,
+                checked: preference == _tvLayoutPreference,
+                child: Text(
+                  _tvLayoutPreferenceLabel(
+                    AppLocalizations.of(context),
+                    preference,
+                  ),
+                ),
+              ),
+          ],
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                _tvLayoutPreferenceLabel(l, _tvLayoutPreference),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.primary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(width: 4),
+              const Icon(Icons.expand_more_rounded),
+            ],
+          ),
+        ),
+      ),
+    );
+    final interfaceRows = <Widget>[
+      languageRow,
+      if (!useTvChrome)
+        _row(
+          useTvChrome: false,
+          icon: Icons.public_rounded,
+          title: l.applicationSettingsShowGlobalProxyTitle,
+          subtitle: l.applicationSettingsGlobalProxySubtitle,
+          onTap: () => _setShowGlobalProxyButton(!_showGlobalProxyButton),
+          trailing: Switch(
+            value: _showGlobalProxyButton,
+            onChanged: _setShowGlobalProxyButton,
+          ),
+        ),
+      layoutRow,
+      if (!useTvChrome)
+        _row(
+          useTvChrome: false,
+          icon: Icons.route_rounded,
+          title: l.applicationSettingsShowExitNodeTitle,
+          subtitle: l.applicationSettingsShowExitNodeSubtitle,
+          onTap: () => _setShowExitNodeInfoBar(!_showExitNodeInfoBar),
+          trailing: Switch(
+            value: _showExitNodeInfoBar,
+            onChanged: _setShowExitNodeInfoBar,
+          ),
+        ),
+    ];
+    final connectionRows = <Widget>[
+      _row(
+        useTvChrome: useTvChrome,
+        icon: Icons.power_settings_new_outlined,
+        title: l.autoConnectOnLaunchTitle,
+        subtitle: l.autoConnectOnLaunchSubtitle,
+        onTap: () => _setAutoConnectOnLaunch(!_autoConnectOnLaunch),
+        trailing: Switch(
+          value: _autoConnectOnLaunch,
+          onChanged: _setAutoConnectOnLaunch,
+        ),
+      ),
+      if (Platform.isAndroid)
+        _row(
+          useTvChrome: useTvChrome,
+          icon: Icons.power_outlined,
+          title: l.autoConnectOnBootTitle,
+          subtitle: l.autoConnectOnBootSubtitle,
+          onTap: _openSystemVpnSettings,
+          trailing: const Icon(Icons.open_in_new_rounded),
+        ),
+      _row(
+        useTvChrome: useTvChrome,
+        icon: Icons.shield_outlined,
+        title: l.killSwitchTitle,
+        subtitle: l.killSwitchSubtitle,
+        onTap: () => _setKillSwitchEnabled(!_killSwitchEnabled),
+        trailing: Switch(
+          value: _killSwitchEnabled,
+          onChanged: _setKillSwitchEnabled,
+        ),
+      ),
+      _row(
+        useTvChrome: useTvChrome,
+        icon: Icons.battery_saver_outlined,
+        title: l.keepAwakeTitle,
+        subtitle: l.keepAwakeSubtitle,
+        onTap: () => _setKeepAwake(!_keepAwake),
+        trailing: Switch(value: _keepAwake, onChanged: _setKeepAwake),
+      ),
+      _row(
+        useTvChrome: useTvChrome,
+        icon: Icons.speed_rounded,
+        title: l.showSpeedInNotificationTitle,
+        onTap: () => _setShowSpeedInNotification(!_showSpeedInNotification),
+        trailing: Switch(
+          value: _showSpeedInNotification,
+          onChanged: _setShowSpeedInNotification,
+        ),
+      ),
+      _row(
+        useTvChrome: useTvChrome,
+        icon: Icons.restart_alt_rounded,
+        title: l.restartOnSettingsChangeTitle,
+        onTap: () => _setRestartOnSettingsChange(!_restartOnSettingsChange),
+        trailing: Switch(
+          value: _restartOnSettingsChange,
+          onChanged: _setRestartOnSettingsChange,
+        ),
+      ),
+    ];
+    final nodeRows = <Widget>[
+      _row(
+        useTvChrome: useTvChrome,
+        icon: Icons.sort_rounded,
+        title: l.applicationSettingsAutoSortServersByPingTitle,
+        subtitle: l.applicationSettingsAutoSortServersByPingSubtitle,
+        onTap: () => _setAutoSortServersByPing(!_autoSortServersByPing),
+        trailing: Switch(
+          value: _autoSortServersByPing,
+          onChanged: _setAutoSortServersByPing,
+        ),
+      ),
+      _row(
+        useTvChrome: useTvChrome,
+        icon: Icons.network_ping_rounded,
+        title: l.applicationSettingsPingTargetTitle,
+        subtitle: _latencyProbeTargetLabel(l),
+        onTap: _showLatencyProbeTargetDialog,
+        trailing: const Icon(Icons.expand_more_rounded),
+      ),
+    ];
+    final profileRows = <Widget>[
+      _row(
+        useTvChrome: useTvChrome,
+        icon: Icons.file_upload_rounded,
+        title: l.profileImportTitle,
+        subtitle: l.profileImportSubtitle,
+        onTap: _profileImportBusy ? null : _importProfile,
+        trailing: _profileImportBusy
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 1.8),
+              )
+            : const Icon(Icons.chevron_right_rounded),
+      ),
+      _row(
+        useTvChrome: useTvChrome,
+        icon: Icons.file_download_rounded,
+        title: l.profileExportTitle,
+        subtitle: l.profileExportSubtitle,
+        onTap: _profileExportBusy ? null : _exportProfile,
+        trailing: _profileExportBusy
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 1.8),
+              )
+            : const Icon(Icons.chevron_right_rounded),
+      ),
+    ];
+    final advancedRows = <Widget>[
+      Builder(
+        builder: (rowContext) => _row(
+          useTvChrome: useTvChrome,
+          icon: Icons.autorenew_rounded,
+          title: l.geoAutoUpdateTitle,
+          subtitle: l.geoAutoUpdateSubtitle,
+          onTap: useTvChrome
+              ? () =>
+                    unawaited(_showGeoDataAutoUpdateIntervalPicker(rowContext))
+              : null,
+          trailing: GeoDataAutoUpdateMenuButton(
+            interval: _geoDataAutoUpdateInterval,
+            onSelected: (interval) {
+              unawaited(_setGeoDataAutoUpdateInterval(interval));
+            },
+            textStyle: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.primary,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+      ),
+      _row(
+        useTvChrome: useTvChrome,
+        icon: Icons.link_rounded,
+        title: l.urlSchemesTitle,
+        subtitle: l.urlSchemesSubtitle,
+        onTap: _showUrlSchemesSheet,
+        trailing: const Icon(Icons.chevron_right_rounded),
+      ),
+      _row(
+        useTvChrome: useTvChrome,
+        icon: Icons.article_outlined,
+        title: l.logSettingsTitle,
+        subtitle: _logSettingsLabel(l),
+        onTap: _showLogSettingsDialog,
+        trailing: const Icon(Icons.expand_more_rounded),
+      ),
+    ];
     return [
-                Text(
-                  l.themeSection,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                SegmentedButton<bool>(
-                  showSelectedIcon: false,
-                  segments: [
-                    ButtonSegment<bool>(
-                      value: false,
-                      icon: const Icon(Icons.light_mode_rounded, size: 16),
-                      label: Text(l.themeLight),
-                    ),
-                    ButtonSegment<bool>(
-                      value: true,
-                      icon: const Icon(Icons.dark_mode_rounded, size: 16),
-                      label: Text(l.themeDark),
-                    ),
-                  ],
-                  selected: {_isDarkTheme},
-                  onSelectionChanged: (selection) {
-                    final value = selection.first;
-                    setState(() => _isDarkTheme = value);
-                    widget.onThemeModeChanged(value);
-                  },
-                ),
-                const SizedBox(height: 18),
-                _row(
-                  useTvChrome: useTvChrome,
-                  icon: Icons.language_rounded,
-                  title: l.appLanguageTitle,
-                  subtitle: l.appLanguageSubtitle,
-                  onTap: _showLanguageDialog,
-                  autofocus: useTvChrome,
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        _appLocaleLabel(l, _language),
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.primary,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(width: 4),
-                      const Icon(Icons.expand_more_rounded),
-                    ],
-                  ),
-                ),
-                if (!useTvChrome) ...[
-                  SizedBox(height: useTvChrome ? 14 : 10),
-                  _row(
-                    useTvChrome: useTvChrome,
-                    icon: Icons.public_rounded,
-                    title: l.applicationSettingsShowGlobalProxyTitle,
-                    subtitle: l.applicationSettingsGlobalProxySubtitle,
-                    onTap: () =>
-                        _setShowGlobalProxyButton(!_showGlobalProxyButton),
-                    trailing: Switch(
-                      value: _showGlobalProxyButton,
-                      onChanged: _setShowGlobalProxyButton,
-                    ),
-                  ),
-                ],
-                SizedBox(height: useTvChrome ? 14 : 10),
-                _row(
-                  useTvChrome: useTvChrome,
-                  icon: Icons.view_quilt_outlined,
-                  title: l.tvLayoutSectionTitle,
-                  subtitle: l.tvLayoutSectionSubtitle,
-                  onTap: useTvChrome
-                      ? () => unawaited(_showTvLayoutPicker(context))
-                      : null,
-                  trailing: PopupMenuButton<TvLayoutPreference>(
-                    initialValue: _tvLayoutPreference,
-                    tooltip: l.tvLayoutSectionTitle,
-                    onSelected: (preference) {
-                      unawaited(_setTvLayoutPreference(preference));
-                    },
-                    itemBuilder: (context) => [
-                      for (final preference in TvLayoutPreference.values)
-                        CheckedPopupMenuItem<TvLayoutPreference>(
-                          value: preference,
-                          checked: preference == _tvLayoutPreference,
-                          child: Text(
-                            _tvLayoutPreferenceLabel(
-                              AppLocalizations.of(context),
-                              preference,
-                            ),
-                          ),
-                        ),
-                    ],
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          _tvLayoutPreferenceLabel(l, _tvLayoutPreference),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.primary,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(width: 4),
-                        const Icon(Icons.expand_more_rounded),
-                      ],
-                    ),
-                  ),
-                ),
-                SizedBox(height: useTvChrome ? 14 : 10),
-                _row(
-                  useTvChrome: useTvChrome,
-                  icon: Icons.sort_rounded,
-                  title: l.applicationSettingsAutoSortServersByPingTitle,
-                  subtitle: l.applicationSettingsAutoSortServersByPingSubtitle,
-                  onTap: () =>
-                      _setAutoSortServersByPing(!_autoSortServersByPing),
-                  trailing: Switch(
-                    value: _autoSortServersByPing,
-                    onChanged: _setAutoSortServersByPing,
-                  ),
-                ),
-                SizedBox(height: useTvChrome ? 14 : 10),
-                _row(
-                  useTvChrome: useTvChrome,
-                  icon: Icons.power_settings_new_outlined,
-                  title: l.autoConnectOnLaunchTitle,
-                  subtitle: l.autoConnectOnLaunchSubtitle,
-                  onTap: () => _setAutoConnectOnLaunch(!_autoConnectOnLaunch),
-                  trailing: Switch(
-                    value: _autoConnectOnLaunch,
-                    onChanged: _setAutoConnectOnLaunch,
-                  ),
-                ),
-                if (Platform.isAndroid) ...[
-                  SizedBox(height: useTvChrome ? 14 : 10),
-                  _row(
-                    useTvChrome: useTvChrome,
-                    icon: Icons.power_outlined,
-                    title: l.autoConnectOnBootTitle,
-                    subtitle: l.autoConnectOnBootSubtitle,
-                    onTap: _openSystemVpnSettings,
-                    trailing: const Icon(Icons.open_in_new_rounded),
-                  ),
-                ],
-                SizedBox(height: useTvChrome ? 14 : 10),
-                _row(
-                  useTvChrome: useTvChrome,
-                  icon: Icons.shield_outlined,
-                  title: l.killSwitchTitle,
-                  subtitle: l.killSwitchSubtitle,
-                  onTap: () => _setKillSwitchEnabled(!_killSwitchEnabled),
-                  trailing: Switch(
-                    value: _killSwitchEnabled,
-                    onChanged: _setKillSwitchEnabled,
-                  ),
-                ),
-                SizedBox(height: useTvChrome ? 14 : 10),
-                _row(
-                  useTvChrome: useTvChrome,
-                  icon: Icons.link_rounded,
-                  title: l.urlSchemesTitle,
-                  subtitle: l.urlSchemesSubtitle,
-                  onTap: _showUrlSchemesSheet,
-                  trailing: const Icon(Icons.chevron_right_rounded),
-                ),
-                SizedBox(height: useTvChrome ? 14 : 10),
-                _row(
-                  useTvChrome: useTvChrome,
-                  icon: Icons.restart_alt_rounded,
-                  title: l.restartOnSettingsChangeTitle,
-                  onTap: () =>
-                      _setRestartOnSettingsChange(!_restartOnSettingsChange),
-                  trailing: Switch(
-                    value: _restartOnSettingsChange,
-                    onChanged: _setRestartOnSettingsChange,
-                  ),
-                ),
-                SizedBox(height: useTvChrome ? 14 : 10),
-                _row(
-                  useTvChrome: useTvChrome,
-                  icon: Icons.speed_rounded,
-                  title: l.showSpeedInNotificationTitle,
-                  onTap: () =>
-                      _setShowSpeedInNotification(!_showSpeedInNotification),
-                  trailing: Switch(
-                    value: _showSpeedInNotification,
-                    onChanged: _setShowSpeedInNotification,
-                  ),
-                ),
-                SizedBox(height: useTvChrome ? 14 : 10),
-                _row(
-                  useTvChrome: useTvChrome,
-                  icon: Icons.battery_saver_outlined,
-                  title: l.keepAwakeTitle,
-                  subtitle: l.keepAwakeSubtitle,
-                  onTap: () => _setKeepAwake(!_keepAwake),
-                  trailing: Switch(value: _keepAwake, onChanged: _setKeepAwake),
-                ),
-                SizedBox(height: useTvChrome ? 14 : 10),
-                _row(
-                  useTvChrome: useTvChrome,
-                  icon: Icons.network_ping_rounded,
-                  title: l.applicationSettingsPingTargetTitle,
-                  subtitle: _latencyProbeTargetLabel(l),
-                  onTap: _showLatencyProbeTargetDialog,
-                  trailing: const Icon(Icons.expand_more_rounded),
-                ),
-                SizedBox(height: useTvChrome ? 14 : 10),
-                _row(
-                  useTvChrome: useTvChrome,
-                  icon: Icons.article_outlined,
-                  title: l.logSettingsTitle,
-                  subtitle: _logSettingsLabel(l),
-                  onTap: _showLogSettingsDialog,
-                  trailing: const Icon(Icons.expand_more_rounded),
-                ),
-                SizedBox(height: useTvChrome ? 22 : 18),
-                _row(
-                  useTvChrome: useTvChrome,
-                  icon: Icons.file_upload_rounded,
-                  title: l.profileImportTitle,
-                  subtitle: l.profileImportSubtitle,
-                  onTap: _profileImportBusy ? null : _importProfile,
-                  trailing: _profileImportBusy
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 1.8),
-                        )
-                      : const Icon(Icons.chevron_right_rounded),
-                ),
-                SizedBox(height: useTvChrome ? 14 : 10),
-                _row(
-                  useTvChrome: useTvChrome,
-                  icon: Icons.file_download_rounded,
-                  title: l.profileExportTitle,
-                  subtitle: l.profileExportSubtitle,
-                  onTap: _profileExportBusy ? null : _exportProfile,
-                  trailing: _profileExportBusy
-                      ? const SizedBox(
-                          width: 18,
-                          height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 1.8),
-                        )
-                      : const Icon(Icons.chevron_right_rounded),
-                ),
+      Text(
+        l.themeSection,
+        style: theme.textTheme.titleSmall?.copyWith(
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+      const SizedBox(height: 12),
+      SegmentedButton<bool>(
+        showSelectedIcon: false,
+        segments: [
+          ButtonSegment<bool>(
+            value: false,
+            icon: const Icon(Icons.light_mode_rounded, size: 16),
+            label: Text(l.themeLight),
+          ),
+          ButtonSegment<bool>(
+            value: true,
+            icon: const Icon(Icons.dark_mode_rounded, size: 16),
+            label: Text(l.themeDark),
+          ),
+        ],
+        selected: {_isDarkTheme},
+        onSelectionChanged: (selection) {
+          final value = selection.first;
+          setState(() => _isDarkTheme = value);
+          widget.onThemeModeChanged(value);
+        },
+      ),
+      ..._settingsGroup(
+        useTvChrome: useTvChrome,
+        label: l.settingsGroupInterface,
+        rows: interfaceRows,
+        first: true,
+      ),
+      ..._settingsGroup(
+        useTvChrome: useTvChrome,
+        label: l.settingsGroupConnection,
+        rows: connectionRows,
+      ),
+      ..._settingsGroup(
+        useTvChrome: useTvChrome,
+        label: l.settingsGroupNodes,
+        rows: nodeRows,
+      ),
+      ..._settingsGroup(
+        useTvChrome: useTvChrome,
+        label: l.settingsGroupProfile,
+        rows: profileRows,
+      ),
+      ..._settingsGroup(
+        useTvChrome: useTvChrome,
+        label: l.settingsGroupAdvanced,
+        rows: advancedRows,
+      ),
     ];
   }
 }
@@ -1297,27 +1446,19 @@ List<_UrlSchemeGroup> _buildUrlSchemeGroups(AppLocalizations l) {
     ),
     _UrlSchemeGroup(
       title: l.urlSchemesToggleSection,
-      entries: const [
-        _UrlSchemeEntry(uri: 'voidlex://toggle'),
-      ],
+      entries: const [_UrlSchemeEntry(uri: 'voidlex://toggle')],
     ),
     _UrlSchemeGroup(
       title: l.urlSchemesRestartSection,
-      entries: const [
-        _UrlSchemeEntry(uri: 'voidlex://restart'),
-      ],
+      entries: const [_UrlSchemeEntry(uri: 'voidlex://restart')],
     ),
     _UrlSchemeGroup(
       title: l.urlSchemesImportSection,
-      entries: const [
-        _UrlSchemeEntry(uri: 'voidlex://import/{base64}'),
-      ],
+      entries: const [_UrlSchemeEntry(uri: 'voidlex://import/{base64}')],
     ),
     _UrlSchemeGroup(
       title: l.urlSchemesImportRulesetSection,
-      entries: const [
-        _UrlSchemeEntry(uri: 'voidlex://import-ruleset/{URL}'),
-      ],
+      entries: const [_UrlSchemeEntry(uri: 'voidlex://import-ruleset/{URL}')],
     ),
   ];
 }
@@ -1326,9 +1467,9 @@ Future<void> _copyUrlScheme(BuildContext context, String value) async {
   await Clipboard.setData(ClipboardData(text: value));
   if (!context.mounted) return;
   final l = AppLocalizations.of(context);
-  ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-    SnackBar(content: Text(l.urlSchemeCopied)),
-  );
+  ScaffoldMessenger.maybeOf(
+    context,
+  )?.showSnackBar(SnackBar(content: Text(l.urlSchemeCopied)));
 }
 
 class _UrlSchemesSheet extends StatelessWidget {
@@ -1372,10 +1513,7 @@ class _UrlSchemesSheet extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Text(
-                    l.urlSchemesNote,
-                    style: theme.textTheme.bodyMedium,
-                  ),
+                  Text(l.urlSchemesNote, style: theme.textTheme.bodyMedium),
                 ],
               ),
             ),
@@ -1408,15 +1546,11 @@ class _UrlSchemesSheet extends StatelessWidget {
                         ),
                         trailing: IconButton(
                           icon: const Icon(Icons.copy_rounded),
-                          onPressed: () => _copyUrlScheme(
-                            context,
-                            group.entries[i].uri,
-                          ),
+                          onPressed: () =>
+                              _copyUrlScheme(context, group.entries[i].uri),
                         ),
-                        onTap: () => _copyUrlScheme(
-                          context,
-                          group.entries[i].uri,
-                        ),
+                        onTap: () =>
+                            _copyUrlScheme(context, group.entries[i].uri),
                       ),
                     ],
                   ],
@@ -1444,10 +1578,7 @@ class _UrlSchemesScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            l.urlSchemesNote,
-            style: theme.textTheme.bodyMedium,
-          ),
+          Text(l.urlSchemesNote, style: theme.textTheme.bodyMedium),
           const SizedBox(height: 16),
           for (final group in groups) ...[
             Padding(

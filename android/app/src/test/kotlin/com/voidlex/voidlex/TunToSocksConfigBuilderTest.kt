@@ -274,4 +274,194 @@ class TunToSocksConfigBuilderTest {
         assertFalse(proxy.has("username"))
         assertFalse(proxy.has("password"))
     }
+
+    @Test
+    fun `naive https outbound omits auth quic and congestion when unused`() {
+        val root = JSONObject(
+            TunToSocksConfigBuilder.build(
+                isGlobalProxy = true,
+                proxyServer = naiveServer(
+                    username = "",
+                    password = "",
+                    quic = false,
+                    congestionControl = "bbr",
+                    sni = "",
+                ),
+            ),
+        )
+
+        val proxy = root.getJSONArray("outbounds").getJSONObject(0)
+        assertEquals("naive", proxy.getString("type"))
+        assertEquals("proxy", proxy.getString("tag"))
+        assertEquals("naive.example.com", proxy.getString("server"))
+        assertEquals(443, proxy.getInt("server_port"))
+        assertFalse(proxy.has("username"))
+        assertFalse(proxy.has("password"))
+        assertFalse(proxy.has("quic"))
+        assertFalse(proxy.has("quic_congestion_control"))
+        val tls = proxy.getJSONObject("tls")
+        assertTrue(tls.getBoolean("enabled"))
+        assertEquals("naive.example.com", tls.getString("server_name"))
+    }
+
+    @Test
+    fun `naive outbound emits tls insecure when configured`() {
+        val root = JSONObject(
+            TunToSocksConfigBuilder.build(
+                isGlobalProxy = true,
+                proxyServer = naiveServer(
+                    username = "",
+                    password = "",
+                    quic = false,
+                    congestionControl = "",
+                    sni = "naive.example.com",
+                    tlsInsecure = true,
+                ),
+            ),
+        )
+
+        val tls = root.getJSONArray("outbounds")
+            .getJSONObject(0)
+            .getJSONObject("tls")
+        assertTrue(tls.getBoolean("insecure"))
+    }
+
+    @Test
+    fun `naive quic outbound emits auth and normalized congestion control`() {
+        val root = JSONObject(
+            TunToSocksConfigBuilder.build(
+                isGlobalProxy = true,
+                proxyServer = naiveServer(
+                    username = "user",
+                    password = "pass",
+                    quic = true,
+                    congestionControl = " BBR2 ",
+                    sni = "edge.example.com",
+                ),
+            ),
+        )
+
+        val proxy = root.getJSONArray("outbounds").getJSONObject(0)
+        assertEquals("user", proxy.getString("username"))
+        assertEquals("pass", proxy.getString("password"))
+        assertTrue(proxy.getBoolean("quic"))
+        assertEquals("bbr2", proxy.getString("quic_congestion_control"))
+        assertEquals("edge.example.com", proxy.getJSONObject("tls").getString("server_name"))
+    }
+
+    @Test
+    fun `hysteria2 outbound emits advanced tuning`() {
+        val root = JSONObject(
+            TunToSocksConfigBuilder.build(
+                isGlobalProxy = true,
+                proxyServer = ServerConfig(
+                    isGlobalProxy = true,
+                    server = "hy2.example.com",
+                    serverPort = 443,
+                    protocol = "hysteria2",
+                    uuid = "secret",
+                    transport = "tcp",
+                    transportPath = "/",
+                    transportServiceName = "",
+                    transportHost = "",
+                    tlsEnabled = true,
+                    tlsSni = "hy2.example.com",
+                    tlsInsecure = false,
+                    flow = "",
+                    security = "tls",
+                    realityPbk = "",
+                    realitySid = "",
+                    fingerprint = "",
+                    alpn = "h3",
+                    hysteria2ObfsType = "gecko",
+                    hysteria2ObfsPassword = "mask",
+                    hysteria2ObfsMinPacketSize = 512,
+                    hysteria2ObfsMaxPacketSize = 1200,
+                    hysteria2HopInterval = "20s",
+                    hysteria2HopIntervalMax = "40s",
+                    hysteria2UpMbps = 50,
+                    hysteria2DownMbps = 200,
+                    hysteria2Network = "udp",
+                    hysteria2BbrProfile = "aggressive",
+                ),
+            ),
+        )
+
+        val proxy = root.getJSONArray("outbounds").getJSONObject(0)
+        val obfs = proxy.getJSONObject("obfs")
+        assertEquals("gecko", obfs.getString("type"))
+        assertEquals(512, obfs.getInt("min_packet_size"))
+        assertEquals(1200, obfs.getInt("max_packet_size"))
+        assertEquals("40s", proxy.getString("hop_interval_max"))
+        assertEquals(50, proxy.getInt("up_mbps"))
+        assertEquals("udp", proxy.getString("network"))
+        assertEquals("aggressive", proxy.getString("bbr_profile"))
+    }
+
+    @Test
+    fun `naive outbound emits headers concurrency and udp over tcp`() {
+        val root = JSONObject(
+            TunToSocksConfigBuilder.build(
+                isGlobalProxy = true,
+                proxyServer = naiveServer(
+                    username = "",
+                    password = "",
+                    quic = false,
+                    congestionControl = "",
+                    sni = "",
+                    insecureConcurrency = 4,
+                    extraHeadersJson = """{"X-Edge":"void"}""",
+                    udpOverTcp = true,
+                    udpOverTcpVersion = 2,
+                ),
+            ),
+        )
+
+        val proxy = root.getJSONArray("outbounds").getJSONObject(0)
+        assertEquals(4, proxy.getInt("insecure_concurrency"))
+        assertEquals("void", proxy.getJSONObject("extra_headers").getString("X-Edge"))
+        assertEquals(2, proxy.getJSONObject("udp_over_tcp").getInt("version"))
+    }
+
+    private fun naiveServer(
+        username: String,
+        password: String,
+        quic: Boolean,
+        congestionControl: String,
+        sni: String,
+        insecureConcurrency: Int = 0,
+        extraHeadersJson: String = "{}",
+        udpOverTcp: Boolean = false,
+        udpOverTcpVersion: Int = 0,
+        tlsInsecure: Boolean = false,
+    ): ServerConfig {
+        return ServerConfig(
+            isGlobalProxy = true,
+            server = "naive.example.com",
+            serverPort = 443,
+            protocol = "naive",
+            uuid = "",
+            transport = "tcp",
+            transportPath = "/",
+            transportServiceName = "",
+            transportHost = "",
+            tlsEnabled = true,
+            tlsSni = sni,
+            tlsInsecure = tlsInsecure,
+            flow = "",
+            security = "tls",
+            realityPbk = "",
+            realitySid = "",
+            fingerprint = "",
+            alpn = "",
+            naiveUsername = username,
+            naivePassword = password,
+            naiveQuic = quic,
+            naiveQuicCongestionControl = congestionControl,
+            naiveInsecureConcurrency = insecureConcurrency,
+            naiveExtraHeadersJson = extraHeadersJson,
+            naiveUdpOverTcp = udpOverTcp,
+            naiveUdpOverTcpVersion = udpOverTcpVersion,
+        )
+    }
 }

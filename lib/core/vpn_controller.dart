@@ -20,6 +20,7 @@ import 'installed_apps.dart';
 import 'models/server_config.dart';
 import 'models/server_subscription.dart';
 import 'multiplex_settings.dart';
+import 'pending_deep_link.dart';
 import 'ping_label.dart';
 import 'profile_exporter.dart';
 import 'profile_importer.dart';
@@ -183,8 +184,10 @@ class VpnController extends ChangeNotifier {
   Timer? _disconnectTimeoutTimer;
   Timer? _connectionTicker;
   Timer? _subscriptionAutoRefreshTimer;
+  Timer? _geoDataAutoUpdateTimer;
   Timer? _pingBatchTimer;
   final Map<String, DateTime> _subscriptionAutoRefreshAttemptedAt = {};
+  final Map<GeoDataKind, DateTime> _geoDataAutoUpdateAttemptedAt = {};
   Future<String?>? _pendingHwidFetch;
   final ValueNotifier<String> _connectionDurationLabelNotifier = ValueNotifier(
     _formatDuration(Duration.zero),
@@ -210,10 +213,12 @@ class VpnController extends ChangeNotifier {
   // Narrow notifiers for the currently-selected server and the bridge-mode
   // exit node. Per-row widgets subscribe to these so tap-to-select only
   // rebuilds two rows (old + new), never the whole list.
-  final ValueNotifier<String?> _selectedNameNotifier =
-      ValueNotifier<String?>(null);
-  final ValueNotifier<String?> _exitNodeNameNotifier =
-      ValueNotifier<String?>(null);
+  final ValueNotifier<String?> _selectedNameNotifier = ValueNotifier<String?>(
+    null,
+  );
+  final ValueNotifier<String?> _exitNodeNameNotifier = ValueNotifier<String?>(
+    null,
+  );
   String? _lastObservedSelectedName;
   String? _lastObservedExitNodeName;
   int _lastObservedServerMembership = 0;
@@ -228,6 +233,7 @@ class VpnController extends ChangeNotifier {
   bool _autoConnectOnLaunch = false;
   bool _restartConnectionOnSettingsChanges = false;
   bool _showGlobalProxyButton = false;
+  bool _showExitNodeInfoBar = true;
   bool _autoSortServersByPing = false;
   LatencyProbeTarget _latencyProbeTarget = LatencyProbeTarget.serverEndpoint;
   bool _favoritesSectionCollapsed = false;
@@ -242,6 +248,8 @@ class VpnController extends ChangeNotifier {
   String _selectedRoutingPresetId = RoutingPreset.mainId;
   String? _routingPresetWarning;
   String? _deepLinkNotice;
+  PendingDeepLink? _pendingDeepLink;
+  Future<void> Function()? _pendingDeepLinkAction;
   Future<void>? _deepLinkChain;
   String? _lastDeepLinkFingerprint;
   DateTime? _lastDeepLinkAt;
@@ -273,6 +281,9 @@ class VpnController extends ChangeNotifier {
   TunnelNetworkSettings _tunnelNetworkSettings = TunnelNetworkSettings.defaults;
   SubscriptionProviderSettings _subscriptionProviderSettings =
       SubscriptionProviderSettings.defaults;
+  GeoDataAutoUpdateInterval _geoDataAutoUpdateInterval =
+      GeoDataAutoUpdateInterval.disabled;
+  bool _refreshingGeoDataAutomatically = false;
   bool _killSwitchEnabled = false;
   RunMode _runMode = RunMode.tun;
   bool _hotspotBindEnabled = false;
@@ -458,6 +469,7 @@ class VpnController extends ChangeNotifier {
   bool get restartConnectionOnSettingsChanges =>
       _restartConnectionOnSettingsChanges;
   bool get showGlobalProxyButton => _showGlobalProxyButton;
+  bool get showExitNodeInfoBar => _showExitNodeInfoBar;
   bool get autoSortServersByPing => _autoSortServersByPing;
   LatencyProbeTarget get latencyProbeTarget => _latencyProbeTarget;
   bool get favoritesSectionCollapsed => _favoritesSectionCollapsed;
@@ -474,6 +486,8 @@ class VpnController extends ChangeNotifier {
   TunnelNetworkSettings get tunnelNetworkSettings => _tunnelNetworkSettings;
   SubscriptionProviderSettings get subscriptionProviderSettings =>
       _subscriptionProviderSettings;
+  GeoDataAutoUpdateInterval get geoDataAutoUpdateInterval =>
+      _geoDataAutoUpdateInterval;
   bool get killSwitchEnabled => _killSwitchEnabled;
   RunMode get runMode => _runMode;
   bool get hotspotBindEnabled => _hotspotBindEnabled;
@@ -597,6 +611,7 @@ class VpnController extends ChangeNotifier {
   ValueListenable<int> get latencyScanTickListenable => _latencyScanTick;
   ValueListenable<bool> get isScanningLatencyListenable =>
       _isScanningLatencyNotifier;
+
   /// Bumped when [_scanningSubscriptionIds] changes so subscription header
   /// scan buttons can refresh without a full [notifyListeners] pass.
   ValueListenable<int> get subscriptionScanTickListenable =>
@@ -616,6 +631,7 @@ class VpnController extends ChangeNotifier {
     }
     return '--';
   }
+
   bool isExitNode(String serverId) =>
       _exitNodeName != null && _serverNameEquals(_exitNodeName, serverId);
   bool hasExplicitRoutingPresetForServer(String serverName) =>
@@ -654,6 +670,41 @@ class VpnController extends ChangeNotifier {
     _deepLinkNotice = null;
     return notice;
   }
+
+  /// A configuration-changing deep link awaiting explicit user consent, or
+  /// null when there is nothing pending. The UI shows a confirmation dialog
+  /// and calls [confirmPendingDeepLink]/[cancelPendingDeepLink] in response.
+  PendingDeepLink? get pendingDeepLink => _pendingDeepLink;
+
+  void _requestDeepLinkConsent(
+    PendingDeepLink request,
+    Future<void> Function() action,
+  ) {
+    _pendingDeepLink = request;
+    _pendingDeepLinkAction = action;
+    notifyListeners();
+  }
+
+  /// Runs the deferred action for the pending deep link (if any) after the
+  /// user accepts it. Routed back through the serial deep-link queue so it
+  /// still cannot race connect/disconnect.
+  Future<void> confirmPendingDeepLink() async {
+    final action = _pendingDeepLinkAction;
+    _pendingDeepLink = null;
+    _pendingDeepLinkAction = null;
+    notifyListeners();
+    if (action != null) await _enqueueDeepLink(action);
+  }
+
+  /// Discards the pending deep link without running it.
+  void cancelPendingDeepLink() {
+    if (_pendingDeepLink == null && _pendingDeepLinkAction == null) return;
+    _pendingDeepLink = null;
+    _pendingDeepLinkAction = null;
+    notifyListeners();
+  }
+
+  bool _isInsecureHttpUrl(Uri? uri) => uri?.scheme.toLowerCase() == 'http';
 
   RoutingPreset get _activeRoutingPreset {
     final selectedIndex = _routingPresets.indexWhere(
@@ -839,6 +890,7 @@ class VpnController extends ChangeNotifier {
     _restartConnectionOnSettingsChanges =
         snapshot.restartConnectionOnSettingsChanges;
     _showGlobalProxyButton = snapshot.showGlobalProxyButton;
+    _showExitNodeInfoBar = snapshot.showExitNodeInfoBar;
     _autoSortServersByPing = snapshot.autoSortServersByPing;
     _latencyProbeTarget = snapshot.latencyProbeTarget;
     _favoritesSectionCollapsed = snapshot.favoritesSectionCollapsed;
@@ -881,6 +933,7 @@ class VpnController extends ChangeNotifier {
     _multiplexSettings = snapshot.multiplexSettings;
     _tunnelNetworkSettings = snapshot.tunnelNetworkSettings;
     _subscriptionProviderSettings = snapshot.subscriptionProviderSettings;
+    _geoDataAutoUpdateInterval = snapshot.geoDataAutoUpdateInterval;
     _killSwitchEnabled = snapshot.killSwitchEnabled;
     _runMode = snapshot.runMode;
     _hotspotBindEnabled = snapshot.hotspotBindEnabled;
@@ -890,6 +943,7 @@ class VpnController extends ChangeNotifier {
     await _restoreNativeRuntimeState();
     await _pushActiveLogLevelsToNative();
     _scheduleSubscriptionAutoRefresh();
+    _scheduleGeoDataAutoUpdate();
     notifyListeners();
     if (_subscriptionProviderSettings.updateOnLaunch) {
       unawaited(_refreshSubscriptionsAfterLaunch());
@@ -1565,12 +1619,36 @@ class VpnController extends ChangeNotifier {
     unawaited(_refreshAndroidWidgets());
   }
 
-  Future<void> selectServer(String name) async {
+  Future<String?> selectServer(String name) async {
     final canonicalName = _canonicalServerName(name);
-    if (canonicalName == null) return;
+    if (canonicalName == null) return null;
     final alreadySelected = _serverNameEquals(_selectedName, canonicalName);
-    if (alreadySelected && _selectedName == canonicalName) return;
+    if (alreadySelected && _selectedName == canonicalName) return null;
     final shouldReconnect = _hasRestartableNativeSession && !alreadySelected;
+
+    if (shouldReconnect) {
+      ServerConfig? prospectiveEntry;
+      for (final server in _allServerList()) {
+        if (_serverNameEquals(server.name, canonicalName)) {
+          prospectiveEntry = server;
+          break;
+        }
+      }
+      if (prospectiveEntry != null) {
+        final prospectiveExitName = _serverNameEquals(
+          _exitNodeName,
+          canonicalName,
+        )
+            ? null
+            : _exitNodeName;
+        final constraintError = _connectionConstraintError(
+          entry: prospectiveEntry,
+          exitNodeName: prospectiveExitName,
+        );
+        if (constraintError != null) return constraintError;
+      }
+    }
+
     _selectedName = canonicalName;
     await _repository.saveSelected(canonicalName);
     if (_serverNameEquals(_exitNodeName, canonicalName)) {
@@ -1586,6 +1664,7 @@ class VpnController extends ChangeNotifier {
     if (shouldReconnect) {
       await _restartActiveConnection();
     }
+    return null;
   }
 
   Future<void> togglePinned(String name) async {
@@ -2166,16 +2245,25 @@ class VpnController extends ChangeNotifier {
   /// already the active exit. Triggers a forced reconnect whenever the
   /// active session would land on a different config — the spec requires
   /// changing the exit to fully tear the tunnel down and rebuild it.
-  Future<void> toggleExitNode(String serverId) async {
+  Future<String?> toggleExitNode(String serverId) async {
     final canonical = _canonicalServerName(serverId);
-    if (canonical == null) return;
+    if (canonical == null) return null;
     // Exit must differ from the entry/selected node; if the user picks the
     // currently-selected server as the exit, treat it as a clear.
     final wantsClear =
         _serverNameEquals(_exitNodeName, canonical) ||
         _serverNameEquals(_selectedName, canonical);
+    if (!wantsClear) {
+      final candidate = _allServerList()
+          .where((server) => _serverNameEquals(server.name, canonical))
+          .firstOrNull;
+      if (candidate?.isNaive == true) return Msg.vpnNaiveExitUnsupported;
+      if (selectedServer?.isNaive == true) {
+        return Msg.vpnNaiveBridgeUnsupported;
+      }
+    }
     final nextExitNodeName = wantsClear ? null : canonical;
-    if (_exitNodeName == nextExitNodeName) return;
+    if (_exitNodeName == nextExitNodeName) return null;
     _exitNodeName = nextExitNodeName;
     await _repository.saveExitNodeName(_exitNodeName);
     notifyListeners();
@@ -2184,6 +2272,7 @@ class VpnController extends ChangeNotifier {
     if (_hasRestartableNativeSession) {
       await _restartActiveConnection();
     }
+    return null;
   }
 
   Future<void> clearExitNode() async {
@@ -2391,14 +2480,19 @@ class VpnController extends ChangeNotifier {
     }
   }
 
-  Future<void> setRunMode(RunMode mode) async {
-    if (_runMode == mode) return;
+  Future<String?> setRunMode(RunMode mode) async {
+    if (_runMode == mode) return null;
+    if (_hasRestartableNativeSession) {
+      final constraintError = _connectionConstraintError(runMode: mode);
+      if (constraintError != null) return constraintError;
+    }
     _runMode = mode;
     await _repository.saveRunMode(mode);
     notifyListeners();
     if (_hasRestartableNativeSession) {
       await _restartActiveConnection();
     }
+    return null;
   }
 
   Future<void> setHotspotBindEnabled(bool value) async {
@@ -2530,7 +2624,9 @@ class VpnController extends ChangeNotifier {
   }
 
   Future<void> setSubscriptionHideNaServers(String id, bool hide) async {
-    final index = _subscriptions.indexWhere((subscription) => subscription.id == id);
+    final index = _subscriptions.indexWhere(
+      (subscription) => subscription.id == id,
+    );
     if (index < 0) return;
     final current = _subscriptions[index];
     if (current.hideNaServers == hide) return;
@@ -2573,6 +2669,13 @@ class VpnController extends ChangeNotifier {
     if (shouldReconnect) {
       await _restartActiveConnection();
     }
+  }
+
+  Future<void> setShowExitNodeInfoBar(bool value) async {
+    if (_showExitNodeInfoBar == value) return;
+    _showExitNodeInfoBar = value;
+    await _repository.saveShowExitNodeInfoBar(value);
+    notifyListeners();
   }
 
   Future<String?> createRoutingPreset(String name) async {
@@ -2824,8 +2927,12 @@ class VpnController extends ChangeNotifier {
     }
   }
 
-  Future<void> setTunEngineMode(TunEngineMode mode) async {
-    if (_tunEngineMode == mode) return;
+  Future<String?> setTunEngineMode(TunEngineMode mode) async {
+    if (_tunEngineMode == mode) return null;
+    if (_hasRestartableNativeSession) {
+      final constraintError = _connectionConstraintError(tunEngineMode: mode);
+      if (constraintError != null) return constraintError;
+    }
     final shouldReconnect = _hasRestartableNativeSession;
     _tunEngineMode = mode;
     await _repository.saveTunEngineMode(mode);
@@ -2834,6 +2941,7 @@ class VpnController extends ChangeNotifier {
     if (shouldReconnect) {
       await _restartActiveConnection();
     }
+    return null;
   }
 
   Future<List<GeoDataFileStatus>> loadGeoDataStatuses() async {
@@ -2864,6 +2972,141 @@ class VpnController extends ChangeNotifier {
     return output;
   }
 
+  Future<void> setGeoDataAutoUpdateInterval(
+    GeoDataAutoUpdateInterval interval,
+  ) async {
+    if (_geoDataAutoUpdateInterval == interval) return;
+    _geoDataAutoUpdateInterval = interval;
+    await _repository.saveGeoDataAutoUpdateInterval(interval);
+    _scheduleGeoDataAutoUpdate();
+    notifyListeners();
+  }
+
+  Future<void> refreshDueGeoData() async {
+    if (_refreshingGeoDataAutomatically ||
+        !_geoDataAutoUpdateInterval.enabled) {
+      return;
+    }
+
+    final now = DateTime.now();
+    final dueKinds = GeoDataKind.values
+        .where((kind) => _isGeoDataAutoUpdateDue(kind, now))
+        .toList(growable: false);
+    if (dueKinds.isEmpty) {
+      _scheduleGeoDataAutoUpdate();
+      return;
+    }
+
+    _refreshingGeoDataAutomatically = true;
+    var changed = false;
+    try {
+      for (final kind in dueKinds) {
+        final metadata = _repository.loadGeoDataMetadata(kind);
+        final url = metadata.url?.trim();
+        if (metadata.source != GeoDataSource.url ||
+            url == null ||
+            url.isEmpty ||
+            isGeoDataBusy(kind)) {
+          continue;
+        }
+        try {
+          await _updateGeoDataFromUrl(
+            kind: kind,
+            url: url,
+            restartAfterChange: false,
+          );
+          _geoDataAutoUpdateAttemptedAt[kind] = DateTime.now();
+          changed = true;
+        } catch (error) {
+          if (kDebugMode) {
+            debugPrint('automatic ${kind.fileName} update failed: $error');
+          }
+        }
+      }
+      if (changed) {
+        try {
+          await _restartAfterGeoDataChange();
+        } catch (error) {
+          if (kDebugMode) {
+            debugPrint('automatic geodata restart failed: $error');
+          }
+        }
+      }
+    } finally {
+      _refreshingGeoDataAutomatically = false;
+      _scheduleGeoDataAutoUpdate();
+    }
+  }
+
+  @visibleForTesting
+  bool isGeoDataAutoUpdateDueForTesting(GeoDataKind kind, DateTime now) {
+    return _isGeoDataAutoUpdateDue(kind, now);
+  }
+
+  @visibleForTesting
+  Duration? nextGeoDataAutoUpdateDelayForTesting(DateTime now) {
+    return _nextGeoDataAutoUpdateDelay(now);
+  }
+
+  bool _isGeoDataAutoUpdateDue(GeoDataKind kind, DateTime now) {
+    if (!_geoDataAutoUpdateInterval.enabled) return false;
+    final metadata = _repository.loadGeoDataMetadata(kind);
+    final url = metadata.url?.trim();
+    if (metadata.source != GeoDataSource.url || url == null || url.isEmpty) {
+      return false;
+    }
+    final reference = _geoDataAutoUpdateReference(kind, metadata);
+    if (reference == null) return true;
+    return !now.isBefore(reference.add(_geoDataAutoUpdateInterval.duration));
+  }
+
+  Duration? _nextGeoDataAutoUpdateDelay(DateTime now) {
+    if (!_geoDataAutoUpdateInterval.enabled) return null;
+    Duration? shortestDelay;
+    for (final kind in GeoDataKind.values) {
+      final metadata = _repository.loadGeoDataMetadata(kind);
+      final url = metadata.url?.trim();
+      if (metadata.source != GeoDataSource.url || url == null || url.isEmpty) {
+        continue;
+      }
+      final reference = _geoDataAutoUpdateReference(kind, metadata);
+      final rawDelay = reference == null
+          ? Duration.zero
+          : reference.add(_geoDataAutoUpdateInterval.duration).difference(now);
+      final delay = rawDelay.isNegative ? Duration.zero : rawDelay;
+      if (shortestDelay == null || delay < shortestDelay) {
+        shortestDelay = delay;
+      }
+    }
+    return shortestDelay;
+  }
+
+  DateTime? _geoDataAutoUpdateReference(
+    GeoDataKind kind,
+    GeoDataMetadata metadata,
+  ) {
+    final updatedAt = metadata.updatedAt;
+    final attemptedAt = _geoDataAutoUpdateAttemptedAt[kind];
+    if (updatedAt == null) return attemptedAt;
+    if (attemptedAt == null) return updatedAt;
+    return attemptedAt.isAfter(updatedAt) ? attemptedAt : updatedAt;
+  }
+
+  void _scheduleGeoDataAutoUpdate() {
+    _geoDataAutoUpdateTimer?.cancel();
+    _geoDataAutoUpdateTimer = null;
+    if (!_geoDataAutoUpdateInterval.enabled ||
+        _refreshingGeoDataAutomatically ||
+        _busyGeoDataKinds.isNotEmpty) {
+      return;
+    }
+    final delay = _nextGeoDataAutoUpdateDelay(DateTime.now());
+    if (delay == null) return;
+    _geoDataAutoUpdateTimer = Timer(delay, () {
+      unawaited(refreshDueGeoData());
+    });
+  }
+
   Stream<GeoDataDownloadProgress> get geoDataDownloadProgressStream =>
       _geoDataBridge.downloadProgressStream();
 
@@ -2891,6 +3134,18 @@ class VpnController extends ChangeNotifier {
   Future<GeoDataFileStatus> updateGeoDataFromUrl({
     required GeoDataKind kind,
     required String url,
+  }) {
+    return _updateGeoDataFromUrl(
+      kind: kind,
+      url: url,
+      restartAfterChange: true,
+    );
+  }
+
+  Future<GeoDataFileStatus> _updateGeoDataFromUrl({
+    required GeoDataKind kind,
+    required String url,
+    required bool restartAfterChange,
   }) async {
     final normalizedUrl = _normalizeGeoDataUrl(url);
     _beginGeoDataAction(kind, trackProgress: true);
@@ -2919,10 +3174,13 @@ class VpnController extends ChangeNotifier {
         fileSize: native.fileSize,
       );
       await _repository.saveGeoDataMetadata(kind, metadata);
-      await _restartAfterGeoDataChange();
+      if (restartAfterChange) {
+        await _restartAfterGeoDataChange();
+      }
       return _resolveGeoDataStatus(kind, native, metadata);
     } finally {
       _endGeoDataAction(kind);
+      _scheduleGeoDataAutoUpdate();
     }
   }
 
@@ -2943,6 +3201,7 @@ class VpnController extends ChangeNotifier {
       return _resolveGeoDataStatus(kind, native, metadata);
     } finally {
       _endGeoDataAction(kind);
+      _scheduleGeoDataAutoUpdate();
     }
   }
 
@@ -3078,6 +3337,8 @@ class VpnController extends ChangeNotifier {
         ServerImportError.invalidVless,
       ServerSubscriptionImportError.invalidHysteria2 =>
         ServerImportError.invalidHysteria2,
+      ServerSubscriptionImportError.invalidNaive =>
+        ServerImportError.invalidNaive,
       ServerSubscriptionImportError.invalidUrl ||
       ServerSubscriptionImportError.empty ||
       ServerSubscriptionImportError.unsupportedFormat =>
@@ -3088,6 +3349,7 @@ class VpnController extends ChangeNotifier {
       error.message,
       vlessError: error.vlessError,
       hysteria2Error: error.hysteria2Error,
+      naiveError: error.naiveError,
     );
   }
 
@@ -3149,6 +3411,11 @@ class VpnController extends ChangeNotifier {
     final server = selectedServer;
     if (server == null) {
       _setError(Msg.vpnNoServerSelected);
+      return;
+    }
+    final constraintError = _connectionConstraintError();
+    if (constraintError != null) {
+      _setError(constraintError);
       return;
     }
     await _ensureNotificationPermissionAsked();
@@ -3263,6 +3530,36 @@ class VpnController extends ChangeNotifier {
     await _methodChannel.invokeMethod<bool>(method, args);
   }
 
+  String? _connectionConstraintError({
+    ServerConfig? entry,
+    String? exitNodeName,
+    RunMode? runMode,
+    TunEngineMode? tunEngineMode,
+  }) {
+    final effectiveEntry = entry ?? selectedServer;
+    final effectiveExit = exitNodeName != null
+        ? _serverConfigForName(exitNodeName)
+        : exitServer;
+    if (effectiveEntry?.isNaive != true && effectiveExit?.isNaive != true) {
+      return null;
+    }
+    final effectiveRunMode = runMode ?? _runMode;
+    final effectiveTunEngine = tunEngineMode ?? _tunEngineMode;
+    if (effectiveRunMode != RunMode.tun) return Msg.vpnNaiveTunOnly;
+    if (effectiveTunEngine != TunEngineMode.libbox) {
+      return Msg.vpnNaiveRequiresLibbox;
+    }
+    if (effectiveExit != null) return Msg.vpnNaiveBridgeUnsupported;
+    return null;
+  }
+
+  ServerConfig? _serverConfigForName(String name) {
+    for (final server in _allServerList()) {
+      if (_serverNameEquals(server.name, name)) return server;
+    }
+    return null;
+  }
+
   /// Returns the exit-marked server to bridge through, or null when the
   /// active selection is single-hop (no exit mark, or the mark points at
   /// the entry itself / a node that no longer exists).
@@ -3329,6 +3626,11 @@ class VpnController extends ChangeNotifier {
     final server = selectedServer;
     if (server == null) {
       _setError(Msg.vpnNoServerSelected);
+      return;
+    }
+    final constraintError = _connectionConstraintError();
+    if (constraintError != null) {
+      _setError(constraintError);
       return;
     }
 
@@ -3418,9 +3720,7 @@ class VpnController extends ChangeNotifier {
     _deepLinkSub = _deepLinkChannel.incomingLinks.listen(
       (url) {
         if (url == _consumedInitialDeepLink) return;
-        unawaited(
-          _enqueueDeepLink(() => _dispatchDeepLink(url)),
-        );
+        unawaited(_enqueueDeepLink(() => _dispatchDeepLink(url)));
       },
       onError: (Object error) {
         if (kDebugMode) debugPrint('deeplink event stream error: $error');
@@ -3478,7 +3778,14 @@ class VpnController extends ChangeNotifier {
 
     final uri = Uri.tryParse(url);
     if (!DeepLinkHandler.isVoidLexUri(uri)) {
-      await importServersFromString(url);
+      _requestDeepLinkConsent(
+        PendingDeepLink(
+          kind: DeepLinkActionKind.importSubscription,
+          displayUrl: url,
+          isInsecureHttp: _isInsecureHttpUrl(uri),
+        ),
+        () => importServersFromString(url),
+      );
       return;
     }
     final parsed = uri!;
@@ -3518,20 +3825,40 @@ class VpnController extends ChangeNotifier {
             ? parsed.pathSegments.first
             : '';
         if (payload.isEmpty) return;
-        await _importFromBase64Payload(payload);
+        _requestDeepLinkConsent(
+          PendingDeepLink(
+            kind: DeepLinkActionKind.importServers,
+            displayUrl: url,
+          ),
+          () => _importFromBase64Payload(payload),
+        );
         return;
       case 'import-ruleset':
         final target = DeepLinkHandler.rulesetTargetFromUri(parsed);
-        if (target == null) {
+        if (target == null || !DeepLinkHandler.isAllowedRulesetUrl(target)) {
           _publishDeepLinkNotice(Msg.deepLinkRulesetInvalidUrl);
           return;
         }
-        await _importRulesetFromUrl(target);
+        _requestDeepLinkConsent(
+          PendingDeepLink(
+            kind: DeepLinkActionKind.importRuleset,
+            displayUrl: target.toString(),
+            isInsecureHttp: _isInsecureHttpUrl(target),
+          ),
+          () => _importRulesetFromUrl(target),
+        );
         return;
     }
     // Legacy / fall-through: encrypted-subscription codes
     // (voidlex://1/<base64>) and plain http(s) subscription URLs.
-    await importServersFromString(url);
+    _requestDeepLinkConsent(
+      PendingDeepLink(
+        kind: DeepLinkActionKind.importSubscription,
+        displayUrl: url,
+        isInsecureHttp: _isInsecureHttpUrl(parsed),
+      ),
+      () => importServersFromString(url),
+    );
   }
 
   Future<void> _importFromBase64Payload(String base64Payload) async {
@@ -3560,9 +3887,7 @@ class VpnController extends ChangeNotifier {
       final request = await client
           .getUrl(target)
           .timeout(_deepLinkRulesetTimeout);
-      final response = await request.close().timeout(
-        _deepLinkRulesetTimeout,
-      );
+      final response = await request.close().timeout(_deepLinkRulesetTimeout);
       if (response.statusCode < 200 || response.statusCode >= 300) {
         _publishDeepLinkNotice(
           Msg.deepLinkRulesetHttpStatus(response.statusCode),
@@ -3597,9 +3922,7 @@ class VpnController extends ChangeNotifier {
     } on TimeoutException {
       _publishDeepLinkNotice(Msg.deepLinkRulesetTimeout);
     } on SocketException catch (e) {
-      _publishDeepLinkNotice(
-        Msg.deepLinkRulesetRequestFailed(e.message),
-      );
+      _publishDeepLinkNotice(Msg.deepLinkRulesetRequestFailed(e.message));
     } on JsonPayloadTooLargeException {
       _publishDeepLinkNotice(Msg.deepLinkRulesetTooLarge);
     } on FormatException {
@@ -4138,10 +4461,9 @@ class VpnController extends ChangeNotifier {
     if (notify) _schedulePingFlush();
   }
 
-  Duration get _effectivePingBatchInterval =>
-      _activePingScanCount > 80
-          ? const Duration(milliseconds: 500)
-          : _pingBatchInterval;
+  Duration get _effectivePingBatchInterval => _activePingScanCount > 80
+      ? const Duration(milliseconds: 500)
+      : _pingBatchInterval;
 
   void _schedulePingFlush() {
     if (_pingBatchTimer != null) return;
@@ -4276,6 +4598,7 @@ class VpnController extends ChangeNotifier {
     _cancelDisconnectTimeout();
     _connectionTicker?.cancel();
     _subscriptionAutoRefreshTimer?.cancel();
+    _geoDataAutoUpdateTimer?.cancel();
     _pingBatchTimer?.cancel();
     _pingBuffer.clear();
     _connectionDurationLabelNotifier.dispose();

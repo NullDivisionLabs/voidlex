@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../l10n/app_localizations.dart';
+import '../l10n/user_message_localizer.dart';
 import '../core/app_locale.dart';
 import '../core/app_routing.dart';
 import '../core/app_log.dart';
@@ -25,6 +26,7 @@ import '../core/routing_rule.dart';
 import '../core/server_latency_probe.dart';
 import '../core/secure_storage.dart';
 import '../core/server_repository.dart';
+import '../core/subscription_client_identity.dart';
 import '../core/subscription_provider_settings.dart';
 import '../core/text_file_picker.dart';
 import '../core/tunnel_fragment_settings.dart';
@@ -38,6 +40,8 @@ import 'tv/tv_focus_ring.dart';
 import 'tv/widgets/tv_settings_card.dart';
 import 'tv/widgets/tv_settings_focus.dart';
 import 'widgets/bottom_dock.dart';
+import 'widgets/geo_data_auto_update_menu.dart';
+import 'widgets/selected_popup_menu_item.dart';
 import 'widgets/void_dock.dart';
 
 part 'settings/log_journal_screen.dart';
@@ -82,7 +86,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
   static const _deviceIdentityBridge = DeviceIdentityBridge();
 
   late bool _isDarkTheme;
-  String _deviceHwid = 'Loading...';
+  // null while the HWID is still loading; [_hwidUnavailable] flips to true
+  // once a lookup completes without a usable value. Both display states are
+  // localized at build time since no context exists at field-init.
+  String? _deviceHwid;
+  bool _hwidUnavailable = false;
 
   @override
   void initState() {
@@ -106,16 +114,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (mounted) setState(() {});
   }
 
+  String _hwidDisplay(AppLocalizations l) =>
+      _deviceHwid ??
+      (_hwidUnavailable ? l.settingsHwidUnavailable : l.settingsHwidLoading);
+
   Future<void> _loadDeviceHwid() async {
     try {
       final hwid = await _deviceIdentityBridge.getHwid();
       if (!mounted) return;
       setState(() {
-        _deviceHwid = hwid.trim().isEmpty ? 'Unavailable' : hwid.trim();
+        if (hwid.trim().isEmpty) {
+          _deviceHwid = null;
+          _hwidUnavailable = true;
+        } else {
+          _deviceHwid = hwid.trim();
+          _hwidUnavailable = false;
+        }
       });
     } catch (_) {
       if (!mounted) return;
-      setState(() => _deviceHwid = 'Unavailable');
+      setState(() {
+        _deviceHwid = null;
+        _hwidUnavailable = true;
+      });
     }
   }
 
@@ -246,10 +267,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onTap: _openFaqScreen,
           ),
         ),
-        _AboutRow(label: l.settingsVersionLabel, value: '1.0.1-beta'),
+        _AboutRow(
+          label: l.settingsVersionLabel,
+          value: SubscriptionClientIdentity.appVersion,
+        ),
         _AboutRow(label: l.settingsXrayCoreLabel, value: '26.5.9'),
         _AboutRow(label: l.settingsLibboxLabel, value: '1.14.0-alpha.24'),
-        _AboutRow(label: l.settingsHwidLabel, value: _deviceHwid),
+        _AboutRow(label: l.settingsHwidLabel, value: _hwidDisplay(l)),
         _AboutRow(
           label: l.settingsProtocolLabel,
           value: l.settingsProtocolValue,
@@ -290,10 +314,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onTap: _openFaqScreen,
           ),
         ),
-        _AboutRow(label: l.settingsVersionLabel, value: '1.0.1-beta'),
+        _AboutRow(
+          label: l.settingsVersionLabel,
+          value: SubscriptionClientIdentity.appVersion,
+        ),
         _AboutRow(label: l.settingsXrayCoreLabel, value: '26.5.9'),
         _AboutRow(label: l.settingsLibboxLabel, value: '1.14.0-alpha.24'),
-        _AboutRow(label: l.settingsHwidLabel, value: _deviceHwid),
+        _AboutRow(label: l.settingsHwidLabel, value: _hwidDisplay(l)),
         _AboutRow(
           label: l.settingsProtocolLabel,
           value: l.settingsProtocolValue,
@@ -376,9 +403,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         },
       ),
       _SettingsRouteSpec(
-        icon: _isDarkTheme
-            ? Icons.dark_mode_rounded
-            : Icons.light_mode_rounded,
+        icon: _isDarkTheme ? Icons.dark_mode_rounded : Icons.light_mode_rounded,
         title: l.settingsApplicationTitle,
         subtitle: l.settingsApplicationSubtitle,
         onTap: () async {

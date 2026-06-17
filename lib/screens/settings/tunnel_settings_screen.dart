@@ -139,8 +139,16 @@ class _TunnelSettingsScreenState extends State<_TunnelSettingsScreen> {
   Future<void> _setXrayTunEnabled(bool enabled) async {
     final mode = enabled ? TunEngineMode.xray : TunEngineMode.libbox;
     if (widget.controller.tunEngineMode == mode) return;
-    await widget.controller.setTunEngineMode(mode);
+    final error = await widget.controller.setTunEngineMode(mode);
     if (!mounted) return;
+    if (error != null) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(content: Text(localizeUserMessage(context, error))),
+        );
+      return;
+    }
     setState(() {});
   }
 
@@ -157,8 +165,16 @@ class _TunnelSettingsScreenState extends State<_TunnelSettingsScreen> {
   }
 
   Future<void> _setRunMode(RunMode mode) async {
-    await widget.controller.setRunMode(mode);
+    final error = await widget.controller.setRunMode(mode);
     if (!mounted) return;
+    if (error != null) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(content: Text(localizeUserMessage(context, error))),
+        );
+      return;
+    }
     setState(() {});
   }
 
@@ -526,474 +542,495 @@ class _TunnelSettingsScreenState extends State<_TunnelSettingsScreen> {
     required TunnelFragmentSettings fragment,
   }) {
     return Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Container(
-                  clipBehavior: Clip.none,
-                  decoration: BoxDecoration(
-                    color: theme.cardColor,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: theme.dividerColor),
-                  ),
-                  child: Column(
-                    children: [
-                      _CompactToggleRow(
-                        icon: Icons.dns_outlined,
-                        title: l.tunnelUseLocalDns,
-                        value: _tunnelNetworkSettings.useLocalDns,
-                        onChanged: _setUseLocalDns,
-                        tvFocusable: useTvChrome,
-                        autofocus: useTvChrome,
-                      ),
-                      Divider(height: 1, color: theme.dividerColor),
-                      _CompactToggleRow(
-                        icon: Icons.travel_explore_rounded,
-                        title: l.tunnelEnableServerResolving,
-                        value: _tunnelNetworkSettings.serverResolvingEnabled,
-                        onChanged: _setServerResolvingEnabled,
-                        tvFocusable: useTvChrome,
-                      ),
-                      Divider(height: 1, color: theme.dividerColor),
-                      _CompactToggleRow(
-                        icon: Icons.analytics_outlined,
-                        title: l.tunnelPacketAnalysis,
-                        value: _tunnelNetworkSettings.packetAnalysisEnabled,
-                        onChanged: _setPacketAnalysisEnabled,
-                        tvFocusable: useTvChrome,
-                      ),
-                      if (_tunnelNetworkSettings.packetAnalysisEnabled) ...[
-                        Divider(height: 1, color: theme.dividerColor),
-                        _CompactToggleRow(
-                          icon: Icons.alt_route_rounded,
-                          title: l.tunnelRouteOnlyTitle,
-                          description: l.tunnelRouteOnlySubtitle,
-                          value: widget.controller.sniffingRouteOnly,
-                          onChanged: _setSniffingRouteOnly,
-                          tvFocusable: useTvChrome,
-                        ),
-                      ],
-                      Divider(height: 1, color: theme.dividerColor),
-                      _CompactValueRow(
-                        icon: Icons.layers_outlined,
-                        title: l.tunnelNetworkStack,
-                        child: SizedBox(
-                          width: 140,
-                          child: DropdownButtonFormField<TunnelNetworkStack>(
-                            key: ValueKey(_tunnelNetworkSettings.networkStack),
-                            initialValue: _tunnelNetworkSettings.networkStack,
-                            isDense: true,
-                            decoration: const InputDecoration(
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 10,
-                              ),
-                            ),
-                            items: TunnelNetworkStack.values
-                                .map(
-                                  (stack) => DropdownMenuItem(
-                                    value: stack,
-                                    child: Text(_tunnelStackLabel(l, stack)),
-                                  ),
-                                )
-                                .toList(growable: false),
-                            onChanged: (value) {
-                              if (value == null) return;
-                              _setNetworkStack(value);
-                            },
-                          ),
-                        ),
-                      ),
-                      Divider(height: 1, color: theme.dividerColor),
-                      _CompactValueRow(
-                        icon: Icons.settings_ethernet_rounded,
-                        title: l.tunnelMtu,
-                        child: SizedBox(
-                          width: 96,
-                          child: useTvChrome
-                              ? tvDpadEscapeTextField(
-                                  TextField(
-                                    controller: _mtuController,
-                                    focusNode: _mtuFocusNode,
-                                    keyboardType: TextInputType.number,
-                                    inputFormatters: [
-                                      FilteringTextInputFormatter.digitsOnly,
-                                      LengthLimitingTextInputFormatter(4),
-                                    ],
-                                    textAlign: TextAlign.center,
-                                    textInputAction: TextInputAction.done,
-                                    onSubmitted: (_) =>
-                                        FocusScope.of(context).unfocus(),
-                                    decoration: InputDecoration(
-                                      hintText: l.tunnelMtuHint,
-                                      border: const OutlineInputBorder(),
-                                      isDense: true,
-                                      contentPadding:
-                                          const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 10,
-                                      ),
-                                    ),
-                                  ),
-                                )
-                              : TextField(
-                                  controller: _mtuController,
-                                  focusNode: _mtuFocusNode,
-                                  keyboardType: TextInputType.number,
-                                  inputFormatters: [
-                                    FilteringTextInputFormatter.digitsOnly,
-                                    LengthLimitingTextInputFormatter(4),
-                                  ],
-                                  textAlign: TextAlign.center,
-                                  textInputAction: TextInputAction.done,
-                                  onSubmitted: (_) =>
-                                      FocusScope.of(context).unfocus(),
-                                  decoration: InputDecoration(
-                                    hintText: l.tunnelMtuHint,
-                                    border: const OutlineInputBorder(),
-                                    isDense: true,
-                                    contentPadding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 10,
-                                    ),
-                                  ),
-                                ),
-                        ),
-                      ),
-                      Divider(height: 1, color: theme.dividerColor),
-                      _CompactValueRow(
-                        icon: Icons.public_rounded,
-                        title: l.tunnelIpMode,
-                        child: SizedBox(
-                          width: 120,
-                          child: DropdownButtonFormField<TunnelIpMode>(
-                            key: ValueKey(_tunnelNetworkSettings.ipMode),
-                            initialValue: _tunnelNetworkSettings.ipMode,
-                            isDense: true,
-                            decoration: const InputDecoration(
-                              border: OutlineInputBorder(),
-                              contentPadding: EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 10,
-                              ),
-                            ),
-                            items: TunnelIpMode.values
-                                .map(
-                                  (mode) => DropdownMenuItem(
-                                    value: mode,
-                                    child: Text(_tunnelIpModeLabel(l, mode)),
-                                  ),
-                                )
-                                .toList(growable: false),
-                            onChanged: (value) {
-                              if (value == null) return;
-                              _setIpMode(value);
-                            },
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _TunnelFragmentSettingsCard(
-                  settings: fragment,
-                  lengthController: _fragmentLengthController,
-                  intervalController: _fragmentIntervalController,
-                  maxSplitController: _fragmentMaxSplitController,
-                  noisePacketController: _noisePacketController,
-                  noiseDelayController: _noiseDelayController,
-                  rangeInputFormatters: _rangeInputFormatters,
-                  onEnabledChanged: (enabled) => _updateTunnelFragmentSettings(
-                    (current) => current.copyWith(enabled: enabled),
-                  ),
-                  onPacketsChanged: (packets) => _updateTunnelFragmentSettings(
-                    (current) => current.copyWith(packets: packets),
-                  ),
-                  onLengthChanged: (length) => _updateTunnelFragmentSettings(
-                    (current) => current.copyWith(length: length.trim()),
-                  ),
-                  onIntervalChanged: (interval) =>
-                      _updateTunnelFragmentSettings(
-                        (current) =>
-                            current.copyWith(interval: interval.trim()),
-                      ),
-                  onMaxSplitChanged: (maxSplit) =>
-                      _updateTunnelFragmentSettings(
-                        (current) =>
-                            current.copyWith(maxSplit: maxSplit.trim()),
-                      ),
-                  onNoiseEnabledChanged: (enabled) {
-                    setState(() {
-                      _noiseSettingsExpanded = enabled;
-                    });
-                    _updateTunnelFragmentSettings(
-                      (current) => current.copyWith(noiseEnabled: enabled),
-                    );
-                  },
-                  noiseSettingsExpanded: _noiseSettingsExpanded,
-                  onNoiseHeaderTap: () {
-                    if (!fragment.noiseEnabled) return;
-                    setState(() {
-                      _noiseSettingsExpanded = !_noiseSettingsExpanded;
-                    });
-                  },
-                  onNoiseTypeChanged: (noiseType) =>
-                      _updateTunnelFragmentSettings(
-                        (current) => current.copyWith(noiseType: noiseType),
-                      ),
-                  onNoisePacketChanged: (packet) =>
-                      _updateTunnelFragmentSettings(
-                        (current) =>
-                            current.copyWith(noisePacket: packet.trim()),
-                      ),
-                  onNoiseDelayChanged: (delay) => _updateTunnelFragmentSettings(
-                    (current) => current.copyWith(noiseDelay: delay.trim()),
-                  ),
-                  onNoiseApplyToChanged: (applyTo) =>
-                      _updateTunnelFragmentSettings(
-                        (current) => current.copyWith(noiseApplyTo: applyTo),
-                      ),
-                ),
-                const SizedBox(height: 12),
-                _MultiplexSettingsCard(
-                  settings: _multiplexSettings,
-                  onEnabledChanged: _setMultiplexEnabled,
-                  onTcpConnectionsChanged: _setMultiplexTcpConnections,
-                  onXudpConnectionsChanged: _setMultiplexXudpConnections,
-                  onQuicBehaviorChanged: _setMultiplexQuicBehavior,
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  clipBehavior: Clip.none,
-                  decoration: BoxDecoration(
-                    color: theme.cardColor,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: theme.dividerColor),
-                  ),
-                  child: Column(
-                    children: [
-                      _CompactToggleRow(
-                        icon: Icons.block_rounded,
-                        title: l.tunnelBlockUdp,
-                        description: l.tunnelBlockUdpDescription,
-                        value: _tunnelNetworkSettings.blockUdp,
-                        onChanged: _setBlockUdpEnabled,
-                        tvFocusable: useTvChrome,
-                      ),
-                      Divider(height: 1, color: theme.dividerColor),
-                      _CompactToggleRow(
-                        icon: Icons.router_outlined,
-                        title: l.tunnelXrayTun,
-                        description: l.tunnelXrayTunDescription,
-                        value: xrayTunEnabled,
-                        onChanged: _setXrayTunEnabled,
-                        tvFocusable: useTvChrome,
-                      ),
-                      Divider(height: 1, color: theme.dividerColor),
-                      _CompactToggleRow(
-                        icon: Icons.dns_outlined,
-                        title: l.tunnelEnableDnsForTun,
-                        value: _tunnelNetworkSettings.xrayTunDnsEnabled,
-                        enabled: xrayTunEnabled,
-                        onChanged: _setXrayTunDnsEnabled,
-                        tvFocusable: useTvChrome,
-                      ),
-                      Divider(height: 1, color: theme.dividerColor),
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
-                        child: useTvChrome
-                            ? tvDpadEscapeTextField(
-                                TextField(
-                                  controller: _xrayTunDnsController,
-                                  focusNode: _xrayTunDnsFocusNode,
-                                  enabled: xrayTunEnabled &&
-                                      _tunnelNetworkSettings.xrayTunDnsEnabled,
-                                  autocorrect: false,
-                                  enableSuggestions: false,
-                                  keyboardType: TextInputType.text,
-                                  textInputAction: TextInputAction.done,
-                                  onSubmitted: _commitXrayTunDnsServer,
-                                  decoration: InputDecoration(
-                                    labelText: l.tunnelTunDnsLabel,
-                                    hintText: l.tunnelTunDnsHint,
-                                    border: const OutlineInputBorder(),
-                                    isDense: true,
-                                  ),
-                                  onChanged: _commitXrayTunDnsServer,
-                                ),
-                              )
-                            : TextField(
-                                controller: _xrayTunDnsController,
-                                focusNode: _xrayTunDnsFocusNode,
-                                enabled: xrayTunEnabled &&
-                                    _tunnelNetworkSettings.xrayTunDnsEnabled,
-                                autocorrect: false,
-                                enableSuggestions: false,
-                                keyboardType: TextInputType.text,
-                                textInputAction: TextInputAction.done,
-                                onSubmitted: _commitXrayTunDnsServer,
-                                decoration: InputDecoration(
-                                  labelText: l.tunnelTunDnsLabel,
-                                  hintText: l.tunnelTunDnsHint,
-                                  border: const OutlineInputBorder(),
-                                  isDense: true,
-                                ),
-                                onChanged: _commitXrayTunDnsServer,
-                              ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _ConnectionPolicyCard(
-                  policy: widget.controller.connectionPolicy,
-                  onIdleChanged: (value) => _updateConnectionPolicy(
-                    (current) => current.copyWith(connIdleSeconds: value),
-                  ),
-                  onMaxTcpChanged: (value) => _updateConnectionPolicy(
-                    (current) => current.copyWith(maxTcpConnections: value),
-                  ),
-                  onMaxUdpChanged: (value) => _updateConnectionPolicy(
-                    (current) => current.copyWith(maxUdpConnections: value),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Container(
-                  decoration: BoxDecoration(
-                    color: theme.cardColor,
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: theme.dividerColor),
-                  ),
-                  child: Column(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 12,
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.vpn_key_outlined,
-                              color: theme.colorScheme.primary,
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    l.tunnelCustomSocksTitle,
-                                    style: theme.textTheme.bodyLarge?.copyWith(
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    useCustomProxyAuth
-                                        ? l.tunnelCustomSocksOnDescription
-                                        : l.tunnelCustomSocksOffDescription,
-                                    style: theme.textTheme.bodySmall,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Switch(
-                              value: useCustomProxyAuth,
-                              onChanged: _setCustomProxyAuthEnabled,
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (useCustomProxyAuth) ...[
-                        Divider(height: 1, color: theme.dividerColor),
-                        _CompactToggleRow(
-                          icon: Icons.https_rounded,
-                          title: l.httpProxyAuthTitle,
-                          description: l.httpProxyAuthSubtitle,
-                          value: widget.controller.httpProxyAuthEnabled,
-                          onChanged: _setHttpProxyAuthEnabled,
-                        ),
-                        Divider(height: 1, color: theme.dividerColor),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              TextField(
-                                controller: _userController,
-                                autocorrect: false,
-                                enableSuggestions: false,
-                                decoration: InputDecoration(
-                                  labelText: l.tunnelProxyUserLabel,
-                                  border: const OutlineInputBorder(),
-                                  isDense: true,
-                                ),
-                                onChanged: _commitProxyUser,
-                              ),
-                              const SizedBox(height: 10),
-                              TextField(
-                                controller: _passwordController,
-                                autocorrect: false,
-                                enableSuggestions: false,
-                                obscureText: _passwordObscured,
-                                decoration: InputDecoration(
-                                  labelText: l.tunnelProxyPasswordLabel,
-                                  border: const OutlineInputBorder(),
-                                  isDense: true,
-                                  suffixIcon: IconButton(
-                                    icon: Icon(
-                                      _passwordObscured
-                                          ? Icons.visibility_rounded
-                                          : Icons.visibility_off_rounded,
-                                    ),
-                                    onPressed: () => setState(() {
-                                      _passwordObscured = !_passwordObscured;
-                                    }),
-                                    tooltip: _passwordObscured
-                                        ? l.show
-                                        : l.hide,
-                                  ),
-                                ),
-                                onChanged: _commitProxyPassword,
-                              ),
-                              const SizedBox(height: 10),
-                              Align(
-                                alignment: Alignment.centerLeft,
-                                child: TextButton.icon(
-                                  onPressed: _regenerateProxyCredentials,
-                                  icon: const Icon(Icons.refresh_rounded),
-                                  label: Text(l.tunnelRegenerate),
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                l.tunnelProxyInboundHelp,
-                                style: theme.textTheme.bodySmall,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _RunModeCard(
-                  runMode: widget.controller.runMode,
-                  onRunModeChanged: _setRunMode,
-                ),
-              ],
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ..._tunnelGroup(
+          useTvChrome: useTvChrome,
+          label: l.tunnelGroupTrafficDns,
+          first: true,
+          children: [
+            _trafficDnsCard(
+              context: context,
+              theme: theme,
+              l: l,
+              useTvChrome: useTvChrome,
+              xrayTunEnabled: xrayTunEnabled,
+            ),
+          ],
+        ),
+        ..._tunnelGroup(
+          useTvChrome: useTvChrome,
+          label: l.tunnelGroupOptimization,
+          children: [
+            _TunnelFragmentSettingsCard(
+              settings: fragment,
+              lengthController: _fragmentLengthController,
+              intervalController: _fragmentIntervalController,
+              maxSplitController: _fragmentMaxSplitController,
+              noisePacketController: _noisePacketController,
+              noiseDelayController: _noiseDelayController,
+              rangeInputFormatters: _rangeInputFormatters,
+              onEnabledChanged: (enabled) => _updateTunnelFragmentSettings(
+                (current) => current.copyWith(enabled: enabled),
+              ),
+              onPacketsChanged: (packets) => _updateTunnelFragmentSettings(
+                (current) => current.copyWith(packets: packets),
+              ),
+              onLengthChanged: (length) => _updateTunnelFragmentSettings(
+                (current) => current.copyWith(length: length.trim()),
+              ),
+              onIntervalChanged: (interval) => _updateTunnelFragmentSettings(
+                (current) => current.copyWith(interval: interval.trim()),
+              ),
+              onMaxSplitChanged: (maxSplit) => _updateTunnelFragmentSettings(
+                (current) => current.copyWith(maxSplit: maxSplit.trim()),
+              ),
+              onNoiseEnabledChanged: (enabled) {
+                setState(() => _noiseSettingsExpanded = enabled);
+                _updateTunnelFragmentSettings(
+                  (current) => current.copyWith(noiseEnabled: enabled),
+                );
+              },
+              noiseSettingsExpanded: _noiseSettingsExpanded,
+              onNoiseHeaderTap: () {
+                if (!fragment.noiseEnabled) return;
+                setState(() {
+                  _noiseSettingsExpanded = !_noiseSettingsExpanded;
+                });
+              },
+              onNoiseTypeChanged: (noiseType) => _updateTunnelFragmentSettings(
+                (current) => current.copyWith(noiseType: noiseType),
+              ),
+              onNoisePacketChanged: (packet) => _updateTunnelFragmentSettings(
+                (current) => current.copyWith(noisePacket: packet.trim()),
+              ),
+              onNoiseDelayChanged: (delay) => _updateTunnelFragmentSettings(
+                (current) => current.copyWith(noiseDelay: delay.trim()),
+              ),
+              onNoiseApplyToChanged: (applyTo) => _updateTunnelFragmentSettings(
+                (current) => current.copyWith(noiseApplyTo: applyTo),
+              ),
+            ),
+            _MultiplexSettingsCard(
+              settings: _multiplexSettings,
+              onEnabledChanged: _setMultiplexEnabled,
+              onTcpConnectionsChanged: _setMultiplexTcpConnections,
+              onXudpConnectionsChanged: _setMultiplexXudpConnections,
+              onQuicBehaviorChanged: _setMultiplexQuicBehavior,
+            ),
+          ],
+        ),
+        ..._tunnelGroup(
+          useTvChrome: useTvChrome,
+          label: l.tunnelGroupNetwork,
+          children: [
+            _RunModeCard(
+              runMode: widget.controller.runMode,
+              onRunModeChanged: _setRunMode,
+              useTvChrome: useTvChrome,
+            ),
+            _primaryNetworkCard(
+              theme: theme,
+              l: l,
+              useTvChrome: useTvChrome,
+              xrayTunEnabled: xrayTunEnabled,
+            ),
+          ],
+        ),
+        ..._tunnelGroup(
+          useTvChrome: useTvChrome,
+          label: l.tunnelGroupAdvanced,
+          children: [
+            _mtuCard(
+              context: context,
+              theme: theme,
+              l: l,
+              useTvChrome: useTvChrome,
+            ),
+            _ConnectionPolicyCard(
+              policy: widget.controller.connectionPolicy,
+              onIdleChanged: (value) => _updateConnectionPolicy(
+                (current) => current.copyWith(connIdleSeconds: value),
+              ),
+              onMaxTcpChanged: (value) => _updateConnectionPolicy(
+                (current) => current.copyWith(maxTcpConnections: value),
+              ),
+              onMaxUdpChanged: (value) => _updateConnectionPolicy(
+                (current) => current.copyWith(maxUdpConnections: value),
+              ),
+            ),
+          ],
+        ),
+        ..._tunnelGroup(
+          useTvChrome: useTvChrome,
+          label: l.tunnelGroupLocalProxy,
+          children: [
+            _localProxyCard(
+              theme: theme,
+              l: l,
+              useCustomProxyAuth: useCustomProxyAuth,
+            ),
+          ],
+        ),
+      ],
     );
+  }
+
+  List<Widget> _tunnelGroup({
+    required bool useTvChrome,
+    required String label,
+    required List<Widget> children,
+    bool first = false,
+  }) {
+    return [
+      if (!first) SizedBox(height: useTvChrome ? 28 : 24),
+      if (useTvChrome)
+        TvSettingsSectionLabel(label)
+      else
+        _SettingsSectionHeading(label),
+      SizedBox(height: useTvChrome ? 14 : 8),
+      for (var i = 0; i < children.length; i++) ...[
+        if (i != 0) const SizedBox(height: 12),
+        children[i],
+      ],
+    ];
+  }
+
+  Widget _settingsCard(ThemeData theme, List<Widget> children) {
+    return Container(
+      clipBehavior: Clip.none,
+      decoration: BoxDecoration(
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: theme.dividerColor),
+      ),
+      child: Column(children: children),
+    );
+  }
+
+  Widget _primaryNetworkCard({
+    required ThemeData theme,
+    required AppLocalizations l,
+    required bool useTvChrome,
+    required bool xrayTunEnabled,
+  }) {
+    return _settingsCard(theme, [
+      _CompactToggleRow(
+        icon: Icons.router_outlined,
+        title: l.tunnelXrayTun,
+        description: l.tunnelXrayTunDescription,
+        value: xrayTunEnabled,
+        onChanged: _setXrayTunEnabled,
+        tvFocusable: useTvChrome,
+      ),
+      Divider(height: 1, color: theme.dividerColor),
+      _CompactValueRow(
+        icon: Icons.layers_outlined,
+        title: l.tunnelNetworkStack,
+        child: SizedBox(
+          width: 140,
+          child: DropdownButtonFormField<TunnelNetworkStack>(
+            key: ValueKey(_tunnelNetworkSettings.networkStack),
+            initialValue: _tunnelNetworkSettings.networkStack,
+            isDense: true,
+            decoration: const InputDecoration(
+              border: OutlineInputBorder(),
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 10,
+                vertical: 10,
+              ),
+            ),
+            items: TunnelNetworkStack.values
+                .map(
+                  (stack) => DropdownMenuItem(
+                    value: stack,
+                    child: Text(_tunnelStackLabel(l, stack)),
+                  ),
+                )
+                .toList(growable: false),
+            onChanged: (value) {
+              if (value != null) _setNetworkStack(value);
+            },
+          ),
+        ),
+      ),
+      Divider(height: 1, color: theme.dividerColor),
+      _CompactValueRow(
+        icon: Icons.public_rounded,
+        title: l.tunnelIpMode,
+        child: SizedBox(
+          width: 120,
+          child: DropdownButtonFormField<TunnelIpMode>(
+            key: ValueKey(_tunnelNetworkSettings.ipMode),
+            initialValue: _tunnelNetworkSettings.ipMode,
+            isDense: true,
+            decoration: const InputDecoration(
+              border: OutlineInputBorder(),
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 10,
+                vertical: 10,
+              ),
+            ),
+            items: TunnelIpMode.values
+                .map(
+                  (mode) => DropdownMenuItem(
+                    value: mode,
+                    child: Text(_tunnelIpModeLabel(l, mode)),
+                  ),
+                )
+                .toList(growable: false),
+            onChanged: (value) {
+              if (value != null) _setIpMode(value);
+            },
+          ),
+        ),
+      ),
+    ]);
+  }
+
+  Widget _trafficDnsCard({
+    required BuildContext context,
+    required ThemeData theme,
+    required AppLocalizations l,
+    required bool useTvChrome,
+    required bool xrayTunEnabled,
+  }) {
+    final dnsField = TextField(
+      controller: _xrayTunDnsController,
+      focusNode: _xrayTunDnsFocusNode,
+      enabled: xrayTunEnabled && _tunnelNetworkSettings.xrayTunDnsEnabled,
+      autocorrect: false,
+      enableSuggestions: false,
+      keyboardType: TextInputType.text,
+      textInputAction: TextInputAction.done,
+      onSubmitted: _commitXrayTunDnsServer,
+      decoration: InputDecoration(
+        labelText: l.tunnelTunDnsLabel,
+        hintText: l.tunnelTunDnsHint,
+        border: const OutlineInputBorder(),
+        isDense: true,
+      ),
+      onChanged: _commitXrayTunDnsServer,
+    );
+    return _settingsCard(theme, [
+      _CompactToggleRow(
+        icon: Icons.block_rounded,
+        title: l.tunnelBlockUdp,
+        description: l.tunnelBlockUdpDescription,
+        value: _tunnelNetworkSettings.blockUdp,
+        onChanged: _setBlockUdpEnabled,
+        tvFocusable: useTvChrome,
+        autofocus: useTvChrome,
+      ),
+      Divider(height: 1, color: theme.dividerColor),
+      _CompactToggleRow(
+        icon: Icons.dns_outlined,
+        title: l.tunnelUseLocalDns,
+        value: _tunnelNetworkSettings.useLocalDns,
+        onChanged: _setUseLocalDns,
+        tvFocusable: useTvChrome,
+      ),
+      Divider(height: 1, color: theme.dividerColor),
+      _CompactToggleRow(
+        icon: Icons.travel_explore_rounded,
+        title: l.tunnelEnableServerResolving,
+        value: _tunnelNetworkSettings.serverResolvingEnabled,
+        onChanged: _setServerResolvingEnabled,
+        tvFocusable: useTvChrome,
+      ),
+      Divider(height: 1, color: theme.dividerColor),
+      _CompactToggleRow(
+        icon: Icons.analytics_outlined,
+        title: l.tunnelPacketAnalysis,
+        value: _tunnelNetworkSettings.packetAnalysisEnabled,
+        onChanged: _setPacketAnalysisEnabled,
+        tvFocusable: useTvChrome,
+      ),
+      if (_tunnelNetworkSettings.packetAnalysisEnabled) ...[
+        Divider(height: 1, color: theme.dividerColor),
+        _CompactToggleRow(
+          icon: Icons.alt_route_rounded,
+          title: l.tunnelRouteOnlyTitle,
+          description: l.tunnelRouteOnlySubtitle,
+          value: widget.controller.sniffingRouteOnly,
+          onChanged: _setSniffingRouteOnly,
+          tvFocusable: useTvChrome,
+        ),
+      ],
+      Divider(height: 1, color: theme.dividerColor),
+      _CompactToggleRow(
+        icon: Icons.dns_outlined,
+        title: l.tunnelEnableDnsForTun,
+        value: _tunnelNetworkSettings.xrayTunDnsEnabled,
+        enabled: xrayTunEnabled,
+        onChanged: _setXrayTunDnsEnabled,
+        tvFocusable: useTvChrome,
+      ),
+      Divider(height: 1, color: theme.dividerColor),
+      Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+        child: useTvChrome ? tvDpadEscapeTextField(dnsField) : dnsField,
+      ),
+    ]);
+  }
+
+  Widget _mtuCard({
+    required BuildContext context,
+    required ThemeData theme,
+    required AppLocalizations l,
+    required bool useTvChrome,
+  }) {
+    final field = TextField(
+      controller: _mtuController,
+      focusNode: _mtuFocusNode,
+      keyboardType: TextInputType.number,
+      inputFormatters: [
+        FilteringTextInputFormatter.digitsOnly,
+        LengthLimitingTextInputFormatter(4),
+      ],
+      textAlign: TextAlign.center,
+      textInputAction: TextInputAction.done,
+      onSubmitted: (_) => FocusScope.of(context).unfocus(),
+      decoration: InputDecoration(
+        hintText: l.tunnelMtuHint,
+        border: const OutlineInputBorder(),
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 10,
+          vertical: 10,
+        ),
+      ),
+    );
+    return _settingsCard(theme, [
+      _CompactValueRow(
+        icon: Icons.settings_ethernet_rounded,
+        title: l.tunnelMtu,
+        child: SizedBox(
+          width: 96,
+          child: useTvChrome ? tvDpadEscapeTextField(field) : field,
+        ),
+      ),
+    ]);
+  }
+
+  Widget _localProxyCard({
+    required ThemeData theme,
+    required AppLocalizations l,
+    required bool useCustomProxyAuth,
+  }) {
+    return _settingsCard(theme, [
+      Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            Icon(Icons.vpn_key_outlined, color: theme.colorScheme.primary),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    l.tunnelCustomSocksTitle,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    useCustomProxyAuth
+                        ? l.tunnelCustomSocksOnDescription
+                        : l.tunnelCustomSocksOffDescription,
+                    style: theme.textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+            Switch(
+              value: useCustomProxyAuth,
+              onChanged: _setCustomProxyAuthEnabled,
+            ),
+          ],
+        ),
+      ),
+      if (useCustomProxyAuth) ...[
+        Divider(height: 1, color: theme.dividerColor),
+        _CompactToggleRow(
+          icon: Icons.https_rounded,
+          title: l.httpProxyAuthTitle,
+          description: l.httpProxyAuthSubtitle,
+          value: widget.controller.httpProxyAuthEnabled,
+          onChanged: _setHttpProxyAuthEnabled,
+        ),
+        Divider(height: 1, color: theme.dividerColor),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              TextField(
+                controller: _userController,
+                autocorrect: false,
+                enableSuggestions: false,
+                decoration: InputDecoration(
+                  labelText: l.tunnelProxyUserLabel,
+                  border: const OutlineInputBorder(),
+                  isDense: true,
+                ),
+                onChanged: _commitProxyUser,
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _passwordController,
+                autocorrect: false,
+                enableSuggestions: false,
+                obscureText: _passwordObscured,
+                decoration: InputDecoration(
+                  labelText: l.tunnelProxyPasswordLabel,
+                  border: const OutlineInputBorder(),
+                  isDense: true,
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _passwordObscured
+                          ? Icons.visibility_rounded
+                          : Icons.visibility_off_rounded,
+                    ),
+                    onPressed: () {
+                      setState(() => _passwordObscured = !_passwordObscured);
+                    },
+                    tooltip: _passwordObscured ? l.show : l.hide,
+                  ),
+                ),
+                onChanged: _commitProxyPassword,
+              ),
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  onPressed: _regenerateProxyCredentials,
+                  icon: const Icon(Icons.refresh_rounded),
+                  label: Text(l.tunnelRegenerate),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(l.tunnelProxyInboundHelp, style: theme.textTheme.bodySmall),
+            ],
+          ),
+        ),
+      ],
+    ]);
   }
 }
 
 class _RunModeCard extends StatelessWidget {
-  const _RunModeCard({required this.runMode, required this.onRunModeChanged});
+  const _RunModeCard({
+    required this.runMode,
+    required this.onRunModeChanged,
+    required this.useTvChrome,
+  });
 
   final RunMode runMode;
   final Future<void> Function(RunMode) onRunModeChanged;
+  final bool useTvChrome;
 
   @override
   Widget build(BuildContext context) {
@@ -1010,47 +1047,53 @@ class _RunModeCard extends StatelessWidget {
         onChanged: (v) {
           if (v != null) onRunModeChanged(v);
         },
-        child: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  l.runModeSectionTitle,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
+        child: tvDpadEscapeRadioGroup(
+          enabled: useTvChrome,
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    l.runModeSectionTitle,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
                   ),
                 ),
               ),
-            ),
-            Divider(height: 1, color: theme.dividerColor),
-            RadioListTile<RunMode>(
-              value: RunMode.tun,
-              title: Text(
-                l.runModeTunTitle,
-                style: const TextStyle(fontWeight: FontWeight.w700),
+              Divider(height: 1, color: theme.dividerColor),
+              RadioListTile<RunMode>(
+                value: RunMode.tun,
+                title: Text(
+                  l.runModeTunTitle,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                subtitle: Text(l.runModeTunSubtitle),
+                secondary: Icon(
+                  Icons.vpn_lock_rounded,
+                  color: theme.colorScheme.primary,
+                ),
               ),
-              subtitle: Text(l.runModeTunSubtitle),
-              secondary: Icon(
-                Icons.vpn_lock_rounded,
-                color: theme.colorScheme.primary,
+              Divider(height: 1, color: theme.dividerColor),
+              RadioListTile<RunMode>(
+                value: RunMode.proxyOnly,
+                title: Text(
+                  l.runModeProxyOnlyTitle,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+                subtitle: Text(l.runModeProxyOnlySubtitle),
+                secondary: Icon(
+                  Icons.visibility_off_rounded,
+                  color: theme.colorScheme.primary,
+                ),
               ),
-            ),
-            Divider(height: 1, color: theme.dividerColor),
-            RadioListTile<RunMode>(
-              value: RunMode.proxyOnly,
-              title: Text(
-                l.runModeProxyOnlyTitle,
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-              subtitle: Text(l.runModeProxyOnlySubtitle),
-              secondary: Icon(
-                Icons.visibility_off_rounded,
-                color: theme.colorScheme.primary,
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -1093,16 +1136,10 @@ class _ConnectionPolicyCardState extends State<_ConnectionPolicyCard> {
             onTap: () => setState(() => _expanded = !_expanded),
             borderRadius: BorderRadius.circular(14),
             child: Padding(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 12,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               child: Row(
                 children: [
-                  Icon(
-                    Icons.tune_rounded,
-                    color: theme.colorScheme.primary,
-                  ),
+                  Icon(Icons.tune_rounded, color: theme.colorScheme.primary),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(

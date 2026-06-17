@@ -1,4 +1,4 @@
-﻿part of '../settings_screen.dart';
+part of '../settings_screen.dart';
 
 class _SubscriptionProviderSettingsScreen extends StatefulWidget {
   const _SubscriptionProviderSettingsScreen({
@@ -70,10 +70,10 @@ class _SubscriptionProviderSettingsScreenState
             ),
       items: [
         for (final interval in SubscriptionUpdateInterval.values)
-          CheckedPopupMenuItem<SubscriptionUpdateInterval>(
+          SelectedPopupMenuItem<SubscriptionUpdateInterval>(
             value: interval,
-            checked: interval == _settings.updateInterval,
-            child: Text(_subscriptionUpdateIntervalLabel(l, interval)),
+            selected: interval == _settings.updateInterval,
+            label: _subscriptionUpdateIntervalLabel(l, interval),
           ),
       ],
     );
@@ -138,27 +138,30 @@ class _SubscriptionProviderSettingsScreenState
                     tvLayoutPreference != TvLayoutPreference.vertical;
                 final gap = useTvChrome ? 14.0 : 10.0;
                 final scrollChild = Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      if (useTvChrome)
-                        TvSettingsSectionLabel(l.providerSubscriptionsHeading)
-                      else ...[
-                        Text(
-                          l.providerSubscriptionsHeading,
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    if (useTvChrome)
+                      TvSettingsSectionLabel(l.providerSubscriptionsHeading)
+                    else ...[
+                      Text(
+                        l.providerSubscriptionsHeading,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w800,
                         ),
-                        const SizedBox(height: 12),
-                      ],
-                      _row(
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    Builder(
+                      builder: (rowContext) => _row(
                         useTvChrome: useTvChrome,
                         compactWhenNarrow: compactWhenNarrow,
                         icon: Icons.update_rounded,
                         title: l.providerAutoUpdateIntervalTitle,
                         subtitle: l.providerAutoUpdateIntervalSubtitle,
                         onTap: useTvChrome
-                            ? () => unawaited(_showUpdateIntervalPicker(context))
+                            ? () => unawaited(
+                                _showUpdateIntervalPicker(rowContext),
+                              )
                             : null,
                         autofocus: useTvChrome,
                         trailing: PopupMenuButton<SubscriptionUpdateInterval>(
@@ -170,15 +173,12 @@ class _SubscriptionProviderSettingsScreenState
                           itemBuilder: (context) => [
                             for (final interval
                                 in SubscriptionUpdateInterval.values)
-                              CheckedPopupMenuItem<SubscriptionUpdateInterval>(
+                              SelectedPopupMenuItem<SubscriptionUpdateInterval>(
                                 value: interval,
-                                checked:
-                                    interval == _settings.updateInterval,
-                                child: Text(
-                                  _subscriptionUpdateIntervalLabel(
-                                    AppLocalizations.of(context),
-                                    interval,
-                                  ),
+                                selected: interval == _settings.updateInterval,
+                                label: _subscriptionUpdateIntervalLabel(
+                                  AppLocalizations.of(context),
+                                  interval,
                                 ),
                               ),
                           ],
@@ -201,77 +201,78 @@ class _SubscriptionProviderSettingsScreenState
                           ),
                         ),
                       ),
-                      SizedBox(height: gap),
-                      _row(
-                        useTvChrome: useTvChrome,
-                        compactWhenNarrow: compactWhenNarrow,
-                        icon: Icons.network_ping_rounded,
-                        title: l.providerPingAfterUpdateTitle,
-                        subtitle: l.providerPingAfterUpdateSubtitle,
-                        onTap: () => _setPingOnUpdate(!_settings.pingOnUpdate),
-                        trailing: Switch(
-                          value: _settings.pingOnUpdate,
-                          onChanged: _setPingOnUpdate,
-                        ),
+                    ),
+                    SizedBox(height: gap),
+                    _row(
+                      useTvChrome: useTvChrome,
+                      compactWhenNarrow: compactWhenNarrow,
+                      icon: Icons.network_ping_rounded,
+                      title: l.providerPingAfterUpdateTitle,
+                      subtitle: l.providerPingAfterUpdateSubtitle,
+                      onTap: () => _setPingOnUpdate(!_settings.pingOnUpdate),
+                      trailing: Switch(
+                        value: _settings.pingOnUpdate,
+                        onChanged: _setPingOnUpdate,
                       ),
-                      SizedBox(height: gap),
-                      _row(
-                        useTvChrome: useTvChrome,
-                        compactWhenNarrow: compactWhenNarrow,
-                        icon: Icons.rocket_launch_rounded,
-                        title: l.providerUpdateOnLaunchTitle,
-                        subtitle: l.providerUpdateOnLaunchSubtitle,
-                        onTap: () =>
-                            _setUpdateOnLaunch(!_settings.updateOnLaunch),
-                        trailing: Switch(
-                          value: _settings.updateOnLaunch,
-                          onChanged: _setUpdateOnLaunch,
-                        ),
+                    ),
+                    SizedBox(height: gap),
+                    _row(
+                      useTvChrome: useTvChrome,
+                      compactWhenNarrow: compactWhenNarrow,
+                      icon: Icons.rocket_launch_rounded,
+                      title: l.providerUpdateOnLaunchTitle,
+                      subtitle: l.providerUpdateOnLaunchSubtitle,
+                      onTap: () =>
+                          _setUpdateOnLaunch(!_settings.updateOnLaunch),
+                      trailing: Switch(
+                        value: _settings.updateOnLaunch,
+                        onChanged: _setUpdateOnLaunch,
                       ),
-                      SizedBox(height: gap),
-                      _row(
-                        useTvChrome: useTvChrome,
-                        compactWhenNarrow: compactWhenNarrow,
-                        icon: Icons.fingerprint_rounded,
-                        title: l.providerSendHwidTitle,
-                        subtitle: l.providerSendHwidSubtitle,
-                        onTap: () => _setSendHwid(!_settings.sendHwid),
-                        trailing: Switch(
-                          value: _settings.sendHwid,
-                          onChanged: _setSendHwid,
-                        ),
+                    ),
+                    SizedBox(height: gap),
+                    _row(
+                      useTvChrome: useTvChrome,
+                      compactWhenNarrow: compactWhenNarrow,
+                      icon: Icons.fingerprint_rounded,
+                      title: l.providerSendHwidTitle,
+                      subtitle: l.providerSendHwidSubtitle,
+                      onTap: () => _setSendHwid(!_settings.sendHwid),
+                      trailing: Switch(
+                        value: _settings.sendHwid,
+                        onChanged: _setSendHwid,
                       ),
-                      SizedBox(height: gap),
-                      _row(
-                        useTvChrome: useTvChrome,
-                        compactWhenNarrow: compactWhenNarrow,
-                        icon: Icons.gpp_maybe_rounded,
-                        title: l.providerAllowInsecureTitle,
-                        subtitle: l.providerAllowInsecureSubtitle,
-                        onTap: () =>
-                            _setAllowInsecureTls(!_settings.allowInsecureTls),
-                        trailing: Switch(
-                          value: _settings.allowInsecureTls,
-                          onChanged: _setAllowInsecureTls,
-                        ),
+                    ),
+                    SizedBox(height: gap),
+                    _row(
+                      useTvChrome: useTvChrome,
+                      compactWhenNarrow: compactWhenNarrow,
+                      icon: Icons.gpp_maybe_rounded,
+                      title: l.providerAllowInsecureTitle,
+                      subtitle: l.providerAllowInsecureSubtitle,
+                      onTap: () =>
+                          _setAllowInsecureTls(!_settings.allowInsecureTls),
+                      trailing: Switch(
+                        value: _settings.allowInsecureTls,
+                        onChanged: _setAllowInsecureTls,
                       ),
-                      SizedBox(height: gap),
-                      _row(
-                        useTvChrome: useTvChrome,
-                        compactWhenNarrow: compactWhenNarrow,
-                        icon: Icons.lock_rounded,
-                        title: l.providerProtectSubscriptionsTitle,
-                        subtitle: l.providerProtectSubscriptionsSubtitle,
-                        onTap: () => _setProtectSubscriptions(
-                          !_settings.protectSubscriptions,
-                        ),
-                        trailing: Switch(
-                          value: _settings.protectSubscriptions,
-                          onChanged: _setProtectSubscriptions,
-                        ),
+                    ),
+                    SizedBox(height: gap),
+                    _row(
+                      useTvChrome: useTvChrome,
+                      compactWhenNarrow: compactWhenNarrow,
+                      icon: Icons.lock_rounded,
+                      title: l.providerProtectSubscriptionsTitle,
+                      subtitle: l.providerProtectSubscriptionsSubtitle,
+                      onTap: () => _setProtectSubscriptions(
+                        !_settings.protectSubscriptions,
                       ),
-                    ],
-                  );
+                      trailing: Switch(
+                        value: _settings.protectSubscriptions,
+                        onChanged: _setProtectSubscriptions,
+                      ),
+                    ),
+                  ],
+                );
                 return useTvChrome
                     ? TvSettingsScrollView(child: scrollChild)
                     : SingleChildScrollView(

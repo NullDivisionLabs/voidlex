@@ -116,11 +116,13 @@ internal object QuickSettingsVpnConfigStore {
             "security=${server.security} tlsEnabled=${server.tlsEnabled} " +
             "tlsInsecure=${server.tlsInsecure} " +
             "sni=${server.effectiveSni} flow=${server.flow.ifBlank { "-" }} " +
+            "encryption=${server.vlessEncryption.ifBlank { "none" }} " +
             "alpn=${server.alpn.ifBlank { "-" }} " +
             "fingerprint=${server.fingerprint.ifBlank { "-" }} " +
             "pbk=${if (server.realityPublicKey.isNotBlank()) "present" else "empty"} " +
             "sidLen=${server.realityShortId.length} " +
             "spx=${if (server.realitySpiderX.isNotBlank()) "present" else "empty"} " +
+            "mldsa=${if (server.realityMldsa65Verify.isNotBlank()) "present" else "empty"} " +
             "uuid=${if (server.uuid.isNotBlank()) "present" else "empty"} " +
             "transportPath=${server.transportPath} " +
             "transportHost=${server.transportHost.ifBlank { "-" }} " +
@@ -129,8 +131,13 @@ internal object QuickSettingsVpnConfigStore {
             "xhttpPad=${if (server.xhttpPadding.isNotBlank()) server.xhttpPadding else "default"} " +
             "xhttpMaxPost=${if (server.xhttpMaxPostBytes.isNotBlank()) server.xhttpMaxPostBytes else "default"} " +
             "xhttpMinInt=${if (server.xhttpMinPostInterval.isNotBlank()) server.xhttpMinPostInterval else "default"} " +
-            "hy2Obfs=${if (server.hysteria2ObfsPassword.isNotBlank()) "present" else "empty"} " +
-            "hy2Hop=${server.hysteria2HopPorts.ifBlank { "-" }}"
+            "hy2Obfs=${server.hysteria2ObfsType.ifBlank { if (server.hysteria2ObfsPassword.isBlank()) "-" else "salamander" }} " +
+            "hy2Hop=${server.hysteria2HopPorts.ifBlank { "-" }} " +
+            "naiveUser=${if (server.naiveUsername.isNotBlank()) "present" else "empty"} " +
+            "naivePass=${if (server.naivePassword.isNotBlank()) "present" else "empty"} " +
+            "naiveQuic=${server.naiveQuic} " +
+            "naiveCc=${server.naiveQuicCongestionControl.ifBlank { "-" }} " +
+            "naiveHeaders=${if (server.naiveExtraHeadersJson == "{}") "empty" else "present"}"
     }
 
     /**
@@ -171,8 +178,19 @@ internal object QuickSettingsVpnConfigStore {
         val entry = tunnel.entry
         val outer = tunnel.outer
         val isGlobalProxy = prefs.boolean(KEY_GLOBAL_PROXY, false)
-        val tunEngineMode = TunEngineMode.fromWire(prefs.string(KEY_TUN_ENGINE_MODE)).wireName
+        val tunEngineMode = TunEngineMode.fromWire(prefs.string(KEY_TUN_ENGINE_MODE))
         val runMode = RunMode.fromWire(prefs.string(KEY_RUN_MODE))
+        val naiveRestriction = NaiveRuntimeConstraints.validationError(
+            protocol = outer.protocol,
+            detourProtocol = entry.protocol.takeIf { tunnel.isBridge },
+            tunEngineMode = tunEngineMode,
+            runMode = runMode,
+            isBridge = tunnel.isBridge,
+        )
+        if (naiveRestriction != null) {
+            AppLogger.w(TAG, "Rejecting NaiveProxy quick start: $naiveRestriction")
+            return null
+        }
 
         val presets = loadRoutingPresets(prefs)
         val mainPreset = presets.firstOrNull { it.isMain } ?: StoredRoutingPreset.main()
@@ -205,7 +223,7 @@ internal object QuickSettingsVpnConfigStore {
         }
         val intent = Intent(context, serviceClass).apply {
             putExtra(VoidVpnService.EXTRA_IS_GLOBAL_PROXY, isGlobalProxy)
-            putExtra(VoidVpnService.EXTRA_TUN_ENGINE, tunEngineMode)
+            putExtra(VoidVpnService.EXTRA_TUN_ENGINE, tunEngineMode.wireName)
             putExtra(VoidVpnService.EXTRA_APP_ROUTING_MODE, appRoutingPolicy.mode)
             putExtra(
                 VoidVpnService.EXTRA_APP_ROUTING_PACKAGES,
@@ -259,7 +277,7 @@ internal object QuickSettingsVpnConfigStore {
             TAG,
             "buildStartConfig: node=${entry.name} outer=${outer.name} " +
                 "bridge=${tunnel.isBridge} runMode=${runMode.wireName} " +
-                "global=$isGlobalProxy tunEngine=$tunEngineMode " +
+                "global=$isGlobalProxy tunEngine=${tunEngineMode.wireName} " +
                 "preset=${effectivePreset.name}/${effectivePreset.id} " +
                 "appRoutingMode=${appRoutingPolicy.mode} " +
                 "appRoutingPackages=${appRoutingPolicy.activePackages().size}",
@@ -554,17 +572,60 @@ internal object QuickSettingsVpnConfigStore {
         putExtra(prefix + VoidVpnService.EXTRA_TLS_SNI, server.effectiveSni)
         putExtra(prefix + VoidVpnService.EXTRA_TLS_INSECURE, server.tlsInsecure)
         putExtra(prefix + VoidVpnService.EXTRA_FLOW, server.flow)
+        putExtra(prefix + VoidVpnService.EXTRA_VLESS_ENCRYPTION, server.vlessEncryption)
         putExtra(prefix + VoidVpnService.EXTRA_SECURITY, server.security)
         putExtra(prefix + VoidVpnService.EXTRA_REALITY_PBK, server.realityPublicKey)
         putExtra(prefix + VoidVpnService.EXTRA_REALITY_SID, server.realityShortId)
         putExtra(prefix + VoidVpnService.EXTRA_REALITY_SPIDER_X, server.realitySpiderX)
+        putExtra(
+            prefix + VoidVpnService.EXTRA_REALITY_MLDSA65_VERIFY,
+            server.realityMldsa65Verify,
+        )
         putExtra(prefix + VoidVpnService.EXTRA_FINGERPRINT, server.fingerprint)
         putExtra(prefix + VoidVpnService.EXTRA_ALPN, server.alpn)
+        putExtra(prefix + VoidVpnService.EXTRA_HYSTERIA2_OBFS_TYPE, server.hysteria2ObfsType)
         putExtra(
             prefix + VoidVpnService.EXTRA_HYSTERIA2_OBFS_PASSWORD,
             server.hysteria2ObfsPassword,
         )
+        putExtra(
+            prefix + VoidVpnService.EXTRA_HYSTERIA2_OBFS_MIN_PACKET_SIZE,
+            server.hysteria2ObfsMinPacketSize,
+        )
+        putExtra(
+            prefix + VoidVpnService.EXTRA_HYSTERIA2_OBFS_MAX_PACKET_SIZE,
+            server.hysteria2ObfsMaxPacketSize,
+        )
         putExtra(prefix + VoidVpnService.EXTRA_HYSTERIA2_HOP_PORTS, server.hysteria2HopPorts)
+        putExtra(prefix + VoidVpnService.EXTRA_HYSTERIA2_HOP_INTERVAL, server.hysteria2HopInterval)
+        putExtra(
+            prefix + VoidVpnService.EXTRA_HYSTERIA2_HOP_INTERVAL_MAX,
+            server.hysteria2HopIntervalMax,
+        )
+        putExtra(prefix + VoidVpnService.EXTRA_HYSTERIA2_UP_MBPS, server.hysteria2UpMbps)
+        putExtra(prefix + VoidVpnService.EXTRA_HYSTERIA2_DOWN_MBPS, server.hysteria2DownMbps)
+        putExtra(prefix + VoidVpnService.EXTRA_HYSTERIA2_NETWORK, server.hysteria2Network)
+        putExtra(prefix + VoidVpnService.EXTRA_HYSTERIA2_BBR_PROFILE, server.hysteria2BbrProfile)
+        putExtra(prefix + VoidVpnService.EXTRA_NAIVE_USERNAME, server.naiveUsername)
+        putExtra(prefix + VoidVpnService.EXTRA_NAIVE_PASSWORD, server.naivePassword)
+        putExtra(prefix + VoidVpnService.EXTRA_NAIVE_QUIC, server.naiveQuic)
+        putExtra(
+            prefix + VoidVpnService.EXTRA_NAIVE_QUIC_CONGESTION_CONTROL,
+            server.naiveQuicCongestionControl,
+        )
+        putExtra(
+            prefix + VoidVpnService.EXTRA_NAIVE_INSECURE_CONCURRENCY,
+            server.naiveInsecureConcurrency,
+        )
+        putExtra(
+            prefix + VoidVpnService.EXTRA_NAIVE_EXTRA_HEADERS_JSON,
+            server.naiveExtraHeadersJson,
+        )
+        putExtra(prefix + VoidVpnService.EXTRA_NAIVE_UDP_OVER_TCP, server.naiveUdpOverTcp)
+        putExtra(
+            prefix + VoidVpnService.EXTRA_NAIVE_UDP_OVER_TCP_VERSION,
+            server.naiveUdpOverTcpVersion,
+        )
     }
 
     private fun Intent.putFragmentExtras(settings: XrayFragmentSettings) {
@@ -739,19 +800,41 @@ internal object QuickSettingsVpnConfigStore {
         val sni: String,
         val alpn: String,
         val flow: String,
+        val vlessEncryption: String = "",
         val fingerprint: String,
         val realityPublicKey: String,
         val realityShortId: String,
         val realitySpiderX: String,
+        val realityMldsa65Verify: String = "",
         val tlsInsecure: Boolean,
+        val hysteria2ObfsType: String = "",
         val hysteria2ObfsPassword: String,
+        val hysteria2ObfsMinPacketSize: Int = 0,
+        val hysteria2ObfsMaxPacketSize: Int = 0,
         val hysteria2HopPorts: String,
+        val hysteria2HopInterval: String = "",
+        val hysteria2HopIntervalMax: String = "",
+        val hysteria2UpMbps: Int = 0,
+        val hysteria2DownMbps: Int = 0,
+        val hysteria2Network: String = "",
+        val hysteria2BbrProfile: String = "",
+        val naiveUsername: String = "",
+        val naivePassword: String = "",
+        val naiveQuic: Boolean = false,
+        val naiveQuicCongestionControl: String = "",
+        val naiveInsecureConcurrency: Int = 0,
+        val naiveExtraHeadersJson: String = "{}",
+        val naiveUdpOverTcp: Boolean = false,
+        val naiveUdpOverTcpVersion: Int = 0,
     ) {
         val tlsEnabled: Boolean
             get() = security == "tls" || security == "reality"
 
         val effectiveSni: String
             get() = sni.ifBlank { address }
+
+        val isNaive: Boolean
+            get() = protocol == "naive"
 
         companion object {
             fun fromJson(json: JSONObject): StoredServer? {
@@ -779,19 +862,41 @@ internal object QuickSettingsVpnConfigStore {
                     sni = optString(json, "sni"),
                     alpn = optString(json, "alpn"),
                     flow = optString(json, "flow"),
+                    vlessEncryption = optString(json, "vlessEncryption"),
                     fingerprint = optString(json, "fingerprint"),
                     realityPublicKey = optString(json, "realityPublicKey"),
                     realityShortId = optString(json, "realityShortId"),
                     realitySpiderX = optString(json, "realitySpiderX"),
+                    realityMldsa65Verify = optString(json, "realityMldsa65Verify"),
                     tlsInsecure = json.optBoolean("tlsInsecure", false),
+                    hysteria2ObfsType = optString(json, "hysteria2ObfsType"),
                     hysteria2ObfsPassword = optString(json, "hysteria2ObfsPassword"),
+                    hysteria2ObfsMinPacketSize = optInt(json, "hysteria2ObfsMinPacketSize", 0),
+                    hysteria2ObfsMaxPacketSize = optInt(json, "hysteria2ObfsMaxPacketSize", 0),
                     hysteria2HopPorts = optString(json, "hysteria2HopPorts"),
+                    hysteria2HopInterval = optString(json, "hysteria2HopInterval"),
+                    hysteria2HopIntervalMax = optString(json, "hysteria2HopIntervalMax"),
+                    hysteria2UpMbps = optInt(json, "hysteria2UpMbps", 0),
+                    hysteria2DownMbps = optInt(json, "hysteria2DownMbps", 0),
+                    hysteria2Network = optString(json, "hysteria2Network"),
+                    hysteria2BbrProfile = optString(json, "hysteria2BbrProfile"),
+                    naiveUsername = optString(json, "naiveUsername"),
+                    naivePassword = optString(json, "naivePassword"),
+                    naiveQuic = json.optBoolean("naiveQuic", false),
+                    naiveQuicCongestionControl =
+                        optString(json, "naiveQuicCongestionControl"),
+                    naiveInsecureConcurrency = optInt(json, "naiveInsecureConcurrency", 0),
+                    naiveExtraHeadersJson =
+                        json.optJSONObject("naiveExtraHeaders")?.toString() ?: "{}",
+                    naiveUdpOverTcp = json.optBoolean("naiveUdpOverTcp", false),
+                    naiveUdpOverTcpVersion = optInt(json, "naiveUdpOverTcpVersion", 0),
                 )
             }
 
             private fun normalizeProtocol(raw: String): String {
                 return when (raw.trim().lowercase(Locale.ROOT).replace("-", "").replace("_", "")) {
                     "hysteria", "hysteria2", "hy2" -> "hysteria2"
+                    "naive", "naiveproxy" -> "naive"
                     else -> "vless"
                 }
             }

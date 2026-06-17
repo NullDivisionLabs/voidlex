@@ -33,6 +33,7 @@ class ServerRepositorySnapshot {
     required this.autoConnectOnLaunch,
     required this.restartConnectionOnSettingsChanges,
     required this.showGlobalProxyButton,
+    required this.showExitNodeInfoBar,
     required this.autoSortServersByPing,
     required this.latencyProbeTarget,
     required this.favoritesSectionCollapsed,
@@ -52,6 +53,7 @@ class ServerRepositorySnapshot {
     required this.multiplexSettings,
     required this.tunnelNetworkSettings,
     required this.subscriptionProviderSettings,
+    required this.geoDataAutoUpdateInterval,
     required this.killSwitchEnabled,
     required this.runMode,
     required this.hotspotBindEnabled,
@@ -69,6 +71,7 @@ class ServerRepositorySnapshot {
   final bool autoConnectOnLaunch;
   final bool restartConnectionOnSettingsChanges;
   final bool showGlobalProxyButton;
+  final bool showExitNodeInfoBar;
   final bool autoSortServersByPing;
   final LatencyProbeTarget latencyProbeTarget;
   final bool favoritesSectionCollapsed;
@@ -88,6 +91,7 @@ class ServerRepositorySnapshot {
   final MultiplexSettings multiplexSettings;
   final TunnelNetworkSettings tunnelNetworkSettings;
   final SubscriptionProviderSettings subscriptionProviderSettings;
+  final GeoDataAutoUpdateInterval geoDataAutoUpdateInterval;
   final bool killSwitchEnabled;
   final RunMode runMode;
   final bool hotspotBindEnabled;
@@ -110,6 +114,7 @@ class ServerRepository {
   static const _kRestartConnectionOnSettingsChanges =
       'void.restartConnectionOnSettingsChanges';
   static const _kShowGlobalProxyButton = 'void.showGlobalProxyButton';
+  static const _kShowExitNodeInfoBar = 'void.showExitNodeInfoBar';
   static const _kLegacyHideGlobalProxyButton = 'void.hideGlobalProxyButton';
   static const _kAutoSortServersByPing = 'void.autoSortServersByPing';
   static const _kLatencyProbeTarget = 'void.latencyProbeTarget';
@@ -148,6 +153,7 @@ class ServerRepository {
   static const _kGeoDataUrlPrefix = 'void.geoData.url.';
   static const _kGeoDataUpdatedAtPrefix = 'void.geoData.updatedAt.';
   static const _kGeoDataFileSizePrefix = 'void.geoData.fileSize.';
+  static const _kGeoDataAutoUpdateInterval = 'void.geoData.autoUpdateInterval';
   static const _kKillSwitchEnabled = 'void.killSwitchEnabled';
   static const _kRunMode = 'void.runMode';
   static const _kHotspotBindEnabled = 'void.hotspotBindEnabled';
@@ -219,6 +225,7 @@ class ServerRepository {
       showGlobalProxyButton:
           _prefs.getBool(_kShowGlobalProxyButton) ??
           !(_prefs.getBool(_kLegacyHideGlobalProxyButton) ?? true),
+      showExitNodeInfoBar: _prefs.getBool(_kShowExitNodeInfoBar) ?? true,
       autoSortServersByPing: _prefs.getBool(_kAutoSortServersByPing) ?? false,
       latencyProbeTarget: LatencyProbeTarget.decode(
         _prefs.getString(_kLatencyProbeTarget),
@@ -251,6 +258,7 @@ class ServerRepository {
       subscriptionProviderSettings: SubscriptionProviderSettings.decode(
         _prefs.getString(_kSubscriptionProviderSettings),
       ),
+      geoDataAutoUpdateInterval: loadGeoDataAutoUpdateInterval(),
       killSwitchEnabled: _prefs.getBool(_kKillSwitchEnabled) ?? false,
       runMode: RunMode.parse(_prefs.getString(_kRunMode)),
       hotspotBindEnabled: _prefs.getBool(_kHotspotBindEnabled) ?? false,
@@ -308,6 +316,10 @@ class ServerRepository {
 
   Future<void> saveShowGlobalProxyButton(bool value) async {
     await _prefs.setBool(_kShowGlobalProxyButton, value);
+  }
+
+  Future<void> saveShowExitNodeInfoBar(bool value) async {
+    await _prefs.setBool(_kShowExitNodeInfoBar, value);
   }
 
   Future<void> saveAutoSortServersByPing(bool value) async {
@@ -585,6 +597,18 @@ class ServerRepository {
         metadata.fileSize,
       );
     }
+  }
+
+  GeoDataAutoUpdateInterval loadGeoDataAutoUpdateInterval() {
+    return GeoDataAutoUpdateInterval.parse(
+      _prefs.getString(_kGeoDataAutoUpdateInterval),
+    );
+  }
+
+  Future<void> saveGeoDataAutoUpdateInterval(
+    GeoDataAutoUpdateInterval interval,
+  ) async {
+    await _prefs.setString(_kGeoDataAutoUpdateInterval, interval.wireName);
   }
 
   static String _geoDataKey(String prefix, GeoDataKind kind) {

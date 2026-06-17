@@ -27,7 +27,9 @@ internal object TunToSocksConfigBuilder {
         tunnelNetworkSettings: TunnelNetworkSettings = TunnelNetworkSettings(),
         proxyServer: ServerConfig? = null,
     ): String {
-        val useDirectHysteria2 = proxyServer != null && isHysteria2Protocol(proxyServer.protocol)
+        val directProxyServer = proxyServer?.takeIf {
+            isDirectLibboxProtocol(it.protocol)
+        }
         val networkSettings = tunnelNetworkSettings.normalized()
         return JSONObject().apply {
             put("log", buildLog())
@@ -36,14 +38,14 @@ internal object TunToSocksConfigBuilder {
                 "inbounds",
                 buildInbounds(
                     tunnelNetworkSettings = networkSettings,
-                    useDirectHysteria2 = useDirectHysteria2,
+                    useDirectProxy = directProxyServer != null,
                     proxyUser = proxyUser,
                     proxyPassword = proxyPassword,
                 ),
             )
             put("outbounds", JSONArray().apply {
-                if (useDirectHysteria2) {
-                    put(buildHysteria2Outbound(proxyServer!!))
+                if (directProxyServer != null) {
+                    put(buildDirectProxyOutbound(directProxyServer))
                 } else {
                     put(buildSocksOutbound(proxyUser, proxyPassword))
                 }
@@ -60,15 +62,17 @@ internal object TunToSocksConfigBuilder {
                 buildRoute(
                     isGlobalProxy = isGlobalProxy,
                     settings = networkSettings,
-                    routeProbeInbound = useDirectHysteria2,
+                    routeProbeInbound = directProxyServer != null,
                 ),
             )
         }.toString(2)
     }
 
-    private fun isHysteria2Protocol(protocol: String): Boolean {
+    private fun isDirectLibboxProtocol(protocol: String): Boolean {
         return protocol.equals("hysteria2", ignoreCase = true) ||
-            protocol.equals("hy2", ignoreCase = true)
+            protocol.equals("hy2", ignoreCase = true) ||
+            protocol.equals("naive", ignoreCase = true) ||
+            protocol.equals("naiveproxy", ignoreCase = true)
     }
 
     private fun buildLog(): JSONObject {
@@ -108,14 +112,14 @@ internal object TunToSocksConfigBuilder {
 
     private fun buildInbounds(
         tunnelNetworkSettings: TunnelNetworkSettings,
-        useDirectHysteria2: Boolean,
+        useDirectProxy: Boolean,
         proxyUser: String,
         proxyPassword: String,
     ): JSONArray {
         return JSONArray().apply {
             put(buildTunInbound(tunnelNetworkSettings))
-            if (useDirectHysteria2) {
-                // When libbox dials Hysteria2 directly, Xray is not running,
+            if (useDirectProxy) {
+                // When libbox dials the proxy directly, Xray is not running,
                 // so the external-IP probe must terminate inside sing-box.
                 put(buildProbeInbound(proxyUser, proxyPassword))
             }
@@ -214,11 +218,79 @@ internal object TunToSocksConfigBuilder {
             put("password", server.uuid)
             if (server.hysteria2ObfsPassword.isNotBlank()) {
                 put("obfs", JSONObject().apply {
-                    put("type", "salamander")
+                    val type = server.hysteria2ObfsType.ifBlank { "salamander" }
+                    put("type", type)
                     put("password", server.hysteria2ObfsPassword)
+                    if (type == "gecko" && server.hysteria2ObfsMinPacketSize > 0) {
+                        put("min_packet_size", server.hysteria2ObfsMinPacketSize)
+                    }
+                    if (type == "gecko" && server.hysteria2ObfsMaxPacketSize > 0) {
+                        put("max_packet_size", server.hysteria2ObfsMaxPacketSize)
+                    }
                 })
             }
+            if (server.hysteria2HopInterval.isNotBlank()) {
+                put("hop_interval", server.hysteria2HopInterval)
+            }
+            if (server.hysteria2HopIntervalMax.isNotBlank()) {
+                put("hop_interval_max", server.hysteria2HopIntervalMax)
+            }
+            if (server.hysteria2UpMbps > 0) put("up_mbps", server.hysteria2UpMbps)
+            if (server.hysteria2DownMbps > 0) put("down_mbps", server.hysteria2DownMbps)
+            if (server.hysteria2Network.isNotBlank()) put("network", server.hysteria2Network)
+            if (server.hysteria2BbrProfile.isNotBlank()) {
+                put("bbr_profile", server.hysteria2BbrProfile)
+            }
             put("tls", buildHysteria2Tls(server))
+        }
+    }
+
+    private fun buildDirectProxyOutbound(server: ServerConfig): JSONObject {
+        return if (server.protocol.equals("naive", ignoreCase = true) ||
+            server.protocol.equals("naiveproxy", ignoreCase = true)
+        ) {
+            buildNaiveOutbound(server)
+        } else {
+            buildHysteria2Outbound(server)
+        }
+    }
+
+    private fun buildNaiveOutbound(server: ServerConfig): JSONObject {
+        return JSONObject().apply {
+            put("type", "naive")
+            put("tag", PROXY_OUTBOUND_TAG)
+            put("server", server.server)
+            put("server_port", server.serverPort)
+            if (server.naiveUsername.isNotEmpty()) put("username", server.naiveUsername)
+            if (server.naivePassword.isNotEmpty()) put("password", server.naivePassword)
+            if (server.naiveQuic) {
+                put("quic", true)
+                if (server.naiveQuicCongestionControl.isNotBlank()) {
+                    put(
+                        "quic_congestion_control",
+                        server.naiveQuicCongestionControl.trim().lowercase(),
+                    )
+                }
+            }
+            if (server.naiveInsecureConcurrency > 0) {
+                put("insecure_concurrency", server.naiveInsecureConcurrency)
+            }
+            parseStringObject(server.naiveExtraHeadersJson)?.let {
+                if (it.length() > 0) put("extra_headers", it)
+            }
+            if (server.naiveUdpOverTcp) {
+                put("udp_over_tcp", JSONObject().apply {
+                    put("enabled", true)
+                    if (server.naiveUdpOverTcpVersion > 0) {
+                        put("version", server.naiveUdpOverTcpVersion)
+                    }
+                })
+            }
+            put("tls", JSONObject().apply {
+                put("enabled", true)
+                put("server_name", server.tlsSni.ifBlank { server.server })
+                if (server.tlsInsecure) put("insecure", true)
+            })
         }
     }
 
@@ -226,6 +298,22 @@ internal object TunToSocksConfigBuilder {
         return JSONObject().apply {
             put("type", "block")
             put("tag", BLOCK_OUTBOUND_TAG)
+        }
+    }
+
+    private fun parseStringObject(raw: String): JSONObject? {
+        return try {
+            val parsed = JSONObject(raw)
+            val output = JSONObject()
+            val keys = parsed.keys()
+            while (keys.hasNext()) {
+                val key = keys.next()
+                val value = parsed.opt(key)
+                if (value is String) output.put(key, value)
+            }
+            output
+        } catch (_: Exception) {
+            null
         }
     }
 

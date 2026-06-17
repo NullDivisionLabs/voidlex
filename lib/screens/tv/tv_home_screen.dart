@@ -12,6 +12,7 @@ import '../../core/server_repository.dart';
 import '../../core/tv_region_label.dart';
 import '../../core/vpn_controller.dart';
 import '../../l10n/app_localizations.dart';
+import '../../l10n/user_message_localizer.dart';
 import '../../theme.dart';
 import '../settings_screen.dart';
 import 'tv_focus_controller.dart';
@@ -51,6 +52,27 @@ class TvHomeScreen extends StatefulWidget {
   State<TvHomeScreen> createState() => _TvHomeScreenState();
 }
 
+/// Back / Escape action that only *consumes* the key when there is an overlay
+/// to dismiss. With no overlay open the key is left unhandled so the
+/// surrounding [PopScope] and the platform back-navigation path can run — on a
+/// real TV that lets BACK reach the launcher / app-exit instead of being
+/// silently swallowed by the shortcut layer.
+class _TvBackAction extends Action<TvBackIntent> {
+  _TvBackAction({required this.isOverlayOpen, required this.onBack});
+
+  final bool Function() isOverlayOpen;
+  final VoidCallback onBack;
+
+  @override
+  bool consumesKey(TvBackIntent intent) => isOverlayOpen();
+
+  @override
+  Object? invoke(TvBackIntent intent) {
+    onBack();
+    return null;
+  }
+}
+
 class _TvHomeScreenState extends State<TvHomeScreen> {
   /// Logical canvas the TV layout is composed for — matches the design
   /// canvas exactly. Everything inside `build` is sized at these
@@ -77,9 +99,14 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
     _showRemoteFocus = true;
     widget.controller.addListener(_handleControllerChanged);
     _focus.updateListLength(_flattenServers(_buildGroups(null)).length);
-    _clockTimer = Timer.periodic(const Duration(seconds: 30), (_) {
+    // Tick every second but only rebuild when the displayed HH:MM actually
+    // changes — keeps the clock from lagging up to ~30 s behind real time
+    // (the old 30 s period) without paying for a rebuild every second.
+    _clockTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
-      setState(() => _now = DateTime.now());
+      final now = DateTime.now();
+      if (now.hour == _now.hour && now.minute == _now.minute) return;
+      setState(() => _now = now);
     });
     // Real Google TV boxes have no status / navigation bars to begin
     // with, but on a phone in dev override the system chrome eats into
@@ -121,9 +148,13 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
 
   void _handleControllerChanged() {
     if (!mounted) return;
-    final groups = _buildGroups(null);
-    _focus.updateListLength(_flattenServers(groups).length);
-    setState(() {});
+    // Keep the focus row clamped when the node list grows / shrinks. The
+    // visual rebuild itself is driven by the AnimatedBuilder that already
+    // listens to the controller, so no explicit setState is needed here —
+    // updateListLength notifies the focus controller when it actually
+    // changes, and an unchanged length needs no rebuild beyond the one the
+    // AnimatedBuilder performs.
+    _focus.updateListLength(_flattenServers(_buildGroups(null)).length);
   }
 
   /// Composes the right-rail groups in the order they should be drawn:
@@ -152,12 +183,18 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
         ),
       );
     }
+    var headerCardAssigned = false;
     for (var i = 0; i < _controller.subscriptions.length; i++) {
       final sub = _controller.subscriptions[i];
       final servers = dedup(_controller.visibleSubscriptionServers(sub));
       if (servers.isEmpty) continue;
       TvSubscriptionSummary? summary;
-      if (i == 0 && l != null) {
+      // The rich header card goes to the first subscription that actually
+      // has visible nodes — not subscription index 0, which may be empty
+      // (all nodes hidden / deduped) and would otherwise leave every shown
+      // subscription with only a thin label.
+      if (!headerCardAssigned && l != null) {
+        headerCardAssigned = true;
         summary = TvSubscriptionSummary(
           name: sub.name,
           expiryLabel: _expiryLabel(l, sub),
@@ -212,7 +249,7 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
     }
     switch (_focus.column) {
       case TvFocusColumn.hub:
-        unawaited(_controller.toggleConnection());
+        _toggleOrCancelConnection();
         break;
       case TvFocusColumn.side:
         _activateSideRail(_focus.row);
@@ -221,6 +258,27 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
         final flat = _flattenServers(_buildGroups(null));
         if (_focus.row >= flat.length) return;
         _activateServer(flat[_focus.row], null);
+        break;
+    }
+  }
+
+  /// Hub OK / tap. Connects when idle, retries from an error, and — unlike
+  /// the bare [VpnController.toggleConnection] — tears the tunnel down while
+  /// it is still negotiating, so the CONNECT hub's "cancel" affordance is
+  /// real instead of a no-op while busy.
+  void _toggleOrCancelConnection() {
+    switch (_controller.connectionState) {
+      case VpnConnectionState.connected:
+      case VpnConnectionState.connecting:
+      case VpnConnectionState.preparing:
+        unawaited(_controller.disconnect());
+        break;
+      case VpnConnectionState.disconnecting:
+        // Already tearing down — nothing left to cancel.
+        break;
+      case VpnConnectionState.disconnected:
+      case VpnConnectionState.error:
+        unawaited(_controller.connect());
         break;
     }
   }
@@ -235,21 +293,34 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
     if (index >= 0) {
       _focus.setFocus(TvFocusColumn.list, row: index);
     }
-    unawaited(_controller.selectServer(server.name));
+    unawaited(_activateServerSelection(server));
+  }
+
+  Future<void> _activateServerSelection(ServerConfig server) async {
+    final error = await _controller.selectServer(server.name);
+    if (error != null && mounted) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(content: Text(localizeUserMessage(context, error))),
+        );
+      return;
+    }
     if (_controller.connectionState == VpnConnectionState.disconnected) {
-      unawaited(_controller.connect());
+      await _controller.connect();
     }
   }
 
   void _activateSideRail(int row) {
     switch (row) {
       case 0:
-        if (_controller.isGlobalProxy) {
-          unawaited(_controller.setGlobalProxy(false));
-        }
+        // SPLIT and GLOBAL are mutually exclusive modes, not a single
+        // toggle: OK on SPLIT always selects rule-based routing. `fromTvHome`
+        // bypasses the mobile-only "hide global button" gate.
+        unawaited(_controller.setGlobalProxy(false, fromTvHome: true));
         break;
       case 1:
-        unawaited(_controller.setGlobalProxy(!_controller.isGlobalProxy));
+        unawaited(_controller.setGlobalProxy(true, fromTvHome: true));
         break;
       case 2:
         _openPresetOverlay();
@@ -383,8 +454,9 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
       case TvFocusColumn.list:
         return l.tvActionSelectNode;
       case TvFocusColumn.side:
-        if (_focus.row == 3) return l.tvActionSelect;
-        return l.tvActionToggle;
+        // Every rail card picks a mode / opens a screen — none is a true
+        // in-place toggle, so the hint is always "select".
+        return l.tvActionSelect;
     }
   }
 
@@ -428,8 +500,8 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
             }),
           ),
           TvSideRailItem(
-            label: 'SETTINGS',
-            subtitle: 'CONFIG',
+            label: l.tvSideSettings,
+            subtitle: l.tvSideSettingsSub,
             active: false,
             onTap: () => _handlePointerAction(() {
               _focus.setFocus(TvFocusColumn.side, row: 3);
@@ -496,11 +568,11 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
                   return null;
                 },
               ),
-              TvBackIntent: CallbackAction<TvBackIntent>(
-                onInvoke: (_) {
+              TvBackIntent: _TvBackAction(
+                isOverlayOpen: () => _focus.isOverlayOpen,
+                onBack: () {
                   _showFocusForRemoteInput();
                   _onBack();
-                  return null;
                 },
               ),
               TvMenuIntent: CallbackAction<TvMenuIntent>(
@@ -646,9 +718,8 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
                         ),
                         downHistory: _controller.downloadBpsHistory,
                         upHistory: _controller.uploadBpsHistory,
-                        onHubTap: () => _handlePointerAction(
-                          () => unawaited(_controller.toggleConnection()),
-                        ),
+                        onHubTap: () =>
+                            _handlePointerAction(_toggleOrCancelConnection),
                       ),
                     ),
                     const SizedBox(width: 56),

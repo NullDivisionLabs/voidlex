@@ -7,6 +7,7 @@ import 'hysteria2_parser.dart';
 import 'subscription_client_identity.dart';
 import 'models/server_config.dart';
 import 'models/server_subscription.dart';
+import 'naive_parser.dart';
 import 'server_importer.dart';
 import 'vless_parser.dart';
 
@@ -17,6 +18,7 @@ enum ServerSubscriptionImportError {
   unsupportedFormat,
   invalidVless,
   invalidHysteria2,
+  invalidNaive,
 }
 
 class ServerSubscriptionImportException implements Exception {
@@ -25,12 +27,14 @@ class ServerSubscriptionImportException implements Exception {
     this.message, {
     this.vlessError,
     this.hysteria2Error,
+    this.naiveError,
   });
 
   final ServerSubscriptionImportError code;
   final String message;
   final VlessParseException? vlessError;
   final Hysteria2ParseException? hysteria2Error;
+  final NaiveParseException? naiveError;
 
   @override
   String toString() => 'ServerSubscriptionImportException($code): $message';
@@ -53,12 +57,14 @@ class ServerSubscriptionImportResult {
     String message, {
     VlessParseException? vlessError,
     Hysteria2ParseException? hysteria2Error,
+    NaiveParseException? naiveError,
   }) => ServerSubscriptionImportResult._(
     error: ServerSubscriptionImportException(
       code,
       message,
       vlessError: vlessError,
       hysteria2Error: hysteria2Error,
+      naiveError: naiveError,
     ),
   );
 }
@@ -94,6 +100,7 @@ extension ServerSubscriptionImportExceptionWire
             : 'subImportGenericDetail:$message';
       case ServerSubscriptionImportError.invalidVless:
       case ServerSubscriptionImportError.invalidHysteria2:
+      case ServerSubscriptionImportError.invalidNaive:
         return 'subImportGenericDetail:$message';
     }
   }
@@ -103,6 +110,7 @@ class ServerSubscriptionImporter {
   const ServerSubscriptionImporter({
     this.vlessParser = const VlessParser(),
     this.hysteria2Parser = const Hysteria2Parser(),
+    this.naiveParser = const NaiveParser(),
   });
 
   static const Duration _requestTimeout = Duration(seconds: 12);
@@ -110,6 +118,7 @@ class ServerSubscriptionImporter {
 
   final VlessParser vlessParser;
   final Hysteria2Parser hysteria2Parser;
+  final NaiveParser naiveParser;
 
   static Uri? tryParseSubscriptionUri(String raw) {
     final trimmed = raw.trim();
@@ -194,6 +203,7 @@ class ServerSubscriptionImporter {
         configsResult.error!.message,
         vlessError: configsResult.error!.vlessError,
         hysteria2Error: configsResult.error!.hysteria2Error,
+        naiveError: configsResult.error!.naiveError,
       );
     }
 
@@ -321,6 +331,7 @@ class ServerSubscriptionImporter {
     final result = ServerImporter(
       vlessParser: vlessParser,
       hysteria2Parser: hysteria2Parser,
+      naiveParser: naiveParser,
     ).parse(raw, existingNames: existingNames);
     if (result.isOk) {
       return _PayloadParseResult(configs: result.configs);
@@ -332,6 +343,7 @@ class ServerSubscriptionImporter {
         result.error?.message ?? 'Unsupported subscription JSON',
         vlessError: result.error?.vlessError,
         hysteria2Error: result.error?.hysteria2Error,
+        naiveError: result.error?.naiveError,
       ),
     );
   }
@@ -359,7 +371,8 @@ class ServerSubscriptionImporter {
           );
         }
         config = result.config!;
-      } else {
+      } else if (lower.startsWith('hysteria2://') ||
+          lower.startsWith('hy2://')) {
         final result = hysteria2Parser.parse(link, existingNames: names);
         if (result.isError) {
           return _PayloadParseResult(
@@ -368,6 +381,19 @@ class ServerSubscriptionImporter {
               ServerSubscriptionImportError.invalidHysteria2,
               result.error!.message,
               hysteria2Error: result.error,
+            ),
+          );
+        }
+        config = result.config!;
+      } else {
+        final result = naiveParser.parse(link, existingNames: names);
+        if (result.isError) {
+          return _PayloadParseResult(
+            configs: const [],
+            error: ServerSubscriptionImportException(
+              ServerSubscriptionImportError.invalidNaive,
+              result.error!.message,
+              naiveError: result.error,
             ),
           );
         }
@@ -382,7 +408,7 @@ class ServerSubscriptionImporter {
 
   List<String> _extractServerLinks(String raw) {
     final matches = RegExp(
-      r'''(?:vless|hysteria2|hy2)://[^\s<>"']+''',
+      r'''(?:vless|hysteria2|hy2|naive|naive\+https|naive\+quic)://[^\s<>"']+''',
       caseSensitive: false,
     ).allMatches(raw);
     return matches.map((match) => match.group(0)!.trim()).toList();
@@ -414,7 +440,10 @@ class ServerSubscriptionImporter {
     final lower = raw.toLowerCase();
     return lower.contains('vless://') ||
         lower.contains('hysteria2://') ||
-        lower.contains('hy2://');
+        lower.contains('hy2://') ||
+        lower.contains('naive://') ||
+        lower.contains('naive+https://') ||
+        lower.contains('naive+quic://');
   }
 
   String? _normalizeBase64(String raw) {

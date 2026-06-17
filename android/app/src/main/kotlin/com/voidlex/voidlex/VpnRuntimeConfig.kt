@@ -170,6 +170,33 @@ internal enum class RunMode(val wireName: String) {
     }
 }
 
+internal object NaiveRuntimeConstraints {
+    fun validationError(
+        protocol: String,
+        detourProtocol: String? = null,
+        tunEngineMode: TunEngineMode,
+        runMode: RunMode,
+        isBridge: Boolean,
+    ): String? {
+        if (!isNaive(protocol) && !isNaive(detourProtocol)) return null
+        if (runMode != RunMode.TUN) {
+            return "NaiveProxy is not available in proxy-only mode."
+        }
+        if (tunEngineMode != TunEngineMode.LIBBOX) {
+            return "NaiveProxy requires the libbox TUN engine; switch the engine in settings."
+        }
+        if (isBridge) {
+            return "NaiveProxy cannot be used in a two-hop chain."
+        }
+        return null
+    }
+
+    fun isNaive(protocol: String?): Boolean {
+        return protocol.equals("naive", ignoreCase = true) ||
+            protocol.equals("naiveproxy", ignoreCase = true)
+    }
+}
+
 internal data class ConnectionPolicy(
     val handshakeSeconds: Int = 4,
     val connIdleSeconds: Int = 60,
@@ -221,14 +248,33 @@ internal data class ServerConfig(
     val tlsSni: String,
     val tlsInsecure: Boolean,
     val flow: String,
+    val vlessEncryption: String = "",
     val security: String,
     val realityPbk: String,
     val realitySid: String,
     val realitySpiderX: String = "",
+    val realityMldsa65Verify: String = "",
     val fingerprint: String,
     val alpn: String,
+    val hysteria2ObfsType: String = "",
     val hysteria2ObfsPassword: String = "",
+    val hysteria2ObfsMinPacketSize: Int = 0,
+    val hysteria2ObfsMaxPacketSize: Int = 0,
     val hysteria2HopPorts: String = "",
+    val hysteria2HopInterval: String = "",
+    val hysteria2HopIntervalMax: String = "",
+    val hysteria2UpMbps: Int = 0,
+    val hysteria2DownMbps: Int = 0,
+    val hysteria2Network: String = "",
+    val hysteria2BbrProfile: String = "",
+    val naiveUsername: String = "",
+    val naivePassword: String = "",
+    val naiveQuic: Boolean = false,
+    val naiveQuicCongestionControl: String = "",
+    val naiveInsecureConcurrency: Int = 0,
+    val naiveExtraHeadersJson: String = "{}",
+    val naiveUdpOverTcp: Boolean = false,
+    val naiveUdpOverTcpVersion: Int = 0,
     val appRoutingMode: AppRoutingMode = AppRoutingMode.OFF,
     val appRoutingPackages: List<String> = emptyList(),
     val userRoutingRulesJson: String = "[]",

@@ -84,6 +84,21 @@ class AppLocalizationsEn extends AppLocalizations {
   String get themeSection => 'Theme';
 
   @override
+  String get settingsGroupInterface => 'Interface';
+
+  @override
+  String get settingsGroupConnection => 'Connection';
+
+  @override
+  String get settingsGroupNodes => 'Nodes';
+
+  @override
+  String get settingsGroupProfile => 'Profile';
+
+  @override
+  String get settingsGroupAdvanced => 'Advanced';
+
+  @override
   String get themeLight => 'Light';
 
   @override
@@ -176,6 +191,25 @@ class AppLocalizationsEn extends AppLocalizations {
       'Show the full-tunnel button on the home screen.';
 
   @override
+  String get applicationSettingsShowExitNodeTitle => 'Exit/Node widget';
+
+  @override
+  String get applicationSettingsShowExitNodeSubtitle =>
+      'Show connection details on the home screen.';
+
+  @override
+  String get exitInfoSpeedLabel => 'SPEED';
+
+  @override
+  String get exitInfoDownLabel => 'DOWN';
+
+  @override
+  String get exitInfoUpLabel => 'UP';
+
+  @override
+  String get exitInfoMemoryLabel => 'MEM';
+
+  @override
   String get applicationSettingsAutoSortServersByPingTitle => 'Sort by ping';
 
   @override
@@ -198,7 +232,17 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get profileExportProtectedSubscriptionsEncrypted =>
-      'Profile exported. Protected subscriptions are stored as encrypted codes.';
+      'Profile exported. Protected subscriptions are saved as obfuscated codes — hidden from casual viewing, not strong encryption.';
+
+  @override
+  String get profileExportWarningTitle => 'Export profile?';
+
+  @override
+  String get profileExportWarningBody =>
+      'The exported JSON contains your manual nodes in full, including UUIDs and passwords, in plain text. Store and share the file carefully.';
+
+  @override
+  String get profileExportWarningConfirm => 'Export';
 
   @override
   String profileExportFailed(String error) {
@@ -259,6 +303,31 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get deepLinkVpnControlColdStart =>
       'Open Void//Lex and use Connect in the app. VPN control links are ignored on cold start.';
+
+  @override
+  String get deepLinkConsentTitle => 'Open external link?';
+
+  @override
+  String get deepLinkConsentImportServers =>
+      'This link wants to add one or more servers to Void//Lex.';
+
+  @override
+  String get deepLinkConsentImportRuleset =>
+      'This link wants to download routing rules and add them. This may restart your active connection.';
+
+  @override
+  String get deepLinkConsentImportSubscription =>
+      'This link wants to import a subscription or server into Void//Lex.';
+
+  @override
+  String get deepLinkConsentSourceLabel => 'Source';
+
+  @override
+  String get deepLinkConsentHttpWarning =>
+      'This link uses plain HTTP (no TLS). Its contents can be read or modified in transit.';
+
+  @override
+  String get deepLinkConsentConfirm => 'Import';
 
   @override
   String get deepLinkRulesetInvalidUrl =>
@@ -383,6 +452,27 @@ class AppLocalizationsEn extends AppLocalizations {
   String get editServerPasswordLabel => 'Password / Auth';
 
   @override
+  String get editServerNaiveUsernameLabel => 'NaiveProxy username (optional)';
+
+  @override
+  String get editServerNaivePasswordLabel => 'NaiveProxy password (optional)';
+
+  @override
+  String get editServerNaiveModeLabel => 'NaiveProxy transport';
+
+  @override
+  String get editServerNaiveModeHttps => 'HTTPS / HTTP2';
+
+  @override
+  String get editServerNaiveModeQuic => 'QUIC';
+
+  @override
+  String get editServerNaiveCongestionControlLabel => 'QUIC congestion control';
+
+  @override
+  String get editServerNaiveCongestionControlAuto => 'Auto (BBR)';
+
+  @override
   String get editServerProtocolLabel => 'Protocol';
 
   @override
@@ -435,6 +525,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get editServerPasswordRequired => 'Password is required';
+
+  @override
+  String get editServerUuidRequired => 'UUID is required';
 
   @override
   String get editServerNameDuplicate => 'Server name already exists';
@@ -497,10 +590,135 @@ class AppLocalizationsEn extends AppLocalizations {
       'Default: 10-50 (packet-up only)';
 
   @override
+  String get editServerAdvancedTitle => 'Advanced';
+
+  @override
+  String get editServerAuto => 'Auto';
+
+  @override
+  String get editServerFlowLabel => 'VLESS flow';
+
+  @override
+  String get editServerFlowHelper =>
+      'XTLS Vision flow. Usually used with TCP + TLS/Reality.';
+
+  @override
+  String get editServerEncryptionLabel => 'VLESS encryption';
+
+  @override
+  String get editServerEncryptionHelper =>
+      'Leave blank for none. Advanced values may be long.';
+
+  @override
+  String get editServerRealitySpiderXLabel => 'Reality spiderX';
+
+  @override
+  String get editServerRealitySpiderXHelper => 'Optional initial crawler path.';
+
+  @override
+  String get editServerRealityMldsaLabel => 'Reality ML-DSA-65 verify';
+
+  @override
+  String get editServerRealityMldsaHelper =>
+      'Optional post-quantum verification key.';
+
+  @override
+  String get editServerHysteriaObfsTypeLabel => 'Obfuscation';
+
+  @override
+  String get editServerHysteriaObfsNone => 'None';
+
+  @override
+  String get editServerHysteriaObfsMinPacketLabel =>
+      'Gecko minimum packet size';
+
+  @override
+  String get editServerHysteriaObfsMaxPacketLabel =>
+      'Gecko maximum packet size';
+
+  @override
+  String get editServerHysteriaHopIntervalLabel => 'Port hopping interval';
+
+  @override
+  String get editServerHysteriaHopIntervalMaxLabel =>
+      'Maximum port hopping interval';
+
+  @override
+  String get editServerHysteriaUpMbpsLabel => 'Upload bandwidth (Mbps)';
+
+  @override
+  String get editServerHysteriaDownMbpsLabel => 'Download bandwidth (Mbps)';
+
+  @override
+  String get editServerHysteriaNetworkLabel => 'Proxied network';
+
+  @override
+  String get editServerHysteriaNetworkBoth => 'TCP and UDP';
+
+  @override
+  String get editServerHysteriaBbrProfileLabel => 'BBR profile';
+
+  @override
+  String get editServerNaiveInsecureConcurrencyLabel => 'Insecure concurrency';
+
+  @override
+  String get editServerNaiveInsecureConcurrencyHelper =>
+      'Extra parallel connections used before authentication is confirmed.';
+
+  @override
+  String get editServerNaiveExtraHeadersLabel => 'Extra HTTP headers';
+
+  @override
+  String get editServerNaiveAddHeader => 'Add header';
+
+  @override
+  String get editServerNaiveHeaderNameLabel => 'Header';
+
+  @override
+  String get editServerNaiveHeaderValueLabel => 'Value';
+
+  @override
+  String get editServerNaiveUdpOverTcpLabel => 'UDP over TCP';
+
+  @override
+  String get editServerNaiveUdpOverTcpVersionLabel => 'UDP over TCP version';
+
+  @override
+  String get editServerAdvancedObfsPasswordRequired =>
+      'Obfs password is required';
+
+  @override
+  String get editServerAdvancedRangeOrder =>
+      'Maximum must be greater than or equal to minimum';
+
+  @override
+  String get editServerAdvancedPositiveInteger => 'Enter a positive integer';
+
+  @override
+  String get editServerAdvancedIntegerMax =>
+      'Enter a positive integer up to 2048';
+
+  @override
+  String get editServerAdvancedDurationInvalid =>
+      'Use a Go duration such as 30s or 1m30s';
+
+  @override
+  String get editServerAdvancedHeaderRequired => 'Header name is required';
+
+  @override
+  String get editServerAdvancedHeaderDuplicate => 'Header names must be unique';
+
+  @override
+  String get editServerAdvancedHeaderNewline => 'New lines are not allowed';
+
+  @override
   String get protocolVless => 'VLESS';
 
   @override
   String get protocolHysteria2 => 'Hysteria2';
+
+  @override
+  String get protocolNaive => 'NaiveProxy';
 
   @override
   String get transportTcp => 'TCP';
@@ -578,7 +796,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsProtocolLabel => 'Protocol';
 
   @override
-  String get settingsProtocolValue => 'VLESS · Hysteria2';
+  String get settingsProtocolValue => 'VLESS · Hysteria2 · NaiveProxy';
 
   @override
   String get settingsXrayCoreLabel => 'xray-core';
@@ -596,7 +814,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get logsNoCopyText => 'No logs to copy.';
 
   @override
-  String get logsCopiedText => 'Logs copied.';
+  String get logsCopiedText =>
+      'Logs copied. They may contain sensitive details — keep them private.';
 
   @override
   String get logsNoExportText => 'No logs to export.';
@@ -617,7 +836,8 @@ class AppLocalizationsEn extends AppLocalizations {
   String get logsClearTooltip => 'Clear';
 
   @override
-  String get homeServerCopied => 'Server copied.';
+  String get homeServerCopied =>
+      'Server link copied. It contains your credentials — keep it private.';
 
   @override
   String get homeNodePresetTitle => 'Node preset';
@@ -832,6 +1052,22 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get vpnConnectionTimedOut => 'VPN connection timed out';
+
+  @override
+  String get vpnNaiveRequiresLibbox =>
+      'NaiveProxy requires the libbox TUN engine';
+
+  @override
+  String get vpnNaiveTunOnly =>
+      'NaiveProxy is not available in proxy-only mode';
+
+  @override
+  String get vpnNaiveBridgeUnsupported =>
+      'NaiveProxy cannot be used in a two-hop chain';
+
+  @override
+  String get vpnNaiveExitUnsupported =>
+      'NaiveProxy cannot be selected as an exit node';
 
   @override
   String vpnEventChannelError(String error) {
@@ -1091,6 +1327,50 @@ class AppLocalizationsEn extends AppLocalizations {
   String get editServerCopyAsJson => 'JSON config';
 
   @override
+  String get editServerCopyAsQr => 'QR code';
+
+  @override
+  String get editServerQrTitle => 'Server QR code';
+
+  @override
+  String get editServerQrHint => 'Scan to import this server';
+
+  @override
+  String get editServerUrlCopied =>
+      'Server URL copied. It contains your credentials — keep it private.';
+
+  @override
+  String get editServerJsonCopied =>
+      'Server JSON copied. It contains your credentials — keep it private.';
+
+  @override
+  String get editServerAdvancedUrlOmitted =>
+      'URL/QR omits non-standard advanced tuning. Use JSON or a Voidlex profile for a complete export.';
+
+  @override
+  String get editServerShowJson => 'Edit as JSON';
+
+  @override
+  String get editServerShowForm => 'Return to form';
+
+  @override
+  String get editServerJsonEditorLabel => 'Voidlex server JSON';
+
+  @override
+  String get editServerJsonEditorHelper =>
+      'Edit one supported server configuration. Saving applies the JSON to this server.';
+
+  @override
+  String get editServerJsonInvalid =>
+      'JSON must contain exactly one valid supported server configuration.';
+
+  @override
+  String get settingsHwidLoading => 'Loading…';
+
+  @override
+  String get settingsHwidUnavailable => 'Unavailable';
+
+  @override
   String get providerSettingsTitle => 'Provider settings';
 
   @override
@@ -1139,18 +1419,18 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get providerProtectSubscriptionsSubtitle =>
-      'Disable editing of subscription nodes and export subscriptions only as encrypted codes.';
+      'Disable editing of subscription nodes and export subscriptions only as obfuscated codes (hidden from casual viewing, not strong encryption).';
 
   @override
-  String get subscriptionShareEncrypted => 'Share encrypted code';
+  String get subscriptionShareEncrypted => 'Share obfuscated code';
 
   @override
   String get subscriptionShareEncryptedCopied =>
-      'Encrypted subscription code copied to clipboard.';
+      'Obfuscated subscription code copied. It still contains your subscription URL — keep it private.';
 
   @override
   String get subscriptionShareEncryptedFailed =>
-      'Failed to generate encrypted code.';
+      'Failed to generate obfuscated code.';
 
   @override
   String get subscriptionHideNa => 'Hide N/A';
@@ -1159,8 +1439,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get subscriptionShowNa => 'Show N/A';
 
   @override
-  String get subscriptionImportEncryptedFailed =>
-      'Invalid or corrupted encrypted code.';
+  String get subscriptionImportEncryptedFailed => 'Invalid or corrupted code.';
 
   @override
   String get subscriptionIntervalOneHour => '1 hour';
@@ -1179,6 +1458,25 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get geoFilesAppBarTitle => 'Geo files';
+
+  @override
+  String get geoAutoUpdateTitle => 'Geo file auto-update';
+
+  @override
+  String get geoAutoUpdateSubtitle =>
+      'Automatically updates Geo files that use saved URLs.';
+
+  @override
+  String get geoAutoUpdateDisabled => 'Disabled';
+
+  @override
+  String get geoAutoUpdateOneDay => 'Every day';
+
+  @override
+  String get geoAutoUpdateThreeDays => 'Every 3 days';
+
+  @override
+  String get geoAutoUpdateSevenDays => 'Every 7 days';
 
   @override
   String geoUpdateFileTitle(String fileName) {
@@ -1411,6 +1709,26 @@ class AppLocalizationsEn extends AppLocalizations {
       'Salamander obfuscation password is missing';
 
   @override
+  String get importNaiveWrongScheme =>
+      'Link is not a supported NaiveProxy link';
+
+  @override
+  String get importNaiveMalformedUri => 'NaiveProxy link is malformed';
+
+  @override
+  String get importNaiveMissingHost => 'NaiveProxy host is missing';
+
+  @override
+  String get importNaiveInvalidPort => 'NaiveProxy port is out of range';
+
+  @override
+  String get importNaiveInvalidMode => 'NaiveProxy mode must be HTTPS or QUIC';
+
+  @override
+  String get importNaiveInvalidCongestionControl =>
+      'NaiveProxy QUIC congestion control is not supported';
+
+  @override
   String get importVlessMalformedUri => 'Link is malformed';
 
   @override
@@ -1465,6 +1783,21 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get tunnelSettingsTitle => 'Tunnel settings';
+
+  @override
+  String get tunnelGroupNetwork => 'Network';
+
+  @override
+  String get tunnelGroupTrafficDns => 'Traffic and DNS';
+
+  @override
+  String get tunnelGroupOptimization => 'Optimization';
+
+  @override
+  String get tunnelGroupAdvanced => 'Advanced';
+
+  @override
+  String get tunnelGroupLocalProxy => 'Local proxy';
 
   @override
   String get tunnelUseLocalDns => 'Use local DNS';
@@ -1744,7 +2077,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tvSidePreset => 'PRESET';
 
   @override
-  String get tvSidePresetSub => 'STREAMING';
+  String get tvSidePresetSub => 'RULE SET';
+
+  @override
+  String get tvSideSettings => 'SETTINGS';
+
+  @override
+  String get tvSideSettingsSub => 'CONFIG';
 
   @override
   String get tvActionConnect => 'CONNECT';
@@ -1792,14 +2131,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tvActionPlayPauseKey => 'PLAY/PAUSE';
 
   @override
-  String get tvHintRemoteFooter => 'D-PAD · NAVIGATE  ·  HOLD OK FOR DETAILS';
+  String get tvHintRemoteFooter => 'D-PAD · NAVIGATE';
 
   @override
   String get tvOverlaySubscriptionsTitle => 'SUBSCRIPTIONS';
 
   @override
   String get tvOverlaySubscriptionsSubtitle =>
-      'Select to expand · MENU for actions';
+      'Imported subscriptions · BACK to close';
 
   @override
   String get tvOverlaySubscriptionsEmpty => 'No subscriptions imported yet.';
@@ -2075,7 +2414,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get runModeProxyOnlySubtitle =>
-      'Run a local HTTP/SOCKS5 proxy without the VPN icon. Only apps that support a proxy will use it; mobile data routes directly. Configure the proxy manually in Wi-Fi / browser.';
+      'Run a local HTTP/SOCKS5 proxy without the VPN icon. Only apps that support a proxy will use it; mobile data routes directly. Configure the proxy manually in Wi-Fi / browser. Note: the proxy port is reachable by other devices on the same Wi-Fi / hotspot (a username and password are required).';
 
   @override
   String get httpProxyAuthTitle => 'HTTP proxy authorization';
