@@ -128,6 +128,7 @@ class _ServerAdvancedFieldsState extends State<ServerAdvancedFields> {
   late String _bbrProfile;
   late bool _udpOverTcp;
   late int _udpOverTcpVersion;
+  bool _obfsPasswordObscured = true;
 
   late final TextEditingController _encryptionController;
   late final TextEditingController _spiderXController;
@@ -367,6 +368,7 @@ class _ServerAdvancedFieldsState extends State<ServerAdvancedFields> {
         _text(
           controller: _obfsPasswordController,
           label: l.editServerObfsPasswordLabel,
+          secret: true,
           validator: (value) => value == null || value.trim().isEmpty
               ? l.editServerAdvancedObfsPasswordRequired
               : null,
@@ -580,11 +582,7 @@ class _ServerAdvancedFieldsState extends State<ServerAdvancedFields> {
   Widget _fieldShell({required String label, required Widget child}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        _fieldLabel(label),
-        const SizedBox(height: 6),
-        child,
-      ],
+      children: [_fieldLabel(label), const SizedBox(height: 6), child],
     );
   }
 
@@ -597,7 +595,9 @@ class _ServerAdvancedFieldsState extends State<ServerAdvancedFields> {
     required TextEditingController controller,
     required String label,
     String? Function(String?)? validator,
+    bool secret = false,
   }) {
+    final l = AppLocalizations.of(context);
     return _fieldShell(
       label: label,
       child: TextFormField(
@@ -605,17 +605,41 @@ class _ServerAdvancedFieldsState extends State<ServerAdvancedFields> {
         enabled: widget.enabled,
         maxLines: 1,
         validator: validator,
+        obscureText: secret && _obfsPasswordObscured,
+        autocorrect: !secret,
+        enableSuggestions: !secret,
+        smartDashesType: secret
+            ? SmartDashesType.disabled
+            : SmartDashesType.enabled,
+        smartQuotesType: secret
+            ? SmartQuotesType.disabled
+            : SmartQuotesType.enabled,
+        autofillHints: secret ? const <String>[] : null,
         onChanged: (_) => _emit(),
         style: _monoFieldStyle,
-        decoration: _plainDecoration,
+        decoration: _plainDecoration.copyWith(
+          suffixIcon: secret
+              ? IconButton(
+                  tooltip: _obfsPasswordObscured ? l.show : l.hide,
+                  onPressed: widget.enabled
+                      ? () => setState(
+                          () => _obfsPasswordObscured = !_obfsPasswordObscured,
+                        )
+                      : null,
+                  icon: Icon(
+                    _obfsPasswordObscured
+                        ? Icons.visibility_rounded
+                        : Icons.visibility_off_rounded,
+                  ),
+                )
+              : null,
+        ),
       ),
     );
   }
 
-  TextStyle get _monoFieldStyle => const TextStyle(
-    fontFamily: 'monospace',
-    fontWeight: FontWeight.w500,
-  );
+  TextStyle get _monoFieldStyle =>
+      const TextStyle(fontFamily: 'monospace', fontWeight: FontWeight.w500);
 
   Widget _integer({
     required TextEditingController controller,

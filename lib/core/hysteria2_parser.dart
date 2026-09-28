@@ -114,10 +114,10 @@ class Hysteria2Parser {
     }
     final obfsPassword =
         _firstQueryValue(query, const ['obfs-password', 'obfsPassword']) ?? '';
-    if (obfs == 'salamander' && obfsPassword.isEmpty) {
+    if (obfs != null && obfsPassword.isEmpty) {
       return Hysteria2ParseResult.fail(
         Hysteria2ParseError.missingObfsPassword,
-        'Salamander obfuscation password is missing',
+        '${obfs == 'gecko' ? 'Gecko' : 'Salamander'} obfuscation password is missing',
       );
     }
 

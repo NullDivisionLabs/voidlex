@@ -269,6 +269,33 @@ void main() {
       expect(result.isError, isTrue);
       expect(result.error!.code, Hysteria2ParseError.unsupportedObfs);
     });
+
+    test('parses Gecko obfuscation without inventing JSON-only sizes', () {
+      final result = hysteria2Parser.parse(
+        'hysteria2://secret@example.net:443?'
+        'obfs=gecko&obfs-password=mask#Gecko',
+      );
+
+      expect(result.isOk, isTrue);
+      expect(result.config!.hysteria2ObfsType, 'gecko');
+      expect(result.config!.hysteria2ObfsPassword, 'mask');
+      expect(result.config!.hysteria2ObfsMinPacketSize, 0);
+      expect(result.config!.hysteria2ObfsMaxPacketSize, 0);
+    });
+
+    test('rejects Gecko and Salamander without an obfs password', () {
+      for (final type in const ['gecko', 'salamander']) {
+        final result = hysteria2Parser.parse(
+          'hysteria2://secret@example.net:443?obfs=$type#Missing',
+        );
+        expect(result.isError, isTrue, reason: type);
+        expect(
+          result.error!.code,
+          Hysteria2ParseError.missingObfsPassword,
+          reason: type,
+        );
+      }
+    });
   });
 
   group('ServerConfig JSON round-trip', () {
@@ -692,6 +719,20 @@ void main() {
       expect(servers.last.uuid, 'secret');
     });
 
+    test('imports Gecko Hysteria2 from a subscription', () {
+      final result = importer.parsePayload(
+        url: 'https://sub.example.net/list',
+        id: 'sub_gecko',
+        payload:
+            'hy2://secret@hy2.example.net:443?obfs=gecko&obfs-password=mask#Gecko',
+      );
+
+      expect(result.isOk, isTrue);
+      final server = result.subscription!.servers.single;
+      expect(server.hysteria2ObfsType, 'gecko');
+      expect(server.hysteria2ObfsPassword, 'mask');
+    });
+
     test('decodes base64 profile-title header', () {
       final title = base64.encode(utf8.encode('Header Title'));
       final result = importer.parsePayload(
@@ -746,6 +787,27 @@ void main() {
 
       expect(result.isOk, isTrue);
       expect(hwid, 'device-123');
+    });
+
+    test('blocks redirect to private or internal IP address', () async {
+      final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      addTearDown(() => server.close(force: true));
+
+      server.listen((request) async {
+        request.response
+          ..statusCode = HttpStatus.movedTemporarily
+          ..headers.set(HttpHeaders.locationHeader, 'http://192.168.1.1/secret')
+          ..write('redirecting');
+        await request.response.close();
+      });
+
+      final result = await importer.importFromUrl(
+        'http://127.0.0.1:${server.port}/sub',
+        id: 'sub_ssrf',
+      );
+
+      expect(result.isError, isTrue);
+      expect(result.error?.code, ServerSubscriptionImportError.network);
     });
   });
 

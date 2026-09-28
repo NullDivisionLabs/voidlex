@@ -6,6 +6,8 @@ import android.appwidget.AppWidgetProvider
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
+import android.util.TypedValue
 import android.widget.RemoteViews
 
 enum class VoidLexWidgetSize {
@@ -112,10 +114,11 @@ open class VoidLexAppWidgetProvider : AppWidgetProvider() {
         ): RemoteViews {
             val size = fixedSize ?: resolveSize(appWidgetManager, appWidgetId)
             val runtime = RuntimeUi.from(runtimeState())
+            val widgetOptions = appWidgetManager.getAppWidgetOptions(appWidgetId)
             return when (size) {
                 VoidLexWidgetSize.COMPACT -> {
                     RemoteViews(context.packageName, R.layout.widget_void_compact).apply {
-                        setCompactHubState(runtime)
+                        setCompactHubState(context, widgetOptions, runtime)
                         setOnClickPendingIntent(
                             R.id.widget_root,
                             activityPendingIntent(
@@ -132,7 +135,11 @@ open class VoidLexAppWidgetProvider : AppWidgetProvider() {
                         context.packageName,
                         R.layout.widget_void_global_proxy_compact,
                     ).apply {
-                        setGlobalProxyCompactHubState(snapshot.isGlobalProxy)
+                        setGlobalProxyCompactHubState(
+                            context,
+                            widgetOptions,
+                            snapshot.isGlobalProxy,
+                        )
                         setOnClickPendingIntent(
                             R.id.widget_root,
                             activityPendingIntent(
@@ -199,12 +206,25 @@ open class VoidLexAppWidgetProvider : AppWidgetProvider() {
             }
         }
 
-        private fun RemoteViews.setCompactHubState(runtime: RuntimeUi) {
+        private fun RemoteViews.setCompactHubState(
+            context: Context,
+            widgetOptions: android.os.Bundle,
+            runtime: RuntimeUi,
+        ) {
             setImageViewResource(R.id.widget_hub, runtime.compactTriangleRes)
             setImageViewResource(R.id.widget_hub_slash, runtime.slashRes)
+            applyCompactSlashLayout(
+                context,
+                widgetOptions,
+                orientation = CompactTriangleOrientation.UPRIGHT,
+            )
         }
 
-        private fun RemoteViews.setGlobalProxyCompactHubState(globalProxy: Boolean) {
+        private fun RemoteViews.setGlobalProxyCompactHubState(
+            context: Context,
+            widgetOptions: android.os.Bundle,
+            globalProxy: Boolean,
+        ) {
             val triangleRes = if (globalProxy) {
                 R.drawable.widget_triangle_global_proxy_on
             } else {
@@ -217,6 +237,33 @@ open class VoidLexAppWidgetProvider : AppWidgetProvider() {
             }
             setImageViewResource(R.id.widget_hub, triangleRes)
             setImageViewResource(R.id.widget_hub_slash, slashRes)
+            applyCompactSlashLayout(
+                context,
+                widgetOptions,
+                orientation = CompactTriangleOrientation.INVERTED,
+            )
+        }
+
+        private fun RemoteViews.applyCompactSlashLayout(
+            context: Context,
+            widgetOptions: android.os.Bundle,
+            orientation: CompactTriangleOrientation,
+        ) {
+            val layout = WidgetCompactLayout.slashLayout(widgetOptions, orientation)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                setViewLayoutWidth(
+                    R.id.widget_hub_slash,
+                    layout.widthDp.toFloat(),
+                    TypedValue.COMPLEX_UNIT_DIP,
+                )
+                setViewLayoutHeight(
+                    R.id.widget_hub_slash,
+                    layout.heightDp.toFloat(),
+                    TypedValue.COMPLEX_UNIT_DIP,
+                )
+            }
+            val translationPx = layout.translationYDp * context.resources.displayMetrics.density
+            setFloat(R.id.widget_hub_slash, "setTranslationY", translationPx)
         }
 
         private fun RemoteViews.setHubState(runtime: RuntimeUi) {

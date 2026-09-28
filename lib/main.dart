@@ -5,26 +5,25 @@ import 'package:flutter/services.dart';
 
 import 'core/app_locale.dart';
 import 'core/server_repository.dart';
+import 'core/subscription_client_identity.dart';
 import 'core/tv_layout_preference.dart';
 import 'core/tv_mode_detector.dart';
 import 'core/vpn_controller.dart';
 import 'l10n/app_localizations.dart';
 import 'screens/home_screen.dart';
 import 'screens/tv/tv_home_screen.dart';
+import 'screens/widgets/deep_link_consent_gate.dart';
 import 'theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await SubscriptionClientIdentity.init();
   final repository = await ServerRepository.open();
   final controller = VpnController(repository);
   await controller.bootstrap();
   final tvMode = await TvModeDetector.detect();
   runApp(
-    VoidLexApp(
-      controller: controller,
-      repository: repository,
-      tvMode: tvMode,
-    ),
+    VoidLexApp(controller: controller, repository: repository, tvMode: tvMode),
   );
 }
 
@@ -44,8 +43,7 @@ class VoidLexApp extends StatefulWidget {
   State<VoidLexApp> createState() => _VoidLexAppState();
 }
 
-class _VoidLexAppState extends State<VoidLexApp>
-    with WidgetsBindingObserver {
+class _VoidLexAppState extends State<VoidLexApp> with WidgetsBindingObserver {
   static const Duration _autoPingScanCooldown = Duration(minutes: 1);
 
   late bool _isDarkTheme;
@@ -213,37 +211,40 @@ class _VoidLexAppState extends State<VoidLexApp>
         locale: effectiveLocale,
         supportedLocales: AppLocalizations.supportedLocales,
         localizationsDelegates: AppLocalizations.localizationsDelegates,
-        home: ValueListenableBuilder<TvLayoutPreference>(
-          valueListenable: widget.repository.tvLayoutPreferenceListenable,
-          builder: (context, pref, _) {
-            // `OrientationBuilder` rebuilds when the device flips
-            // between portrait and landscape, which lets `autoRotate`
-            // hand portrait back to the mobile [HomeScreen] and lift
-            // landscape into [TvHomeScreen] without restarting either.
-            return OrientationBuilder(
-              builder: (context, orientation) {
-                final useTv = _shouldUseTvLayout(pref, orientation);
-                if (useTv) {
-                  return TvHomeScreen(
+        home: DeepLinkConsentGate(
+          controller: widget.controller,
+          child: ValueListenableBuilder<TvLayoutPreference>(
+            valueListenable: widget.repository.tvLayoutPreferenceListenable,
+            builder: (context, pref, _) {
+              // `OrientationBuilder` rebuilds when the device flips
+              // between portrait and landscape, which lets `autoRotate`
+              // hand portrait back to the mobile [HomeScreen] and lift
+              // landscape into [TvHomeScreen] without restarting either.
+              return OrientationBuilder(
+                builder: (context, orientation) {
+                  final useTv = _shouldUseTvLayout(pref, orientation);
+                  if (useTv) {
+                    return TvHomeScreen(
+                      controller: widget.controller,
+                      repository: widget.repository,
+                      tvMode: widget.tvMode,
+                      isDarkTheme: _isDarkTheme,
+                      onThemeModeChanged: _setDarkTheme,
+                      localePreference: _localePreference,
+                      onLocalePreferenceChanged: _setLocalePreference,
+                    );
+                  }
+                  return HomeScreen(
                     controller: widget.controller,
-                    repository: widget.repository,
-                    tvMode: widget.tvMode,
                     isDarkTheme: _isDarkTheme,
                     onThemeModeChanged: _setDarkTheme,
                     localePreference: _localePreference,
                     onLocalePreferenceChanged: _setLocalePreference,
                   );
-                }
-                return HomeScreen(
-                  controller: widget.controller,
-                  isDarkTheme: _isDarkTheme,
-                  onThemeModeChanged: _setDarkTheme,
-                  localePreference: _localePreference,
-                  onLocalePreferenceChanged: _setLocalePreference,
-                );
-              },
-            );
-          },
+                },
+              );
+            },
+          ),
         ),
       ),
     );

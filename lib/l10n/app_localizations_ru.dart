@@ -124,7 +124,23 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get autoConnectOnLaunchSubtitle =>
-      'Может не работать на некоторых устройствах';
+      'На некоторых устройствах может не работать.';
+
+  @override
+  String get allowDeepLinkVpnAutomationTitle =>
+      'Разрешить ссылки автоматизации VPN';
+
+  @override
+  String get allowDeepLinkVpnAutomationSubtitle =>
+      'Если включено, voidlex://connect и похожие ссылки могут менять подключение без запроса каждый раз.';
+
+  @override
+  String get startHomeWidgetsCollapsedTitle =>
+      'Запускать со свернутыми виджетами';
+
+  @override
+  String get startHomeWidgetsCollapsedSubtitle =>
+      'Открывать главный экран сразу в компактном режиме.';
 
   @override
   String get restartOnSettingsChangeTitle => 'Перезапуск при изменениях';
@@ -322,6 +338,25 @@ class AppLocalizationsRu extends AppLocalizations {
       'Эта ссылка хочет импортировать подписку или сервер в Void//Lex.';
 
   @override
+  String get deepLinkConsentVpnControlConnect =>
+      'Эта ссылка хочет подключить Void//Lex к выбранному серверу.';
+
+  @override
+  String get deepLinkConsentVpnControlDisconnect =>
+      'Эта ссылка хочет отключить Void//Lex.';
+
+  @override
+  String get deepLinkConsentVpnControlToggle =>
+      'Эта ссылка хочет переключить подключение Void//Lex.';
+
+  @override
+  String get deepLinkConsentVpnControlRestart =>
+      'Эта ссылка хочет перезапустить активное подключение Void//Lex.';
+
+  @override
+  String get deepLinkConsentVpnControlConfirm => 'Разрешить';
+
+  @override
   String get deepLinkConsentSourceLabel => 'Источник';
 
   @override
@@ -333,7 +368,10 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get deepLinkRulesetInvalidUrl =>
-      'URL ruleset должен быть корректным http(s) адресом.';
+      'URL ruleset должен быть корректным https-адресом на публичном хосте.';
+
+  @override
+  String get deepLinkImportTooLarge => 'Слишком большой payload для импорта.';
 
   @override
   String get deepLinkRulesetTimeout => 'Превышено время загрузки ruleset.';
@@ -565,16 +603,17 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get editServerXhttpModeHelper =>
-      'По умолчанию: stream-up (минимум сигнатур для DPI)';
+      'Пустое значение использует настройку Xray-core';
 
   @override
-  String get editServerXhttpModeAuto => 'Авто (рекоменд.)';
+  String get editServerXhttpModeAuto => 'По умолчанию ядра';
 
   @override
   String get editServerXhttpPaddingLabel => 'Диапазон паддинга (xPaddingBytes)';
 
   @override
-  String get editServerXhttpPaddingHelper => 'По умолчанию: 100-1000';
+  String get editServerXhttpPaddingHelper =>
+      'Необязательное положительное число или диапазон, например 100-1000';
 
   @override
   String get editServerXhttpMaxPostLabel =>
@@ -582,7 +621,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get editServerXhttpMaxPostHelper =>
-      'По умолчанию: 500000-1000000 (только packet-up)';
+      'Необязательно; только для packet-up';
 
   @override
   String get editServerXhttpMinIntervalLabel =>
@@ -590,7 +629,56 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get editServerXhttpMinIntervalHelper =>
-      'По умолчанию: 10-50 (только packet-up)';
+      'Необязательно; только для packet-up';
+
+  @override
+  String get editServerXhttpObfsTitle => 'Расширенная маскировка padding';
+
+  @override
+  String get editServerXhttpObfsHelper =>
+      'В выключенном состоянии используется стандартное поведение Xray-core';
+
+  @override
+  String get editServerXhttpPaddingPlacementLabel => 'Размещение padding';
+
+  @override
+  String get editServerXhttpPaddingKeyLabel => 'Ключ padding';
+
+  @override
+  String get editServerXhttpPaddingHeaderLabel => 'Заголовок padding';
+
+  @override
+  String get editServerXhttpPaddingMethodLabel => 'Метод padding';
+
+  @override
+  String get editServerXhttpSessionPlacementLabel => 'Размещение session ID';
+
+  @override
+  String get editServerXhttpSessionKeyLabel => 'Ключ session ID';
+
+  @override
+  String get editServerXhttpSeqPlacementLabel => 'Размещение sequence';
+
+  @override
+  String get editServerXhttpSeqKeyLabel => 'Ключ sequence';
+
+  @override
+  String get editServerXhttpCdnWafPreset => 'Совместимость с CDN/WAF';
+
+  @override
+  String get editServerXhttpStockDefault => 'По умолчанию ядра';
+
+  @override
+  String get editServerXhttpRangeInvalid =>
+      'Укажите положительное число или диапазон до 2147483647';
+
+  @override
+  String get editServerXhttpTokenInvalid =>
+      'Содержит недопустимые для HTTP-токена символы';
+
+  @override
+  String get editServerXhttpValueRequired =>
+      'Обязательно для выбранного размещения';
 
   @override
   String get editServerAdvancedTitle => 'Расширенные';
@@ -907,6 +995,12 @@ class AppLocalizationsRu extends AppLocalizations {
   String get tooltipCloseSearch => 'Закрыть поиск';
 
   @override
+  String get tooltipCollapseTopWidgets => 'Скрыть виджеты';
+
+  @override
+  String get tooltipExpandTopWidgets => 'Показать виджеты';
+
+  @override
   String get searchNodesHint => 'Поиск по имени';
 
   @override
@@ -914,6 +1008,9 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get statusIdle => 'IDLE';
+
+  @override
+  String get statusReconnecting => 'Переподключение';
 
   @override
   String get statusNegotiating => 'NEGOTIATING';
@@ -1025,6 +1122,25 @@ class AppLocalizationsRu extends AppLocalizations {
       'Введите корректный URL подписки (HTTP или HTTPS).';
 
   @override
+  String get insecureSubscriptionTitle => 'Использовать небезопасную подписку?';
+
+  @override
+  String get insecureSubscriptionBody =>
+      'Подписка использует обычный HTTP. Список узлов можно прочитать или изменить при передаче, направив VPN-трафик через сервер злоумышленника.';
+
+  @override
+  String get insecureSubscriptionConfirm => 'Всё равно использовать HTTP';
+
+  @override
+  String get discardChangesTitle => 'Отменить несохранённые изменения?';
+
+  @override
+  String get discardChangesBody => 'Изменения не сохранены и будут потеряны.';
+
+  @override
+  String get discardChangesAction => 'Отменить изменения';
+
+  @override
   String get presetNameRequired => 'Введите имя пресета.';
 
   @override
@@ -1061,6 +1177,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get vpnConnectionTimedOut => 'Таймаут подключения VPN';
 
   @override
+  String get vpnLibboxNetworkUnavailable =>
+      'libbox не получил доступ к основной сети';
+
+  @override
   String get vpnNaiveRequiresLibbox => 'NaiveProxy требует движок TUN libbox';
 
   @override
@@ -1073,6 +1193,18 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get vpnNaiveExitUnsupported =>
       'NaiveProxy нельзя выбрать выходным узлом';
+
+  @override
+  String get vpnDirectLibboxBridgeUnsupported =>
+      'Hysteria2 и NaiveProxy нельзя использовать в двухступенчатой цепочке';
+
+  @override
+  String get vpnDirectLibboxRequiresLibbox =>
+      'Hysteria2 и NaiveProxy требуют движок TUN libbox';
+
+  @override
+  String get vpnDirectLibboxTunOnly =>
+      'Hysteria2 и NaiveProxy недоступны в режиме только прокси';
 
   @override
   String vpnEventChannelError(String error) {
@@ -1593,6 +1725,10 @@ class AppLocalizationsRu extends AppLocalizations {
   String get routingRulePortLabel => 'Порт';
 
   @override
+  String get routingRulePortInvalid =>
+      'Укажите порты от 1 до 65535 через запятую; диапазоны должны иметь вид начало-конец.';
+
+  @override
   String get routingRuleNetworkLabel => 'Сеть';
 
   @override
@@ -1812,22 +1948,46 @@ class AppLocalizationsRu extends AppLocalizations {
   String get tunnelUseLocalDns => 'Локальный DNS';
 
   @override
+  String get tunnelUseLocalDnsDescription =>
+      'Использовать системный DNS-резолвер устройства вместо удалённого DNS-сервера.';
+
+  @override
   String get tunnelEnableServerResolving => 'DNS для серверов';
+
+  @override
+  String get tunnelEnableServerResolvingDescription =>
+      'Разрешать доменные имена прокси-серверов в IP-адреса перед подключением.';
 
   @override
   String get tunnelPacketAnalysis => 'Анализ пакетов';
 
   @override
+  String get tunnelPacketAnalysisDescription =>
+      'Анализировать метаданные HTTP, TLS и QUIC для маршрутизации по домену назначения.';
+
+  @override
   String get tunnelNetworkStack => 'Сетевой стек';
 
   @override
+  String get tunnelNetworkStackDescription =>
+      'Выбрать реализацию TCP и UDP, которую использует движок TUN. На Android по умолчанию рекомендуется gVisor.';
+
+  @override
   String get tunnelMtu => 'MTU';
+
+  @override
+  String get tunnelMtuDescription =>
+      'Максимальный размер пакета интерфейса TUN. Допустимый диапазон: 1280–9000.';
 
   @override
   String get tunnelMtuHint => '1500';
 
   @override
   String get tunnelIpMode => 'Режим IP';
+
+  @override
+  String get tunnelIpModeDescription =>
+      'Выбрать семейства IP-адресов, маршрутизируемые через туннель.';
 
   @override
   String get tunnelNetStackSystem => 'System';
@@ -1863,6 +2023,10 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get tunnelEnableDnsForTun => 'DNS для TUN';
+
+  @override
+  String get tunnelEnableDnsForTunDescription =>
+      'Заменить DNS-сервер Xray TUN на адрес, указанный ниже.';
 
   @override
   String get tunnelTunDnsLabel => 'DNS TUN';
@@ -1909,31 +2073,71 @@ class AppLocalizationsRu extends AppLocalizations {
   String get tunnelFragmentPackets => 'Пакеты фрагментации';
 
   @override
+  String get tunnelFragmentPacketsDescription =>
+      'Выбрать начальные записи TCP для разбиения; tlshello нацелен на TLS ClientHello.';
+
+  @override
   String get tunnelFragmentLength => 'Длина фрагмента (min-max)';
+
+  @override
+  String get tunnelFragmentLengthDescription =>
+      'Случайный диапазон размера каждого фрагмента в байтах.';
 
   @override
   String get tunnelFragmentInterval => 'Интервал фрагмента (min-max)';
 
   @override
+  String get tunnelFragmentIntervalDescription =>
+      'Случайная задержка между фрагментами в миллисекундах.';
+
+  @override
   String get tunnelFragmentMaxSplit => 'Макс. разбиение (min-max)';
+
+  @override
+  String get tunnelFragmentMaxSplitDescription =>
+      'Случайный предел количества фрагментов, создаваемых из одной записи.';
 
   @override
   String get tunnelNoiseSettings => 'Шум';
 
   @override
+  String get tunnelNoiseSettingsDescription =>
+      'Отправлять UDP-шум перед первым реальным пакетом. Может нарушить работу некоторых соединений.';
+
+  @override
   String get tunnelNoiseType => 'Тип шума';
+
+  @override
+  String get tunnelNoiseTypeDescription =>
+      'Выбрать способ генерации или кодирования содержимого шумового пакета.';
 
   @override
   String get tunnelNoisePacketLengthRange => 'Диапазон длины пакета';
 
   @override
+  String get tunnelNoisePacketLengthRangeDescription =>
+      'Случайный диапазон длины генерируемого шума в байтах.';
+
+  @override
   String get tunnelNoisePacket => 'Пакет шума';
+
+  @override
+  String get tunnelNoisePacketDescription =>
+      'Содержимое пакета в формате, выбранном выше.';
 
   @override
   String get tunnelNoiseDelay => 'Задержка шума (min-max)';
 
   @override
+  String get tunnelNoiseDelayDescription =>
+      'Случайная задержка после шумового пакета в миллисекундах.';
+
+  @override
   String get tunnelNoiseApplyTo => 'Применить к';
+
+  @override
+  String get tunnelNoiseApplyToDescription =>
+      'Ограничить шум всем IP-трафиком, только IPv4 или только IPv6.';
 
   @override
   String get tunnelNoiseTypeRandom => 'Random';
@@ -1970,10 +2174,22 @@ class AppLocalizationsRu extends AppLocalizations {
   String get tunnelMuxTcpConnections => 'TCP-соединения (-1…128)';
 
   @override
+  String get tunnelMuxTcpConnectionsDescription =>
+      'Максимум TCP-подключений в одном MUX-соединении. -1 отключает MUX для TCP.';
+
+  @override
   String get tunnelMuxXudpConnections => 'XUDP-соединения (-1…1024)';
 
   @override
+  String get tunnelMuxXudpConnectionsDescription =>
+      'Максимум UDP-подключений в одном XUDP-туннеле. -1 отключает MUX для UDP.';
+
+  @override
   String get tunnelMuxQuicBehavior => 'QUIC в MUX';
+
+  @override
+  String get tunnelMuxQuicBehaviorDescription =>
+      'Блокировать, передавать через MUX или пропускать UDP/443 в обход MUX.';
 
   @override
   String get tunnelMuxQuicReject => 'Reject';
@@ -2323,7 +2539,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get faqA10 =>
-      '**system** — самый быстрый, использует TCP-стек ядра, но в редких сетях даёт обрывы.\n**gVisor** — собственный TCP-стек в user-space; работает стабильнее на «странных» сетях (некоторые мобильные операторы), но чуть медленнее и сильнее греет.\n**mixed** — компромисс: gVisor для TCP, system для UDP.\nЕсли всё работает на **system** — оставайтесь на нём.';
+      '**gVisor** — стек по умолчанию на Android. Он обрабатывает TUN-трафик в user-space и надёжно работает с libbox 1.14.\n**system** использует системный стек ядра и подходит только для окружений, где такой путь TUN заведомо работает.\n**mixed** использует gVisor для TCP и system для UDP.';
 
   @override
   String get faqQ11 =>

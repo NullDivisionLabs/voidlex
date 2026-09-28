@@ -61,10 +61,14 @@ String localizeUserMessage(BuildContext context, String message) {
     Msg.vpnFailedToReconnect => l.vpnFailedToReconnect,
     Msg.vpnUnknownError => l.vpnUnknownError,
     Msg.vpnConnectionTimedOut => l.vpnConnectionTimedOut,
+    Msg.vpnLibboxNetworkUnavailable => l.vpnLibboxNetworkUnavailable,
     Msg.vpnNaiveRequiresLibbox => l.vpnNaiveRequiresLibbox,
     Msg.vpnNaiveTunOnly => l.vpnNaiveTunOnly,
     Msg.vpnNaiveBridgeUnsupported => l.vpnNaiveBridgeUnsupported,
     Msg.vpnNaiveExitUnsupported => l.vpnNaiveExitUnsupported,
+    Msg.vpnDirectLibboxBridgeUnsupported => l.vpnDirectLibboxBridgeUnsupported,
+    Msg.vpnDirectLibboxRequiresLibbox => l.vpnDirectLibboxRequiresLibbox,
+    Msg.vpnDirectLibboxTunOnly => l.vpnDirectLibboxTunOnly,
     Msg.subImportInvalidUrl => l.subImportInvalidUrl,
     Msg.subImportTimeout => l.subImportTimeout,
     Msg.subImportEmpty => l.subImportEmpty,
@@ -78,6 +82,7 @@ String localizeUserMessage(BuildContext context, String message) {
     Msg.deepLinkRulesetEmpty => l.deepLinkRulesetEmpty,
     Msg.deepLinkRulesetNoRules => l.deepLinkRulesetNoRules,
     Msg.deepLinkRulesetInvalidJson => l.deepLinkRulesetInvalidJson,
+    Msg.deepLinkImportTooLarge => l.deepLinkImportTooLarge,
     _ => message,
   };
 }

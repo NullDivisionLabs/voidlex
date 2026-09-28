@@ -94,7 +94,6 @@ class ServerSubscription {
               .whereType<ServerConfig>()
               .toList()
         : <ServerConfig>[];
-    if (servers.isEmpty) return null;
 
     final updatedAtMillis = json['updatedAt'];
     final updatedAt = updatedAtMillis is int

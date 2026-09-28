@@ -31,6 +31,170 @@ class TriangleHub extends StatefulWidget {
 
 enum HubVisualState { off, connecting, on, error }
 
+class CompactTriangleHub extends StatefulWidget {
+  const CompactTriangleHub({
+    super.key,
+    required this.state,
+    required this.onTap,
+    this.size = 34,
+    this.enabled = true,
+  });
+
+  final HubVisualState state;
+  final VoidCallback onTap;
+  final double size;
+  final bool enabled;
+
+  @override
+  State<CompactTriangleHub> createState() => _CompactTriangleHubState();
+}
+
+class _CompactTriangleHubState extends State<CompactTriangleHub>
+    with TickerProviderStateMixin {
+  late final AnimationController _scan;
+  late final AnimationController _rot;
+  late final AnimationController _corner;
+  late final AnimationController _haloPulse;
+
+  @override
+  void initState() {
+    super.initState();
+    _scan = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1600),
+    );
+    _rot = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2400),
+    );
+    _corner = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1600),
+    );
+    _haloPulse = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2400),
+    );
+    _syncAnimations();
+  }
+
+  @override
+  void didUpdateWidget(CompactTriangleHub oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.state != widget.state) _syncAnimations();
+  }
+
+  void _syncAnimations() {
+    final connecting = widget.state == HubVisualState.connecting;
+    final on = widget.state == HubVisualState.on;
+    if (connecting) {
+      _scan.repeat();
+      _rot.repeat();
+      _corner.repeat(reverse: true);
+    } else {
+      _scan.stop();
+      _rot.stop();
+      _corner.stop();
+    }
+    if (on) {
+      _haloPulse.repeat(reverse: true);
+    } else {
+      _haloPulse.stop();
+    }
+  }
+
+  @override
+  void dispose() {
+    _scan.dispose();
+    _rot.dispose();
+    _corner.dispose();
+    _haloPulse.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = VoidTokens.of(context);
+    final w = widget.size;
+    final h = widget.size * 0.92;
+    return Semantics(
+      button: true,
+      enabled: widget.enabled,
+      child: GestureDetector(
+        onTap: widget.enabled ? widget.onTap : null,
+        behavior: HitTestBehavior.opaque,
+        child: SizedBox(
+          width: w + 4,
+          height: h,
+          child: Center(
+            child: Stack(
+              alignment: Alignment.center,
+              clipBehavior: Clip.none,
+              children: [
+                if (widget.state == HubVisualState.on)
+                  AnimatedBuilder(
+                    animation: _haloPulse,
+                    builder: (context, _) {
+                      final v = 0.85 + 0.15 * _haloPulse.value;
+                      return Container(
+                        width: w * 1.35 * v,
+                        height: h * 1.35 * v,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          gradient: RadialGradient(
+                            colors: [t.haloOn, Colors.transparent],
+                            stops: const [0.0, 0.7],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                SizedBox(
+                  width: w,
+                  height: h,
+                  child: AnimatedBuilder(
+                    animation: Listenable.merge([_scan, _rot, _corner]),
+                    builder: (context, _) => CustomPaint(
+                      painter: _TrianglePainter(
+                        tokens: t,
+                        state: widget.state,
+                        scan: _scan.value,
+                        rotation: _rot.value,
+                        cornerPulse: _corner.value,
+                        cornerMarkerSize: math.max(1.5, w * 0.05),
+                      ),
+                    ),
+                  ),
+                ),
+                Transform.translate(
+                  offset: Offset(-w * 0.013, h * 0.14),
+                  child: Text(
+                    '//',
+                    style: VoidType.mono(
+                      fontSize: w * 0.32,
+                      fontWeight: FontWeight.w700,
+                      height: 1,
+                      letterSpacing: -1,
+                      color: _glyphColor(t),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Color _glyphColor(VoidTokens t) {
+    if (widget.state == HubVisualState.on) {
+      return t.isDark ? const Color(0xFF0A0B0C) : const Color(0xFFF4F5F6);
+    }
+    return t.fg1;
+  }
+}
+
 class _TriangleHubState extends State<TriangleHub>
     with TickerProviderStateMixin {
   late final AnimationController _scan;
@@ -113,8 +277,13 @@ class _TriangleHubState extends State<TriangleHub>
       behavior: HitTestBehavior.opaque,
       child: SizedBox(
         width: w,
-        height: h + 16,
-        child: Center(
+        height: h * 0.88,
+        child: OverflowBox(
+          alignment: Alignment.center,
+          minWidth: w,
+          maxWidth: w,
+          minHeight: h,
+          maxHeight: h,
           child: Stack(
             alignment: Alignment.center,
             clipBehavior: Clip.none,
@@ -261,6 +430,7 @@ class _TrianglePainter extends CustomPainter {
     required this.scan,
     required this.rotation,
     required this.cornerPulse,
+    this.cornerMarkerSize = 8,
   });
 
   final VoidTokens tokens;
@@ -268,6 +438,7 @@ class _TrianglePainter extends CustomPainter {
   final double scan;
   final double rotation;
   final double cornerPulse;
+  final double cornerMarkerSize;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -354,10 +525,7 @@ class _TrianglePainter extends CustomPainter {
         ..color = tokens.accentMid.withValues(alpha: 0.2)
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1;
-      final rect = Rect.fromCircle(
-        center: Offset(cx, centerY),
-        radius: radius,
-      );
+      final rect = Rect.fromCircle(center: Offset(cx, centerY), radius: radius);
       _drawDashedCircle(canvas, rect, dashPaint, dashLength: 2, gapLength: 6);
       canvas.restore();
     }
@@ -369,7 +537,11 @@ class _TrianglePainter extends CustomPainter {
         ..color = tokens.accentMid.withValues(alpha: cornerOpacity);
       for (final corner in corners) {
         canvas.drawRect(
-          Rect.fromCenter(center: corner, width: 8, height: 8),
+          Rect.fromCenter(
+            center: corner,
+            width: cornerMarkerSize,
+            height: cornerMarkerSize,
+          ),
           cornerPaint,
         );
       }
@@ -426,6 +598,7 @@ class _TrianglePainter extends CustomPainter {
         old.state != state ||
         old.scan != scan ||
         old.rotation != rotation ||
-        old.cornerPulse != cornerPulse;
+        old.cornerPulse != cornerPulse ||
+        old.cornerMarkerSize != cornerMarkerSize;
   }
 }

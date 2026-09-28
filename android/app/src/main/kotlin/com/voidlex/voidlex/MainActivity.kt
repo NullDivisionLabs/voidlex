@@ -21,6 +21,7 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
+import io.nekohasekai.libbox.Libbox
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -117,6 +118,7 @@ class MainActivity: FlutterActivity() {
                 "exportAppLogs" -> handleExportAppLogs(call.arguments as? Map<*, *>, result)
                 "exportProfileFile" -> handleExportProfileFile(call.arguments as? Map<*, *>, result)
                 "getDeviceHwid" -> handleGetDeviceHwid(result)
+                "getLibboxVersion" -> handleGetLibboxVersion(result)
                 "getAppMemoryPssKb" -> handleGetAppMemoryPssKb(result)
                 "requestNotificationPermission" -> handleRequestNotificationPermission(result)
                 "updateShowSpeedInNotification" ->
@@ -159,6 +161,29 @@ class MainActivity: FlutterActivity() {
             android.provider.Settings.Secure.ANDROID_ID,
         ) ?: ""
         result.success(hwid)
+    }
+
+    private fun handleGetLibboxVersion(result: MethodChannel.Result) {
+        runCatching { Libbox.version().trim() }
+            .onSuccess { version ->
+                if (version.isEmpty()) {
+                    result.error(
+                        "libbox_version_unavailable",
+                        "libbox returned an empty version",
+                        null,
+                    )
+                } else {
+                    result.success(version)
+                }
+            }
+            .onFailure { error ->
+                AppLogger.e(TAG, "Failed to read libbox version", error)
+                result.error(
+                    "libbox_version_unavailable",
+                    error.message ?: "Failed to read libbox version",
+                    null,
+                )
+            }
     }
 
     private fun handleGetAppMemoryPssKb(result: MethodChannel.Result) {
@@ -746,7 +771,7 @@ class MainActivity: FlutterActivity() {
                 )
                 putExtra(
                     VoidVpnService.EXTRA_NETWORK_STACK,
-                    (args?.get("networkStack") as? String) ?: TunnelNetworkStack.SYSTEM.wireName,
+                    (args?.get("networkStack") as? String) ?: TunnelNetworkStack.GVISOR.wireName,
                 )
                 putExtra(
                     VoidVpnService.EXTRA_TUN_MTU,
@@ -1248,6 +1273,11 @@ class MainActivity: FlutterActivity() {
             return (args?.get(key) as? Boolean) ?: fallback
         }
 
+        fun readNullableBoolean(baseKey: String): Boolean? {
+            val key = prefixedKey(prefix, baseKey)
+            return args?.get(key) as? Boolean
+        }
+
         val extraPrefix = if (prefix.isBlank()) {
             ""
         } else {
@@ -1266,9 +1296,33 @@ class MainActivity: FlutterActivity() {
         )
         intent.putExtra(extraPrefix + VoidVpnService.EXTRA_TRANSPORT_HOST, readString("transportHost"))
         intent.putExtra(extraPrefix + VoidVpnService.EXTRA_TRANSPORT_MODE, readString("transportMode"))
+        val xPaddingObfsMode = readNullableBoolean("xPaddingObfsMode")
         intent.putExtra(
-            extraPrefix + VoidVpnService.EXTRA_XHTTP_PADDING,
-            readString("xhttpPadding"),
+            extraPrefix + VoidVpnService.EXTRA_X_PADDING_OBFS_MODE_PRESENT,
+            xPaddingObfsMode != null,
+        )
+        if (xPaddingObfsMode != null) {
+            intent.putExtra(
+                extraPrefix + VoidVpnService.EXTRA_X_PADDING_OBFS_MODE,
+                xPaddingObfsMode,
+            )
+        }
+        intent.putExtra(extraPrefix + VoidVpnService.EXTRA_X_PADDING_PLACEMENT, readString("xPaddingPlacement"))
+        intent.putExtra(extraPrefix + VoidVpnService.EXTRA_X_PADDING_KEY, readString("xPaddingKey"))
+        intent.putExtra(extraPrefix + VoidVpnService.EXTRA_X_PADDING_HEADER, readString("xPaddingHeader"))
+        intent.putExtra(extraPrefix + VoidVpnService.EXTRA_X_PADDING_METHOD, readString("xPaddingMethod"))
+        intent.putExtra(extraPrefix + VoidVpnService.EXTRA_X_PADDING_BYTES, readString("xPaddingBytes"))
+        intent.putExtra(extraPrefix + VoidVpnService.EXTRA_SESSION_ID_PLACEMENT, readString("sessionIDPlacement"))
+        intent.putExtra(extraPrefix + VoidVpnService.EXTRA_SESSION_ID_KEY, readString("sessionIDKey"))
+        intent.putExtra(extraPrefix + VoidVpnService.EXTRA_SEQ_PLACEMENT, readString("seqPlacement"))
+        intent.putExtra(extraPrefix + VoidVpnService.EXTRA_SEQ_KEY, readString("seqKey"))
+        intent.putExtra(
+            extraPrefix + VoidVpnService.EXTRA_XHTTP_RAW_SETTINGS_JSON,
+            readString("xhttpRawSettingsJson", "{}"),
+        )
+        intent.putExtra(
+            extraPrefix + VoidVpnService.EXTRA_XHTTP_RAW_EXTRA_JSON,
+            readString("xhttpRawExtraJson", "{}"),
         )
         intent.putExtra(
             extraPrefix + VoidVpnService.EXTRA_XHTTP_MAX_POST_BYTES,
@@ -1314,6 +1368,18 @@ class MainActivity: FlutterActivity() {
         intent.putExtra(
             extraPrefix + VoidVpnService.EXTRA_HYSTERIA2_OBFS_MAX_PACKET_SIZE,
             readInt("hysteria2ObfsMaxPacketSize", 0),
+        )
+        intent.putExtra(
+            extraPrefix + VoidVpnService.EXTRA_HYSTERIA2_RAW_OUTBOUND_JSON,
+            readString("hysteria2RawOutboundJson", "{}"),
+        )
+        intent.putExtra(
+            extraPrefix + VoidVpnService.EXTRA_HYSTERIA2_RAW_OBFS_JSON,
+            readString("hysteria2RawObfsJson", "{}"),
+        )
+        intent.putExtra(
+            extraPrefix + VoidVpnService.EXTRA_HYSTERIA2_RAW_TLS_JSON,
+            readString("hysteria2RawTlsJson", "{}"),
         )
         intent.putExtra(
             extraPrefix + VoidVpnService.EXTRA_HYSTERIA2_HOP_PORTS,

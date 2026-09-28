@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -71,6 +72,15 @@ class _AppRoutingFilterResult {
   final int droppedCount;
 }
 
+class _UnsafeRulesetUrlException implements Exception {
+  const _UnsafeRulesetUrlException(this.uri);
+
+  final Uri uri;
+
+  @override
+  String toString() => 'Unsafe ruleset URL: $uri';
+}
+
 class VpnController extends ChangeNotifier {
   VpnController(
     this._repository, {
@@ -90,7 +100,7 @@ class VpnController extends ChangeNotifier {
     _bindGeoDataProgressChannel();
   }
 
-  static const Duration _connectTimeout = Duration(seconds: 15);
+  static const Duration _connectTimeout = Duration(seconds: 65);
   // Short per-request timeout because we race the lookup URLs in parallel —
   // a slow endpoint no longer blocks the pipeline behind it.
   static const Duration _ipRequestTimeout = Duration(seconds: 3);
@@ -106,14 +116,12 @@ class VpnController extends ChangeNotifier {
   // Auto-triggered full scans (launch, resume from tray) are throttled to
   // this interval. Manual UI taps bypass the cooldown via `force: true`.
   static const Duration _fullScanCooldown = Duration(minutes: 15);
-  // Window during which a `disconnected` event is expected to arrive as a
-  // consequence of our own `stopVpn` call (timeout or explicit disconnect).
-  // Bounding the ignore window ensures a legitimate later disconnect — e.g.
-  // after a silent reconnect — still reaches the UI.
-  static const Duration _disconnectSuppressionWindow = Duration(seconds: 3);
   static const Duration _disconnectFallbackTimeout = Duration(seconds: 5);
   static const Duration _deepLinkDedupeWindow = Duration(seconds: 2);
   static const Duration _deepLinkRulesetTimeout = Duration(seconds: 12);
+  static const int _deepLinkRulesetMaxRedirects = 5;
+  static const int _deepLinkImportBase64MaxChars =
+      ((JsonPayloadLimits.serverCatalog + 2) ~/ 3) * 4;
   static const Duration _androidVpnRestartStopTimeout = Duration(seconds: 5);
   static const Duration _androidVpnPostStopSettleDelay = Duration(
     milliseconds: 500,
@@ -180,6 +188,9 @@ class VpnController extends ChangeNotifier {
     _throughputHistoryLength,
     0,
   );
+  bool _isRecoveringNetwork = false;
+  bool get isRecoveringNetwork => _isRecoveringNetwork;
+
   Timer? _connectTimeoutTimer;
   Timer? _disconnectTimeoutTimer;
   Timer? _connectionTicker;
@@ -210,6 +221,7 @@ class VpnController extends ChangeNotifier {
   // change. The list body's ValueListenableBuilder rebuilds on this signal
   // instead of subscribing to the entire controller.
   final ValueNotifier<int> _homeListRevision = ValueNotifier<int>(0);
+  final ValueNotifier<int> _throughputNotifier = ValueNotifier<int>(0);
   // Narrow notifiers for the currently-selected server and the bridge-mode
   // exit node. Per-row widgets subscribe to these so tap-to-select only
   // rebuilds two rows (old + new), never the whole list.
@@ -234,6 +246,7 @@ class VpnController extends ChangeNotifier {
   bool _restartConnectionOnSettingsChanges = false;
   bool _showGlobalProxyButton = false;
   bool _showExitNodeInfoBar = true;
+  bool _startHomeWidgetsCollapsed = false;
   bool _autoSortServersByPing = false;
   LatencyProbeTarget _latencyProbeTarget = LatencyProbeTarget.serverEndpoint;
   bool _favoritesSectionCollapsed = false;
@@ -250,6 +263,9 @@ class VpnController extends ChangeNotifier {
   String? _deepLinkNotice;
   PendingDeepLink? _pendingDeepLink;
   Future<void> Function()? _pendingDeepLinkAction;
+  final Queue<({PendingDeepLink request, Future<void> Function() action})>
+  _pendingDeepLinkQueue = Queue();
+  bool _runningPendingDeepLinkAction = false;
   Future<void>? _deepLinkChain;
   String? _lastDeepLinkFingerprint;
   DateTime? _lastDeepLinkAt;
@@ -257,7 +273,7 @@ class VpnController extends ChangeNotifier {
   VpnConnectionState _connectionState = VpnConnectionState.disconnected;
   String? _lastError;
   bool _acceptConnectedEvent = false;
-  DateTime? _suppressDisconnectedUntil;
+  bool _suppressNextDisconnectedEvent = false;
   bool _isScanningLatency = false;
   DateTime? _lastFullScanTime;
   final Set<String> _scanningSubscriptionIds = <String>{};
@@ -285,6 +301,7 @@ class VpnController extends ChangeNotifier {
       GeoDataAutoUpdateInterval.disabled;
   bool _refreshingGeoDataAutomatically = false;
   bool _killSwitchEnabled = false;
+  bool _allowDeepLinkVpnAutomation = false;
   RunMode _runMode = RunMode.tun;
   bool _hotspotBindEnabled = false;
   bool _httpProxyAuthEnabled = false;
@@ -392,6 +409,10 @@ class VpnController extends ChangeNotifier {
 
   int _serverMembershipSignature() {
     var signature = _servers.length * 31 + _subscriptions.length;
+    signature = 0x3fffffff & (signature * 31 + _favoriteServerNames.length);
+    for (final fav in _favoriteServerNames) {
+      signature = 0x3fffffff & (signature * 31 + fav.hashCode);
+    }
     for (final server in _servers) {
       signature = 0x3fffffff & (signature * 31 + server.name.hashCode);
     }
@@ -407,6 +428,7 @@ class VpnController extends ChangeNotifier {
   /// composition or order may have changed. Cheap signal for the list body
   /// to rebuild without subscribing to the entire controller.
   ValueListenable<int> get homeListRevisionListenable => _homeListRevision;
+  ValueListenable<int> get throughputListenable => _throughputNotifier;
   ValueListenable<String?> get selectedNameListenable => _selectedNameNotifier;
   ValueListenable<String?> get exitNodeNameListenable => _exitNodeNameNotifier;
 
@@ -470,6 +492,7 @@ class VpnController extends ChangeNotifier {
       _restartConnectionOnSettingsChanges;
   bool get showGlobalProxyButton => _showGlobalProxyButton;
   bool get showExitNodeInfoBar => _showExitNodeInfoBar;
+  bool get startHomeWidgetsCollapsed => _startHomeWidgetsCollapsed;
   bool get autoSortServersByPing => _autoSortServersByPing;
   LatencyProbeTarget get latencyProbeTarget => _latencyProbeTarget;
   bool get favoritesSectionCollapsed => _favoritesSectionCollapsed;
@@ -489,6 +512,7 @@ class VpnController extends ChangeNotifier {
   GeoDataAutoUpdateInterval get geoDataAutoUpdateInterval =>
       _geoDataAutoUpdateInterval;
   bool get killSwitchEnabled => _killSwitchEnabled;
+  bool get allowDeepLinkVpnAutomation => _allowDeepLinkVpnAutomation;
   RunMode get runMode => _runMode;
   bool get hotspotBindEnabled => _hotspotBindEnabled;
   bool get httpProxyAuthEnabled => _httpProxyAuthEnabled;
@@ -680,6 +704,10 @@ class VpnController extends ChangeNotifier {
     PendingDeepLink request,
     Future<void> Function() action,
   ) {
+    if (_pendingDeepLink != null || _runningPendingDeepLinkAction) {
+      _pendingDeepLinkQueue.add((request: request, action: action));
+      return;
+    }
     _pendingDeepLink = request;
     _pendingDeepLinkAction = action;
     notifyListeners();
@@ -690,10 +718,17 @@ class VpnController extends ChangeNotifier {
   /// still cannot race connect/disconnect.
   Future<void> confirmPendingDeepLink() async {
     final action = _pendingDeepLinkAction;
+    if (action == null) return;
     _pendingDeepLink = null;
     _pendingDeepLinkAction = null;
+    _runningPendingDeepLinkAction = true;
     notifyListeners();
-    if (action != null) await _enqueueDeepLink(action);
+    try {
+      await _enqueueDeepLink(action);
+    } finally {
+      _runningPendingDeepLinkAction = false;
+      _activateNextPendingDeepLink();
+    }
   }
 
   /// Discards the pending deep link without running it.
@@ -701,7 +736,21 @@ class VpnController extends ChangeNotifier {
     if (_pendingDeepLink == null && _pendingDeepLinkAction == null) return;
     _pendingDeepLink = null;
     _pendingDeepLinkAction = null;
+    if (_activateNextPendingDeepLink()) return;
     notifyListeners();
+  }
+
+  bool _activateNextPendingDeepLink() {
+    if (_pendingDeepLink != null ||
+        _runningPendingDeepLinkAction ||
+        _pendingDeepLinkQueue.isEmpty) {
+      return false;
+    }
+    final next = _pendingDeepLinkQueue.removeFirst();
+    _pendingDeepLink = next.request;
+    _pendingDeepLinkAction = next.action;
+    notifyListeners();
+    return true;
   }
 
   bool _isInsecureHttpUrl(Uri? uri) => uri?.scheme.toLowerCase() == 'http';
@@ -891,6 +940,7 @@ class VpnController extends ChangeNotifier {
         snapshot.restartConnectionOnSettingsChanges;
     _showGlobalProxyButton = snapshot.showGlobalProxyButton;
     _showExitNodeInfoBar = snapshot.showExitNodeInfoBar;
+    _startHomeWidgetsCollapsed = snapshot.startHomeWidgetsCollapsed;
     _autoSortServersByPing = snapshot.autoSortServersByPing;
     _latencyProbeTarget = snapshot.latencyProbeTarget;
     _favoritesSectionCollapsed = snapshot.favoritesSectionCollapsed;
@@ -935,6 +985,7 @@ class VpnController extends ChangeNotifier {
     _subscriptionProviderSettings = snapshot.subscriptionProviderSettings;
     _geoDataAutoUpdateInterval = snapshot.geoDataAutoUpdateInterval;
     _killSwitchEnabled = snapshot.killSwitchEnabled;
+    _allowDeepLinkVpnAutomation = _repository.loadAllowDeepLinkVpnAutomation();
     _runMode = snapshot.runMode;
     _hotspotBindEnabled = snapshot.hotspotBindEnabled;
     _httpProxyAuthEnabled = snapshot.httpProxyAuthEnabled;
@@ -974,14 +1025,14 @@ class VpnController extends ChangeNotifier {
         _resetConnectionRuntime();
         _restoreProxySession(status);
         _acceptConnectedEvent = true;
-        _suppressDisconnectedUntil = null;
-        _setState(VpnConnectionState.connecting);
+        _suppressNextDisconnectedEvent = false;
+        _setConnecting(recovering: status['recovering'] == true);
         break;
       case 'connected':
         _resetConnectionRuntime();
         _restoreProxySession(status);
         _acceptConnectedEvent = false;
-        _suppressDisconnectedUntil = null;
+        _suppressNextDisconnectedEvent = false;
         _lastError = null;
         _restoreConnectedRuntime(
           _durationFromNativeMillis(status['connectedDurationMillis']),
@@ -1117,12 +1168,20 @@ class VpnController extends ChangeNotifier {
     }
   }
 
-  Future<ServerImportResult> importFromClipboard() async {
+  Future<ServerImportResult> importFromClipboard({
+    bool allowInsecureSubscription = false,
+  }) async {
     final data = await Clipboard.getData(Clipboard.kTextPlain);
-    return importServersFromString(data?.text ?? '');
+    return importServersFromString(
+      data?.text ?? '',
+      allowInsecureSubscription: allowInsecureSubscription,
+    );
   }
 
-  Future<ServerImportResult> importServersFromString(String raw) async {
+  Future<ServerImportResult> importServersFromString(
+    String raw, {
+    bool allowInsecureSubscription = false,
+  }) async {
     if (SubscriptionLinkCodec.looksLikeLink(raw)) {
       final DecodedSubscriptionLink decoded;
       try {
@@ -1133,6 +1192,13 @@ class VpnController extends ChangeNotifier {
           'subImportEncryptedFailed:${e.message}',
         );
       }
+      if (!allowInsecureSubscription &&
+          _isInsecureHttpUrl(Uri.tryParse(decoded.url))) {
+        return ServerImportResult.fail(
+          ServerImportError.insecureSubscription,
+          'Subscription URL uses insecure HTTP',
+        );
+      }
       return importSubscriptionFromUrl(decoded.url, nameOverride: decoded.name);
     }
 
@@ -1140,6 +1206,12 @@ class VpnController extends ChangeNotifier {
       raw,
     );
     if (subscriptionUri != null) {
+      if (!allowInsecureSubscription && _isInsecureHttpUrl(subscriptionUri)) {
+        return ServerImportResult.fail(
+          ServerImportError.insecureSubscription,
+          'Subscription URL uses insecure HTTP',
+        );
+      }
       return importSubscriptionFromUrl(subscriptionUri.toString());
     }
 
@@ -1635,10 +1707,8 @@ class VpnController extends ChangeNotifier {
         }
       }
       if (prospectiveEntry != null) {
-        final prospectiveExitName = _serverNameEquals(
-          _exitNodeName,
-          canonicalName,
-        )
+        final prospectiveExitName =
+            _serverNameEquals(_exitNodeName, canonicalName)
             ? null
             : _exitNodeName;
         final constraintError = _connectionConstraintError(
@@ -1741,16 +1811,10 @@ class VpnController extends ChangeNotifier {
 
   /// Reorders servers in the home list. Persists order to storage.
   Future<void> reorderServers(int oldIndex, int newIndex) async {
-    if (oldIndex < newIndex) {
-      newIndex -= 1;
-    }
+    if (oldIndex < 0 || oldIndex >= _servers.length) return;
+    if (newIndex >= _servers.length) newIndex = _servers.length - 1;
+    if (newIndex < 0) newIndex = 0;
     if (oldIndex == newIndex) return;
-    if (oldIndex < 0 ||
-        oldIndex >= _servers.length ||
-        newIndex < 0 ||
-        newIndex >= _servers.length) {
-      return;
-    }
     final item = _servers.removeAt(oldIndex);
     _servers.insert(newIndex, item);
     notifyListeners();
@@ -1759,16 +1823,10 @@ class VpnController extends ChangeNotifier {
 
   /// Reorders subscriptions in the home list. Persists order to storage.
   Future<void> reorderSubscriptions(int oldIndex, int newIndex) async {
-    if (oldIndex < newIndex) {
-      newIndex -= 1;
-    }
+    if (oldIndex < 0 || oldIndex >= _subscriptions.length) return;
+    if (newIndex >= _subscriptions.length) newIndex = _subscriptions.length - 1;
+    if (newIndex < 0) newIndex = 0;
     if (oldIndex == newIndex) return;
-    if (oldIndex < 0 ||
-        oldIndex >= _subscriptions.length ||
-        newIndex < 0 ||
-        newIndex >= _subscriptions.length) {
-      return;
-    }
     final item = _subscriptions.removeAt(oldIndex);
     _subscriptions.insert(newIndex, item);
     notifyListeners();
@@ -1778,16 +1836,10 @@ class VpnController extends ChangeNotifier {
   /// Reorders the favorites strip without changing the underlying server lists.
   Future<void> reorderFavoriteServers(int oldIndex, int newIndex) async {
     final favorites = _orderedFavoriteServers();
-    if (oldIndex < newIndex) {
-      newIndex -= 1;
-    }
+    if (oldIndex < 0 || oldIndex >= favorites.length) return;
+    if (newIndex >= favorites.length) newIndex = favorites.length - 1;
+    if (newIndex < 0) newIndex = 0;
     if (oldIndex == newIndex) return;
-    if (oldIndex < 0 ||
-        oldIndex >= favorites.length ||
-        newIndex < 0 ||
-        newIndex >= favorites.length) {
-      return;
-    }
     final names = favorites.map((server) => server.name).toList();
     final item = names.removeAt(oldIndex);
     names.insert(newIndex, item);
@@ -2257,9 +2309,9 @@ class VpnController extends ChangeNotifier {
       final candidate = _allServerList()
           .where((server) => _serverNameEquals(server.name, canonical))
           .firstOrNull;
-      if (candidate?.isNaive == true) return Msg.vpnNaiveExitUnsupported;
-      if (selectedServer?.isNaive == true) {
-        return Msg.vpnNaiveBridgeUnsupported;
+      if (candidate?.usesDirectLibbox == true ||
+          selectedServer?.usesDirectLibbox == true) {
+        return Msg.vpnDirectLibboxBridgeUnsupported;
       }
     }
     final nextExitNodeName = wantsClear ? null : canonical;
@@ -2480,6 +2532,13 @@ class VpnController extends ChangeNotifier {
     }
   }
 
+  Future<void> setAllowDeepLinkVpnAutomation(bool value) async {
+    if (_allowDeepLinkVpnAutomation == value) return;
+    _allowDeepLinkVpnAutomation = value;
+    await _repository.saveAllowDeepLinkVpnAutomation(value);
+    notifyListeners();
+  }
+
   Future<String?> setRunMode(RunMode mode) async {
     if (_runMode == mode) return null;
     if (_hasRestartableNativeSession) {
@@ -2678,6 +2737,13 @@ class VpnController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> setStartHomeWidgetsCollapsed(bool value) async {
+    if (_startHomeWidgetsCollapsed == value) return;
+    _startHomeWidgetsCollapsed = value;
+    await _repository.saveStartHomeWidgetsCollapsed(value);
+    notifyListeners();
+  }
+
   Future<String?> createRoutingPreset(String name) async {
     final trimmed = name.trim();
     if (trimmed.isEmpty) return Msg.presetNameRequired;
@@ -2864,9 +2930,9 @@ class VpnController extends ChangeNotifier {
     final rules = List<RoutingRule>.of(_activeRoutingPreset.routingRules);
     if (oldIndex < 0 || oldIndex >= rules.length) return;
     var insertAt = newIndex;
-    if (insertAt > oldIndex) insertAt -= 1;
     if (insertAt < 0) insertAt = 0;
-    if (insertAt > rules.length) insertAt = rules.length;
+    if (insertAt >= rules.length) insertAt = rules.length - 1;
+    if (oldIndex == insertAt) return;
     final moved = rules.removeAt(oldIndex);
     rules.insert(insertAt, moved);
     _updateActiveRoutingPreset(
@@ -3399,7 +3465,7 @@ class VpnController extends ChangeNotifier {
 
   // ─── Connection lifecycle ─────────────────────────────────────────
   Future<void> toggleConnection() async {
-    if (isConnected) {
+    if (isConnected || isRecoveringNetwork) {
       await disconnect();
     } else {
       await connect();
@@ -3421,7 +3487,7 @@ class VpnController extends ChangeNotifier {
     await _ensureNotificationPermissionAsked();
     _resetConnectionRuntime();
     _acceptConnectedEvent = true;
-    _suppressDisconnectedUntil = null;
+    _suppressNextDisconnectedEvent = false;
     _setState(VpnConnectionState.preparing);
     try {
       // proxyOnly mode runs a foreground service without VpnService.Builder,
@@ -3449,7 +3515,7 @@ class VpnController extends ChangeNotifier {
     _restartRequestId++;
     _networkSettingsRestartPending = false;
     _acceptConnectedEvent = false;
-    _suppressDisconnectedUntil = null;
+    _suppressNextDisconnectedEvent = false;
     _setState(VpnConnectionState.disconnecting);
     try {
       await _methodChannel.invokeMethod('stopVpn');
@@ -3540,16 +3606,23 @@ class VpnController extends ChangeNotifier {
     final effectiveExit = exitNodeName != null
         ? _serverConfigForName(exitNodeName)
         : exitServer;
-    if (effectiveEntry?.isNaive != true && effectiveExit?.isNaive != true) {
+    final hasDirectLibbox =
+        effectiveEntry?.usesDirectLibbox == true ||
+        effectiveExit?.usesDirectLibbox == true;
+    if (!hasDirectLibbox) {
       return null;
     }
     final effectiveRunMode = runMode ?? _runMode;
     final effectiveTunEngine = tunEngineMode ?? _tunEngineMode;
-    if (effectiveRunMode != RunMode.tun) return Msg.vpnNaiveTunOnly;
-    if (effectiveTunEngine != TunEngineMode.libbox) {
-      return Msg.vpnNaiveRequiresLibbox;
+    if (effectiveRunMode != RunMode.tun) {
+      return Msg.vpnDirectLibboxTunOnly;
     }
-    if (effectiveExit != null) return Msg.vpnNaiveBridgeUnsupported;
+    if (effectiveTunEngine != TunEngineMode.libbox) {
+      return Msg.vpnDirectLibboxRequiresLibbox;
+    }
+    if (effectiveExit != null) {
+      return Msg.vpnDirectLibboxBridgeUnsupported;
+    }
     return null;
   }
 
@@ -3636,11 +3709,7 @@ class VpnController extends ChangeNotifier {
 
     _resetConnectionRuntime();
     _acceptConnectedEvent = true;
-    _suppressDisconnectedUntil = DateTime.now().add(
-      Platform.isAndroid
-          ? _androidVpnRestartStopTimeout + _disconnectSuppressionWindow
-          : _disconnectSuppressionWindow,
-    );
+    _suppressNextDisconnectedEvent = true;
     if (_connectionState == VpnConnectionState.connecting) {
       _scheduleConnectTimeout();
     } else {
@@ -3784,7 +3853,7 @@ class VpnController extends ChangeNotifier {
           displayUrl: url,
           isInsecureHttp: _isInsecureHttpUrl(uri),
         ),
-        () => importServersFromString(url),
+        () => importServersFromString(url, allowInsecureSubscription: true),
       );
       return;
     }
@@ -3800,25 +3869,45 @@ class VpnController extends ChangeNotifier {
     switch (host) {
       case 'connect':
       case 'open':
-        await connect();
+        _handleVpnControlDeepLink(
+          url: url,
+          command: VpnDeepLinkCommand.connect,
+          action: connect,
+        );
         return;
       case 'disconnect':
       case 'close':
-        await disconnect();
+        _handleVpnControlDeepLink(
+          url: url,
+          command: VpnDeepLinkCommand.disconnect,
+          action: disconnect,
+        );
         return;
       case 'toggle':
-        if (isConnected) {
-          await disconnect();
-        } else {
-          await connect();
-        }
+        _handleVpnControlDeepLink(
+          url: url,
+          command: VpnDeepLinkCommand.toggle,
+          action: () async {
+            if (isConnected) {
+              await disconnect();
+            } else {
+              await connect();
+            }
+          },
+        );
         return;
       case 'restart':
-        if (_hasRestartableNativeSession) {
-          await _restartActiveConnection();
-        } else {
-          await connect();
-        }
+        _handleVpnControlDeepLink(
+          url: url,
+          command: VpnDeepLinkCommand.restart,
+          action: () async {
+            if (_hasRestartableNativeSession) {
+              await _restartActiveConnection();
+            } else {
+              await connect();
+            }
+          },
+        );
         return;
       case 'import':
         final payload = parsed.pathSegments.isNotEmpty
@@ -3851,17 +3940,50 @@ class VpnController extends ChangeNotifier {
     }
     // Legacy / fall-through: encrypted-subscription codes
     // (voidlex://1/<base64>) and plain http(s) subscription URLs.
+    var insecureHttp = _isInsecureHttpUrl(parsed);
+    if (SubscriptionLinkCodec.looksLikeLink(url)) {
+      try {
+        final decoded = await _linkCodec.decode(url);
+        insecureHttp = _isInsecureHttpUrl(Uri.tryParse(decoded.url));
+      } on SubscriptionLinkException {
+        // The confirmed import path reports invalid/corrupt codes using the
+        // normal localized error. This preview only determines HTTP risk.
+      }
+    }
     _requestDeepLinkConsent(
       PendingDeepLink(
         kind: DeepLinkActionKind.importSubscription,
         displayUrl: url,
-        isInsecureHttp: _isInsecureHttpUrl(parsed),
+        isInsecureHttp: insecureHttp,
       ),
-      () => importServersFromString(url),
+      () => importServersFromString(url, allowInsecureSubscription: true),
+    );
+  }
+
+  void _handleVpnControlDeepLink({
+    required String url,
+    required VpnDeepLinkCommand command,
+    required Future<void> Function() action,
+  }) {
+    if (_allowDeepLinkVpnAutomation) {
+      unawaited(action());
+      return;
+    }
+    _requestDeepLinkConsent(
+      PendingDeepLink(
+        kind: DeepLinkActionKind.vpnControl,
+        displayUrl: url,
+        vpnCommand: command,
+      ),
+      action,
     );
   }
 
   Future<void> _importFromBase64Payload(String base64Payload) async {
+    if (base64Payload.length > _deepLinkImportBase64MaxChars) {
+      _publishDeepLinkNotice(Msg.deepLinkImportTooLarge);
+      return;
+    }
     String decoded;
     try {
       var padded = base64Payload.replaceAll('-', '+').replaceAll('_', '/');
@@ -3884,10 +4006,9 @@ class VpnController extends ChangeNotifier {
     HttpClient? client;
     try {
       client = HttpClient()..connectionTimeout = _deepLinkRulesetTimeout;
-      final request = await client
-          .getUrl(target)
-          .timeout(_deepLinkRulesetTimeout);
-      final response = await request.close().timeout(_deepLinkRulesetTimeout);
+      client.findProxy = (_) => 'DIRECT';
+      client.connectionFactory = _connectToPublicRulesetEndpoint;
+      final response = await _openRulesetResponse(client, target);
       if (response.statusCode < 200 || response.statusCode >= 300) {
         _publishDeepLinkNotice(
           Msg.deepLinkRulesetHttpStatus(response.statusCode),
@@ -3919,6 +4040,8 @@ class VpnController extends ChangeNotifier {
         return;
       }
       _publishDeepLinkNotice(Msg.deepLinkRulesetImported(count));
+    } on _UnsafeRulesetUrlException {
+      _publishDeepLinkNotice(Msg.deepLinkRulesetInvalidUrl);
     } on TimeoutException {
       _publishDeepLinkNotice(Msg.deepLinkRulesetTimeout);
     } on SocketException catch (e) {
@@ -3934,6 +4057,69 @@ class VpnController extends ChangeNotifier {
     }
   }
 
+  Future<ConnectionTask<Socket>> _connectToPublicRulesetEndpoint(
+    Uri uri,
+    String? proxyHost,
+    int? proxyPort,
+  ) async {
+    if (proxyHost != null ||
+        proxyPort != null ||
+        !DeepLinkHandler.isAllowedRulesetUrl(uri)) {
+      throw _UnsafeRulesetUrlException(uri);
+    }
+    final addresses = await InternetAddress.lookup(
+      uri.host,
+    ).timeout(_deepLinkRulesetTimeout);
+    if (addresses.isEmpty ||
+        addresses.any(
+          (address) => !DeepLinkHandler.isPublicRulesetAddress(address),
+        )) {
+      throw _UnsafeRulesetUrlException(uri);
+    }
+
+    final socketTask = await Socket.startConnect(addresses.first, uri.port);
+    final secureSocket = socketTask.socket.then(
+      (socket) => SecureSocket.secure(socket, host: uri.host),
+    );
+    return ConnectionTask.fromSocket(secureSocket, socketTask.cancel);
+  }
+
+  Future<HttpClientResponse> _openRulesetResponse(
+    HttpClient client,
+    Uri initialTarget,
+  ) async {
+    var target = initialTarget;
+    for (var redirectCount = 0; ; redirectCount++) {
+      if (!DeepLinkHandler.isAllowedRulesetUrl(target)) {
+        throw _UnsafeRulesetUrlException(target);
+      }
+      final request = await client
+          .getUrl(target)
+          .timeout(_deepLinkRulesetTimeout);
+      request.followRedirects = false;
+      final response = await request.close().timeout(_deepLinkRulesetTimeout);
+      if (!_isRulesetRedirect(response.statusCode)) return response;
+
+      final location = response.headers.value(HttpHeaders.locationHeader);
+      if (location == null || redirectCount >= _deepLinkRulesetMaxRedirects) {
+        return response;
+      }
+      final redirectedTarget = target.resolve(location);
+      if (!DeepLinkHandler.isAllowedRulesetUrl(redirectedTarget)) {
+        throw _UnsafeRulesetUrlException(redirectedTarget);
+      }
+      await response.drain<void>().timeout(_deepLinkRulesetTimeout);
+      target = redirectedTarget;
+    }
+  }
+
+  static bool _isRulesetRedirect(int statusCode) =>
+      statusCode == HttpStatus.movedPermanently ||
+      statusCode == HttpStatus.found ||
+      statusCode == HttpStatus.seeOther ||
+      statusCode == HttpStatus.temporaryRedirect ||
+      statusCode == HttpStatus.permanentRedirect;
+
   // ─── EventChannel wiring ──────────────────────────────────────────
   void _bindEventChannel() {
     _eventSub = _eventChannel.receiveBroadcastStream().listen(
@@ -3943,8 +4129,9 @@ class VpnController extends ChangeNotifier {
         final message = event['message'] as String?;
         switch (state) {
           case 'connecting':
+            if (_connectionState == VpnConnectionState.disconnecting) return;
             _acceptConnectedEvent = true;
-            _setState(VpnConnectionState.connecting);
+            _setConnecting(recovering: event['recovering'] == true);
             break;
           case 'connected':
             if (!_acceptConnectedEvent &&
@@ -3952,27 +4139,21 @@ class VpnController extends ChangeNotifier {
               return;
             }
             _acceptConnectedEvent = false;
-            _suppressDisconnectedUntil = null;
+            _suppressNextDisconnectedEvent = false;
             _lastError = null;
             _markConnected();
             _setState(VpnConnectionState.connected);
             break;
           case 'disconnected':
             // Anything waiting on native teardown (the restart path) should
-            // resolve here regardless of the suppression-window logic that
-            // follows — the native side really has stopped, even if we
-            // hide the UI-level transition.
+            // resolve here regardless of the suppression logic that follows.
+            final suppressUi = _suppressNextDisconnectedEvent;
             _completeNativeStopWaiter();
-            final deadline = _suppressDisconnectedUntil;
-            if (deadline != null && DateTime.now().isBefore(deadline)) {
-              // Expected tail of our own stopVpn — keep the current state
-              // (usually error from the timeout path) instead of clobbering
-              // it with a terminal disconnected. Clear the window so any
-              // *later* disconnect still propagates.
-              _suppressDisconnectedUntil = null;
+            if (suppressUi) {
+              _suppressNextDisconnectedEvent = false;
               return;
             }
-            _suppressDisconnectedUntil = null;
+            _suppressNextDisconnectedEvent = false;
             _acceptConnectedEvent = false;
             _lastError = null;
             _setState(VpnConnectionState.disconnected);
@@ -4041,7 +4222,7 @@ class VpnController extends ChangeNotifier {
     }
     _downloadHistory[lastIndex] = clampedDown;
     _uploadHistory[lastIndex] = clampedUp;
-    notifyListeners();
+    _throughputNotifier.value++;
   }
 
   void _bindGeoDataProgressChannel() {
@@ -4061,7 +4242,16 @@ class VpnController extends ChangeNotifier {
     );
   }
 
+  void _setConnecting({required bool recovering}) {
+    _isRecoveringNetwork = recovering;
+    _setState(VpnConnectionState.connecting);
+    // The native service owns recovery retries. Offline waiting has no deadline.
+    if (recovering) _cancelConnectTimeout();
+    notifyListeners();
+  }
+
   void _setState(VpnConnectionState state) {
+    if (state != VpnConnectionState.connecting) _isRecoveringNetwork = false;
     if (_connectionState == state) return;
     _connectionState = state;
     if (state == VpnConnectionState.connecting) {
@@ -4081,6 +4271,7 @@ class VpnController extends ChangeNotifier {
   }
 
   void _setError(String message) {
+    _isRecoveringNetwork = false;
     _acceptConnectedEvent = false;
     _cancelConnectTimeout();
     _cancelDisconnectTimeout();
@@ -4298,11 +4489,15 @@ class VpnController extends ChangeNotifier {
         isConnected &&
         target.usesServerEndpoint &&
         _serverNameEquals(server.name, selectedServer?.name ?? '')) {
+      final useHttpProxyAuth =
+          _httpProxyAuthEnabled &&
+          (_activeProxyUser?.isNotEmpty ?? false) &&
+          (_activeProxyPassword?.isNotEmpty ?? false);
       final runtimePing = await _latencyProbe.measureViaHttpProxy(
         proxyHost: _externalIpProxyHost,
         proxyPort: _externalIpProxyPort,
-        proxyUser: _activeProxyUser,
-        proxyPassword: _activeProxyPassword,
+        proxyUser: useHttpProxyAuth ? _activeProxyUser : null,
+        proxyPassword: useHttpProxyAuth ? _activeProxyPassword : null,
       );
       if (runtimePing != null) return runtimePing;
     }
@@ -4335,6 +4530,7 @@ class VpnController extends ChangeNotifier {
     _uploadBps = 0;
     _downloadHistory.fillRange(0, _downloadHistory.length, 0);
     _uploadHistory.fillRange(0, _uploadHistory.length, 0);
+    _throughputNotifier.value++;
   }
 
   void _setConnectionDuration(Duration duration) {
@@ -4556,9 +4752,7 @@ class VpnController extends ChangeNotifier {
     _connectTimeoutTimer = Timer(_connectTimeout, () {
       if (_connectionState != VpnConnectionState.connecting) return;
       _acceptConnectedEvent = false;
-      _suppressDisconnectedUntil = DateTime.now().add(
-        _disconnectSuppressionWindow,
-      );
+      _suppressNextDisconnectedEvent = true;
       unawaited(_stopVpnAfterTimeout());
       _setError(Msg.vpnConnectionTimedOut);
     });
@@ -4583,12 +4777,13 @@ class VpnController extends ChangeNotifier {
   }
 
   Future<void> _stopVpnAfterTimeout() async {
+    _suppressNextDisconnectedEvent = true;
     try {
       await _methodChannel.invokeMethod('stopVpn');
     } catch (_) {
       // stopVpn never dispatched, so no "disconnected" event is coming in
       // the suppression window — clear it so the next real disconnect lands.
-      _suppressDisconnectedUntil = null;
+      _suppressNextDisconnectedEvent = false;
     }
   }
 
@@ -4607,6 +4802,7 @@ class VpnController extends ChangeNotifier {
     _isScanningLatencyNotifier.dispose();
     _subscriptionScanTick.dispose();
     _homeListRevision.dispose();
+    _throughputNotifier.dispose();
     _selectedNameNotifier.dispose();
     _exitNodeNameNotifier.dispose();
     for (final notifier in _pingNotifiers.values) {

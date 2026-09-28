@@ -264,6 +264,45 @@ void main() {
       ),
     );
   });
+
+  test('profile backup restores Hysteria2 raw JSON maps', () {
+    final server = ServerConfig(
+      name: 'HY2 Raw',
+      address: 'hy2.example.com',
+      port: 443,
+      uuid: 'secret',
+      transport: VlessTransport.tcp,
+      security: VlessSecurity.tls,
+      serverProtocol: ServerProtocol.hysteria2,
+      hysteria2ObfsType: 'gecko',
+      hysteria2ObfsPassword: 'mask',
+      hysteria2RawOutbound: const {
+        'custom': {
+          'list': [1, true],
+        },
+      },
+      hysteria2RawObfs: const {
+        'custom_obfs': ['x', 2],
+      },
+      hysteria2RawTls: const {
+        'custom_tls': {'enabled': false},
+      },
+    );
+    final profile = ProfileExporter.exportJson(
+      manualNodes: [server],
+      subscriptions: const [],
+      routingPresets: [RoutingPreset.main()],
+      selectedRoutingPresetId: RoutingPreset.mainId,
+      protectSubscriptions: false,
+      exportedAt: DateTime.utc(2026, 8, 1),
+    );
+
+    final restored = ProfileImportPayload.parse(profile).manualNodes.single;
+    expect(restored.hysteria2RawOutbound, server.hysteria2RawOutbound);
+    expect(restored.hysteria2RawObfs, server.hysteria2RawObfs);
+    expect(restored.hysteria2RawTls, server.hysteria2RawTls);
+    expect(restored.hysteria2ObfsType, 'gecko');
+  });
 }
 
 VpnController _controller(

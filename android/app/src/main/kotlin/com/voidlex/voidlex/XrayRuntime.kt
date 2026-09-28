@@ -5,6 +5,7 @@ import android.os.ParcelFileDescriptor
 import android.system.Os
 import android.system.OsConstants
 import android.os.Build
+import android.os.SystemClock
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -22,15 +23,22 @@ internal enum class XrayRuntimeMode {
     TUN,
 }
 
+internal enum class SocksRuntimeReadiness {
+    WAITING,
+    READY_AFTER_STARTUP_LOG,
+    READY_WITHOUT_STARTUP_LOG,
+}
+
 internal class XrayRuntime(
     private val context: Context,
     private val scope: CoroutineScope,
 ) {
     companion object {
         private const val TAG = "XrayRuntime"
-        private const val READY_TIMEOUT_MS = 3_000L
+        private const val READY_TIMEOUT_MS = 10_000L
         private const val READY_POLL_MS = 50L
-        private const val CONFIG_TEST_TIMEOUT_MS = 5_000L
+        private const val SOCKS_PROBE_TIMEOUT_MS = 200L
+        private const val CONFIG_TEST_TIMEOUT_MS = 15_000L
         private const val PROCESS_STOP_TIMEOUT_MS = 1_500L
         private const val PROCESS_FORCE_STOP_TIMEOUT_MS = 500L
         private const val NATIVE_STOP_TIMEOUT_MS = 500
@@ -47,6 +55,15 @@ internal class XrayRuntime(
 
         internal fun isXrayStartedLine(line: String): Boolean {
             return line.contains("[Warning] core: Xray ") && line.endsWith(" started")
+        }
+
+        internal fun socksRuntimeReadiness(
+            startupReported: Boolean,
+            inboundReachable: Boolean,
+        ): SocksRuntimeReadiness = when {
+            !inboundReachable -> SocksRuntimeReadiness.WAITING
+            startupReported -> SocksRuntimeReadiness.READY_AFTER_STARTUP_LOG
+            else -> SocksRuntimeReadiness.READY_WITHOUT_STARTUP_LOG
         }
 
         internal fun configTestFailureMessage(
@@ -115,6 +132,7 @@ internal class XrayRuntime(
         config: ServerConfig,
         mode: XrayRuntimeMode = XrayRuntimeMode.SOCKS,
         tunFd: Int? = null,
+        shouldContinue: () -> Boolean = { true },
     ): Boolean {
         stop(waitForExit = true)
         resetLogSuppression()
@@ -157,12 +175,13 @@ internal class XrayRuntime(
             readCachedFingerprint() == fingerprint
         if (skipTest) {
             AppLogger.d(TAG, "Xray config unchanged since last test, skipping -test pass")
-        } else if (!testConfig(xrayBinary, configFile, mode)) {
+        } else if (!testConfig(xrayBinary, configFile, mode, shouldContinue)) {
             return false
         } else if (fingerprint != null) {
             writeCachedFingerprint(fingerprint)
         }
 
+        if (!shouldContinue()) return false
         return when (mode) {
             XrayRuntimeMode.SOCKS -> startSocksRuntime(xrayBinary, configFile)
             XrayRuntimeMode.TUN -> startNativeTunRuntime(xrayBinary, configFile, tunFd!!)
@@ -552,7 +571,24 @@ internal class XrayRuntime(
         return null
     }
 
-    private fun testConfig(xrayBinary: File, configFile: File, mode: XrayRuntimeMode): Boolean {
+    private fun testConfig(
+        xrayBinary: File,
+        configFile: File,
+        mode: XrayRuntimeMode,
+        shouldContinue: () -> Boolean,
+    ): Boolean = XrayConfigTestRetry.run(
+        shouldContinue = shouldContinue,
+        attempt = { testConfigAttempt(xrayBinary, configFile, mode, shouldContinue) },
+        onRetry = { AppLogger.w(TAG, "Retrying Xray config test after timeout") },
+    )
+
+    // null means a timeout with the child reaped, the only retryable outcome.
+    private fun testConfigAttempt(
+        xrayBinary: File,
+        configFile: File,
+        mode: XrayRuntimeMode,
+        shouldContinue: () -> Boolean,
+    ): Boolean? {
         val output = StringBuffer()
         return runCatching {
             val builder = ProcessBuilder(
@@ -579,8 +615,8 @@ internal class XrayRuntime(
             }
 
             var exitCode: Int? = null
-            val deadline = System.currentTimeMillis() + CONFIG_TEST_TIMEOUT_MS
-            while (System.currentTimeMillis() < deadline) {
+            val deadline = SystemClock.elapsedRealtime() + CONFIG_TEST_TIMEOUT_MS
+            while (shouldContinue() && SystemClock.elapsedRealtime() < deadline) {
                 exitCode = runCatching { proc.exitValue() }.getOrNull()
                 if (exitCode != null) {
                     break
@@ -593,13 +629,17 @@ internal class XrayRuntime(
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && proc.isAlive) {
                     proc.destroyForcibly()
                 }
+                val exited = waitForProcessExit(proc, PROCESS_FORCE_STOP_TIMEOUT_MS)
                 reader.join(200)
+                proc.inputStream.close()
+                if (!shouldContinue()) return@runCatching false
                 lastFailureReason = "Xray config test timed out after ${CONFIG_TEST_TIMEOUT_MS}ms"
-                AppLogger.e(TAG, lastFailureReason!!)
-                false
+                AppLogger.e(TAG, "$lastFailureReason; exited=$exited; output=${compactOutput(output.toString())}")
+                if (exited) null else false
             } else {
                 reader.join(200)
                 if (exitCode == 0) {
+                    lastFailureReason = null
                     AppLogger.i(TAG, "Xray config test passed")
                     true
                 } else {
@@ -616,46 +656,70 @@ internal class XrayRuntime(
 
     private fun waitForSocksRuntime(proc: Process, startedSignal: CountDownLatch): Boolean {
         val deadline = System.currentTimeMillis() + READY_TIMEOUT_MS
+        var startupReported = false
         while (System.currentTimeMillis() < deadline) {
             if (!proc.isAlive) {
                 return false
             }
+            startupReported = startupReported || startedSignal.count == 0L
             val remaining = deadline - System.currentTimeMillis()
-            val waitMs = READY_POLL_MS.coerceAtMost(remaining)
-            val signaled = try {
-                startedSignal.await(waitMs, TimeUnit.MILLISECONDS)
+            val probeTimeoutMs = SOCKS_PROBE_TIMEOUT_MS
+                .coerceAtMost(remaining)
+                .coerceAtLeast(1L)
+                .toInt()
+            val inboundReachable = isSocksInboundReachable(probeTimeoutMs)
+            if (!proc.isAlive) {
+                return false
+            }
+            when (
+                socksRuntimeReadiness(
+                    startupReported = startupReported,
+                    inboundReachable = inboundReachable,
+                )
+            ) {
+                SocksRuntimeReadiness.READY_AFTER_STARTUP_LOG -> {
+                    AppLogger.i(TAG, "Xray SOCKS inbound is ready")
+                    return true
+                }
+                SocksRuntimeReadiness.READY_WITHOUT_STARTUP_LOG -> {
+                    AppLogger.w(
+                        TAG,
+                        "Xray SOCKS inbound became reachable before startup log marker",
+                    )
+                    return true
+                }
+                SocksRuntimeReadiness.WAITING -> Unit
+            }
+
+            val waitMs = READY_POLL_MS.coerceAtMost(
+                deadline - System.currentTimeMillis(),
+            )
+            if (waitMs <= 0L) {
+                break
+            }
+            try {
+                if (startupReported) {
+                    Thread.sleep(waitMs)
+                } else {
+                    startupReported = startedSignal.await(waitMs, TimeUnit.MILLISECONDS)
+                }
             } catch (e: InterruptedException) {
                 Thread.currentThread().interrupt()
                 return false
             }
-            if (signaled) {
-                if (!proc.isAlive) {
-                    return false
-                }
-                if (waitForSocksInbound(proc, deadline)) {
-                    AppLogger.i(TAG, "Xray SOCKS inbound is ready")
-                    return true
-                }
-                return false
-            }
         }
-        AppLogger.e(TAG, "Xray SOCKS runtime stayed alive but did not report readiness")
+        val detail = if (startupReported) {
+            "reported startup but SOCKS inbound stayed unreachable"
+        } else {
+            "stayed alive but did not open SOCKS inbound or report startup"
+        }
+        AppLogger.e(TAG, "Xray SOCKS runtime $detail within ${READY_TIMEOUT_MS}ms")
         return false
     }
 
-    private fun waitForSocksInbound(proc: Process, deadline: Long): Boolean {
-        // The "Xray ... started" log line we listened for already implies the
-        // SOCKS inbound is bound. We probe TCP once as a sanity check — if
-        // it fails, the runtime is in an inconsistent state and looping
-        // with 50ms retries won't fix that. The previous spin loop was
-        // residual from the time we tried to call waitForSocksInbound
-        // before the startup-log signal landed.
-        if (!proc.isAlive) {
-            return false
-        }
-        val probeTimeoutMs = (deadline - System.currentTimeMillis())
-            .coerceIn(50, READY_TIMEOUT_MS)
-            .toInt()
+    private fun isSocksInboundReachable(probeTimeoutMs: Int): Boolean {
+        // Treat the bound inbound as the source of truth. The startup marker
+        // can be delayed or absent when the log reader starts under load.
         return runCatching {
             Socket().use { socket ->
                 socket.connect(

@@ -11,6 +11,7 @@ import '../../l10n/app_localizations.dart';
 import '../../theme.dart';
 import '../manual_server_input_screen.dart';
 import '../qr_scan_screen.dart';
+import 'insecure_subscription_dialog.dart';
 
 /// Bottom sheet that lets the user add a new node via QR / clipboard / file
 /// import or open the manual-input screen. Public so it can be invoked from
@@ -114,8 +115,14 @@ Future<void> _importFromClipboard(
   BuildContext context,
   VpnController controller,
 ) async {
-  final result = await controller.importFromClipboard();
+  final result = await _runImportWithInsecureConsent(
+    context,
+    (allowInsecure) => controller.importFromClipboard(
+      allowInsecureSubscription: allowInsecure,
+    ),
+  );
   if (!context.mounted) return;
+  if (result == null) return;
   final l = AppLocalizations.of(context);
   _showImportResult(context, result, l, source: 'clipboard');
 }
@@ -139,8 +146,15 @@ Future<void> _importFromQrCode(
     return;
   }
 
-  final result = await controller.importServersFromString(trimmed);
+  final result = await _runImportWithInsecureConsent(
+    context,
+    (allowInsecure) => controller.importServersFromString(
+      trimmed,
+      allowInsecureSubscription: allowInsecure,
+    ),
+  );
   if (!context.mounted) return;
+  if (result == null) return;
   final l = AppLocalizations.of(context);
   _showImportResult(context, result, l, source: 'qr');
 }
@@ -165,11 +179,36 @@ Future<void> _importFromFile(
     return;
   }
   if (!context.mounted || text == null) return;
+  final payload = text;
 
-  final result = await controller.importServersFromString(text);
+  final result = await _runImportWithInsecureConsent(
+    context,
+    (allowInsecure) => controller.importServersFromString(
+      payload,
+      allowInsecureSubscription: allowInsecure,
+    ),
+  );
   if (!context.mounted) return;
+  if (result == null) return;
   final l = AppLocalizations.of(context);
   _showImportResult(context, result, l, source: 'file');
+}
+
+Future<ServerImportResult?> _runImportWithInsecureConsent(
+  BuildContext context,
+  Future<ServerImportResult> Function(bool allowInsecure) importer,
+) async {
+  var result = await importer(false);
+  if (result.error?.code != ServerImportError.insecureSubscription) {
+    return result;
+  }
+  if (!context.mounted ||
+      !await confirmInsecureSubscription(context) ||
+      !context.mounted) {
+    return null;
+  }
+  result = await importer(true);
+  return result;
 }
 
 void _showImportResult(
@@ -252,6 +291,8 @@ String _humanizeImportError(
     case ServerImportError.invalidSubscription:
     case ServerImportError.subscriptionNetwork:
       return error.message;
+    case ServerImportError.insecureSubscription:
+      return l.insecureSubscriptionBody;
   }
 }
 

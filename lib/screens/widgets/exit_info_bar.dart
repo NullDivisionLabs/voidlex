@@ -100,7 +100,7 @@ class _ExitInfoBarState extends State<ExitInfoBar> {
       fontFeatures: const [FontFeature.tabularFigures()],
     );
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
       child: Material(
         color: t.surface,
         borderRadius: BorderRadius.circular(10),

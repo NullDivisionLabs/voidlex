@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:voidlex/core/app_routing.dart';
 import 'package:voidlex/core/models/server_config.dart';
+import 'package:voidlex/core/models/server_subscription.dart';
 import 'package:voidlex/core/routing_preset.dart';
 import 'package:voidlex/core/server_repository.dart';
 import 'package:voidlex/core/tun_engine_mode.dart';
@@ -325,6 +326,37 @@ void main() {
     expect(starts, hasLength(2));
 
     controller.dispose();
+  });
+
+  test('homeListRevisionListenable increments on selectServer and subscription collapse', () async {
+    final prefs = await SharedPreferences.getInstance();
+    final repository = ServerRepository(prefs);
+    await repository.saveSelected('A');
+    await repository.saveServers([
+      _server('A', 'a.example.com'),
+      _server('B', 'b.example.com'),
+    ]);
+    await repository.saveSubscriptions([
+      ServerSubscription(
+        id: 'sub-1',
+        name: 'Sub 1',
+        url: 'https://example.com/sub',
+        servers: [_server('C', 'c.example.com')],
+      ),
+    ]);
+
+    final controller = VpnController(repository);
+    await controller.bootstrap();
+    addTearDown(controller.dispose);
+
+    final initialRevision = controller.homeListRevisionListenable.value;
+
+    await controller.selectServer('B');
+    expect(controller.homeListRevisionListenable.value, greaterThan(initialRevision));
+
+    final afterSelectRevision = controller.homeListRevisionListenable.value;
+    await controller.setSubscriptionCollapsed('sub-1', true);
+    expect(controller.homeListRevisionListenable.value, greaterThan(afterSelectRevision));
   });
 }
 

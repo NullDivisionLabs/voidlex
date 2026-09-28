@@ -22,31 +22,6 @@ internal object XrayConfigBuilder {
     internal const val BLOCK_TAG = "block"
     private val USER_RULE_OUTBOUND_TAGS = setOf(OUTBOUND_TAG, DIRECT_TAG, BLOCK_TAG)
 
-    // xhttp transport mimicry defaults. These are applied when the user
-    // hasn't pinned an explicit value, so a plain "xhttp/reality" server
-    // entry already comes out of the builder with browser-like HTTP
-    // semantics rather than the bare path/host pair we used to emit. The
-    // motivation is DPI white-list regimes (notably mobile operators in
-    // RU/IR) that drop xhttp because the on-wire pattern is unique:
-    //   - "auto" mode falls back to packet-up, whose POST <path>/<uuid>/<seq>
-    //     rhythm is a known signature; stream-up looks like an ordinary
-    //     long HTTP/2 upload, so it's our safer default.
-    //   - Without xPaddingBytes the per-record sizes are too uniform.
-    //   - Without HTTP headers (UA, Accept, …) the request looks unlike
-    //     anything a real browser would send.
-    // Each value is also exposed as a ServerConfig field so a user / share
-    // link can override it server-side if their server-side config expects
-    // something specific.
-    private const val DEFAULT_XHTTP_MODE = "stream-up"
-    private const val DEFAULT_XHTTP_PADDING = "100-1000"
-    private const val DEFAULT_XHTTP_MAX_POST_BYTES = "500000-1000000"
-    private const val DEFAULT_XHTTP_MIN_POST_INTERVAL = "10-50"
-    // Stable Chrome UA. We deliberately don't randomize this per-connection:
-    // the TLS ClientHello fingerprint (uTLS) and the HTTP UA must agree, so
-    // the UA must match what uTLS' Chrome profile would actually emit.
-    private const val DEFAULT_XHTTP_USER_AGENT =
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) " +
-            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
     // When the user hasn't picked a uTLS fingerprint and the transport is
     // xhttp, we lean on "chrome" rather than the historical "firefox" —
     // Firefox + h2-POST cadence is a much rarer combination in the wild
@@ -354,11 +329,9 @@ internal object XrayConfigBuilder {
     }
 
     internal fun buildExternalIpProbeInbound(config: ServerConfig): JSONObject {
-        // Whenever proxy credentials are configured the probe inbound enforces
-        // them too, regardless of run mode or LAN exposure. This keeps the
-        // local HTTP port from ever being an unauthenticated side door onto
-        // the active tunnel, matching the SOCKS inbound's behaviour.
-        val hasAuth = config.proxyUser.isNotEmpty() && config.proxyPassword.isNotEmpty()
+        val hasAuth = config.httpProxyAuthEnabled &&
+            config.proxyUser.isNotEmpty() &&
+            config.proxyPassword.isNotEmpty()
         val bindHost = resolveBindHost(config)
         return JSONObject().apply {
             put("tag", EXTERNAL_IP_PROBE_INBOUND_TAG)
@@ -511,7 +484,18 @@ internal object XrayConfigBuilder {
             left.transportServiceName == right.transportServiceName &&
             left.transportHost == right.transportHost &&
             left.transportMode == right.transportMode &&
-            left.xhttpPadding == right.xhttpPadding &&
+            left.xPaddingObfsMode == right.xPaddingObfsMode &&
+            left.xPaddingPlacement == right.xPaddingPlacement &&
+            left.xPaddingKey == right.xPaddingKey &&
+            left.xPaddingHeader == right.xPaddingHeader &&
+            left.xPaddingMethod == right.xPaddingMethod &&
+            left.xPaddingBytes == right.xPaddingBytes &&
+            left.sessionIDPlacement == right.sessionIDPlacement &&
+            left.sessionIDKey == right.sessionIDKey &&
+            left.seqPlacement == right.seqPlacement &&
+            left.seqKey == right.seqKey &&
+            left.xhttpRawSettingsJson == right.xhttpRawSettingsJson &&
+            left.xhttpRawExtraJson == right.xhttpRawExtraJson &&
             left.xhttpMaxPostBytes == right.xhttpMaxPostBytes &&
             left.xhttpMinPostInterval == right.xhttpMinPostInterval &&
             left.tlsEnabled == right.tlsEnabled &&
@@ -534,7 +518,7 @@ internal object XrayConfigBuilder {
     }
 
     internal fun isNaive(config: ServerConfig): Boolean {
-        return NaiveRuntimeConstraints.isNaive(config.protocol)
+        return DirectLibboxRuntimeConstraints.isNaive(config.protocol)
     }
 
     internal fun usesDirectLibbox(config: ServerConfig): Boolean {
@@ -651,53 +635,60 @@ internal object XrayConfigBuilder {
         }
     }
 
-    /// Builds the xhttpSettings block with browser-mimicking defaults.
-    /// stream-up is forced when the user hasn't picked a mode — see
-    /// DEFAULT_XHTTP_MODE for rationale. The extra.headers block makes the
-    /// underlying h2 requests look like an ordinary upload from a real
-    /// Chrome instance instead of the bare path-only requests Xray emits
-    /// by default, which DPI white-lists tend to single out.
     private fun buildXhttpSettings(config: ServerConfig): JSONObject {
-        return JSONObject().apply {
+        return parseJsonObject(config.xhttpRawSettingsJson).apply {
+            listOf("path", "host", "mode", "extra").forEach(::remove)
             put("path", config.transportPath.ifBlank { "/" })
-            put("mode", config.transportMode.ifBlank { DEFAULT_XHTTP_MODE })
+            if (config.transportMode.isNotBlank()) {
+                put("mode", config.transportMode)
+            }
             if (config.transportHost.isNotBlank()) {
                 put("host", config.transportHost)
             }
-            put("extra", buildXhttpExtra(config))
+            buildXhttpExtra(config)?.let { put("extra", it) }
         }
     }
 
-    private fun buildXhttpExtra(config: ServerConfig): JSONObject {
-        return JSONObject().apply {
-            put(
-                "xPaddingBytes",
-                config.xhttpPadding.ifBlank { DEFAULT_XHTTP_PADDING },
-            )
-            // The gRPC-style "Content-Type: application/grpc" header is
-            // what a stock Xray client used to volunteer over xhttp; on
-            // strict white-list DPI it triggers the gRPC-detection path
-            // and the connection is dropped before any payload moves.
-            // Suppressing it lets the request look like a vanilla h2
-            // upload.
-            put("noGRPCHeader", true)
-            put(
-                "scMaxEachPostBytes",
-                config.xhttpMaxPostBytes.ifBlank { DEFAULT_XHTTP_MAX_POST_BYTES },
-            )
-            put(
-                "scMinPostsIntervalMs",
-                config.xhttpMinPostInterval.ifBlank { DEFAULT_XHTTP_MIN_POST_INTERVAL },
-            )
-            put("headers", JSONObject().apply {
-                put("User-Agent", DEFAULT_XHTTP_USER_AGENT)
-                put("Accept", "*/*")
-                put("Accept-Language", "en-US,en;q=0.9")
-                put("Accept-Encoding", "gzip, deflate, br")
-                put("Cache-Control", "no-cache")
-                put("Pragma", "no-cache")
-            })
-        }
+    private fun buildXhttpExtra(config: ServerConfig): JSONObject? {
+        val extra = parseJsonObject(config.xhttpRawExtraJson)
+        listOf(
+            "xPaddingObfsMode",
+            "xPaddingPlacement",
+            "xPaddingKey",
+            "xPaddingHeader",
+            "xPaddingMethod",
+            "xPaddingBytes",
+            "sessionIDPlacement",
+            "sessionIDKey",
+            "seqPlacement",
+            "seqKey",
+            "scMaxEachPostBytes",
+            "scMinPostsIntervalMs",
+        ).forEach(extra::remove)
+
+        config.xPaddingObfsMode?.let { extra.put("xPaddingObfsMode", it) }
+        putIfNotBlank(extra, "xPaddingPlacement", paddingPlacementWire(config.xPaddingPlacement))
+        putIfNotBlank(extra, "xPaddingKey", config.xPaddingKey)
+        putIfNotBlank(extra, "xPaddingHeader", config.xPaddingHeader)
+        putIfNotBlank(extra, "xPaddingMethod", config.xPaddingMethod)
+        putIfNotBlank(extra, "xPaddingBytes", config.xPaddingBytes)
+        putIfNotBlank(extra, "sessionIDPlacement", config.sessionIDPlacement)
+        putIfNotBlank(extra, "sessionIDKey", config.sessionIDKey)
+        putIfNotBlank(extra, "seqPlacement", config.seqPlacement)
+        putIfNotBlank(extra, "seqKey", config.seqKey)
+        putIfNotBlank(extra, "scMaxEachPostBytes", config.xhttpMaxPostBytes)
+        putIfNotBlank(extra, "scMinPostsIntervalMs", config.xhttpMinPostInterval)
+        return extra.takeIf { it.length() > 0 }
     }
+
+    private fun parseJsonObject(raw: String): JSONObject =
+        if (raw.isBlank()) JSONObject() else JSONObject(raw)
+
+    private fun putIfNotBlank(target: JSONObject, key: String, value: String) {
+        if (value.isNotBlank()) target.put(key, value.trim())
+    }
+
+    private fun paddingPlacementWire(value: String): String =
+        if (value.trim() == "query-in-header") "queryInHeader" else value.trim()
 
 }

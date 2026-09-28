@@ -7,7 +7,6 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 import '../core/app_locale.dart';
 import '../core/models/server_config.dart';
 import '../core/models/server_subscription.dart';
-import '../core/pending_deep_link.dart';
 import '../core/routing_preset.dart';
 import '../core/server_config_exporter.dart';
 import '../core/subscription_client_identity.dart';
@@ -53,7 +52,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   String? _lastShownConnectionError;
-  bool _deepLinkDialogVisible = false;
+  bool _topWidgetsCollapsed = false;
   bool _manualNodesCollapsed = false;
   bool _favoritesMoveMode = false;
   bool _subscriptionsMoveMode = false;
@@ -68,10 +67,10 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    _topWidgetsCollapsed = _controller.startHomeWidgetsCollapsed;
     _controller.addListener(_handleControllerChanged);
   }
 
-  @override
   // didUpdateWidget intentionally removed: HomeScreen.controller is the
   // singleton VpnController constructed in main() and is never swapped out.
   // The defensive listener-replacement logic that used to live here was
@@ -105,6 +104,16 @@ class _HomeScreenState extends State<HomeScreen> {
     setState(() => _searchQuery = value);
   }
 
+  void _collapseTopWidgets() {
+    if (_topWidgetsCollapsed) return;
+    setState(() => _topWidgetsCollapsed = true);
+  }
+
+  void _expandTopWidgets() {
+    if (!_topWidgetsCollapsed) return;
+    setState(() => _topWidgetsCollapsed = false);
+  }
+
   void _handleControllerChanged() {
     final routingWarning = _controller.consumeRoutingPresetWarning();
     if (routingWarning != null && routingWarning.isNotEmpty) {
@@ -112,26 +121,6 @@ class _HomeScreenState extends State<HomeScreen> {
         () => localizeUserMessage(context, routingWarning),
         guard: () => mounted,
       );
-    }
-
-    final deepLinkNotice = _controller.consumeDeepLinkNotice();
-    if (deepLinkNotice != null && deepLinkNotice.isNotEmpty) {
-      _scheduleBubble(
-        () => localizeUserMessage(context, deepLinkNotice),
-        guard: () => mounted,
-      );
-    }
-
-    final pendingDeepLink = _controller.pendingDeepLink;
-    if (pendingDeepLink != null && !_deepLinkDialogVisible) {
-      _deepLinkDialogVisible = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) {
-          _deepLinkDialogVisible = false;
-          return;
-        }
-        unawaited(_showDeepLinkConsentDialog(pendingDeepLink));
-      });
     }
 
     final isErrorState =
@@ -178,91 +167,6 @@ class _HomeScreenState extends State<HomeScreen> {
           duration: const Duration(seconds: 6),
         ),
       );
-  }
-
-  String _deepLinkConsentDescription(
-    AppLocalizations l,
-    DeepLinkActionKind kind,
-  ) {
-    return switch (kind) {
-      DeepLinkActionKind.importServers => l.deepLinkConsentImportServers,
-      DeepLinkActionKind.importRuleset => l.deepLinkConsentImportRuleset,
-      DeepLinkActionKind.importSubscription =>
-        l.deepLinkConsentImportSubscription,
-    };
-  }
-
-  Future<void> _showDeepLinkConsentDialog(PendingDeepLink request) async {
-    final l = AppLocalizations.of(context);
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) {
-        final theme = Theme.of(ctx);
-        return AlertDialog(
-          title: Text(l.deepLinkConsentTitle),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(_deepLinkConsentDescription(l, request.kind)),
-                const SizedBox(height: 12),
-                Text(
-                  l.deepLinkConsentSourceLabel,
-                  style: theme.textTheme.labelMedium,
-                ),
-                const SizedBox(height: 4),
-                SelectableText(
-                  request.displayUrl,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    fontFamily: 'monospace',
-                  ),
-                ),
-                if (request.isInsecureHttp) ...[
-                  const SizedBox(height: 12),
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Icon(
-                        Icons.warning_amber_rounded,
-                        color: theme.colorScheme.error,
-                        size: 18,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          l.deepLinkConsentHttpWarning,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.error,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(false),
-              child: Text(l.cancel),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
-              child: Text(l.deepLinkConsentConfirm),
-            ),
-          ],
-        );
-      },
-    );
-    _deepLinkDialogVisible = false;
-    if (!mounted) return;
-    if (confirmed == true) {
-      await _controller.confirmPendingDeepLink();
-    } else {
-      _controller.cancelPendingDeepLink();
-    }
   }
 
   // ── Connect / proxy ──────────────────────────────────────────────────
@@ -332,9 +236,39 @@ class _HomeScreenState extends State<HomeScreen> {
           ..showSnackBar(SnackBar(content: Text(l.homeServerCopied)));
         break;
       case ServerMenuAction.remove:
-        await _controller.removeServer(server.name);
+        await _confirmAndRemoveServer(server);
         break;
     }
+  }
+
+  Future<void> _confirmAndRemoveServer(ServerConfig server) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        final theme = Theme.of(dialogContext);
+        final dl = AppLocalizations.of(dialogContext);
+        return AlertDialog(
+          title: Text(dl.editServerDeleteConfirmTitle),
+          content: Text(dl.editServerDeleteConfirmBody),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(dl.cancel),
+            ),
+            FilledButton(
+              style: FilledButton.styleFrom(
+                backgroundColor: theme.colorScheme.error,
+                foregroundColor: theme.colorScheme.onError,
+              ),
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(dl.delete),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true || !mounted) return;
+    await _controller.removeServer(server.name);
   }
 
   Future<void> _removeFavoriteFromFavorites(ServerConfig server) async {
@@ -549,10 +483,8 @@ class _HomeScreenState extends State<HomeScreen> {
   // ── Layout ───────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    // The top status strip and the connect-button hub are split out of the
-    // big AnimatedBuilder so that latency scans, server-list edits, and
-    // other notifyListeners() callers don't redraw them. They rebuild only
-    // on real connect/disconnect/error transitions.
+    // Keep the top controls outside the sliver list so collapsing the header
+    // and connection ticks do not rebuild node tiles.
     final t = VoidTokens.of(context);
     return Scaffold(
       backgroundColor: t.bg,
@@ -573,43 +505,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   );
                 },
               ),
-              ValueListenableBuilder<VpnConnectionState>(
-                valueListenable: _controller.connectionStateListenable,
-                builder: (context, state, _) {
-                  return ValueListenableBuilder<String>(
-                    valueListenable:
-                        _controller.connectionDurationLabelListenable,
-                    builder: (context, durationLabel, _) {
-                      return StatusStrip(
-                        statusHeading: AppLocalizations.of(
-                          context,
-                        ).statusStripLabel,
-                        label: _statusLabelFor(context, state),
-                        tone: _statusToneFor(state),
-                        right: _statusRight(state, durationLabel),
-                      );
-                    },
-                  );
-                },
+              ListenableBuilder(
+                listenable: _controller.homeListRevisionListenable,
+                builder: (context, _) => _buildTopWidgets(context),
               ),
-              const SizedBox(height: 4),
-              Center(
-                child: ValueListenableBuilder<VpnConnectionState>(
-                  valueListenable: _controller.connectionStateListenable,
-                  builder: (context, state, _) {
-                    final busy = _isBusyState(state);
-                    return TriangleHub(
-                      state: _hubVisualStateFor(state),
-                      onTap: busy ? () {} : _toggleConnection,
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: 14),
               Expanded(
                 child: ListenableBuilder(
                   listenable: _controller.homeListRevisionListenable,
-                  builder: (context, _) => _buildBody(context, t),
+                  builder: (context, _) => _buildList(context, t),
                 ),
               ),
               VoidDock(
@@ -627,9 +530,74 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildBody(BuildContext context, VoidTokens t) {
+  Widget _buildTopWidgets(BuildContext context) {
+    return ValueListenableBuilder<VpnConnectionState>(
+      valueListenable: _controller.connectionStateListenable,
+      builder: (context, state, _) {
+        return ValueListenableBuilder<String>(
+          valueListenable: _controller.connectionDurationLabelListenable,
+          builder: (context, durationLabel, _) {
+            return AnimatedSwitcher(
+              duration: const Duration(milliseconds: 260),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: (child, animation) {
+                final curved = CurvedAnimation(
+                  parent: animation,
+                  curve: Curves.easeInOutCubic,
+                );
+                return ClipRect(
+                  child: FadeTransition(
+                    opacity: animation,
+                    child: SizeTransition(
+                      sizeFactor: curved,
+                      alignment: Alignment.topCenter,
+                      child: child,
+                    ),
+                  ),
+                );
+              },
+              child: _topWidgetsCollapsed
+                  ? _buildCollapsedTopWidgets(context, state)
+                  : _buildExpandedTopWidgets(context, state, durationLabel),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildExpandedTopWidgets(
+    BuildContext context,
+    VpnConnectionState state,
+    String durationLabel,
+  ) {
+    final l = AppLocalizations.of(context);
+    final busy = _isBusyState(state) && !_controller.isRecoveringNetwork;
     return Column(
+      key: const ValueKey('home-top-expanded'),
       children: [
+        StatusStrip(
+          statusHeading: l.statusStripLabel,
+          label: _statusLabelFor(context, state),
+          tone: _statusToneFor(state),
+          right: _statusRight(state, durationLabel),
+          trailing: VoidIconActionButton(
+            key: const ValueKey('home-top-collapse-button'),
+            icon: Icons.keyboard_arrow_up_rounded,
+            tooltip: l.tooltipCollapseTopWidgets,
+            onTap: _collapseTopWidgets,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Center(
+          child: TriangleHub(
+            key: const ValueKey('home-triangle-hub'),
+            state: _hubVisualStateFor(state),
+            onTap: busy ? () {} : _toggleConnection,
+          ),
+        ),
+        const SizedBox(height: 8),
         if (_controller.showGlobalProxyButton)
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 28),
@@ -641,9 +609,9 @@ class _HomeScreenState extends State<HomeScreen> {
               },
             ),
           ),
-        if (_controller.showGlobalProxyButton) const SizedBox(height: 14),
+        if (_controller.showGlobalProxyButton) const SizedBox(height: 8),
         AnimatedBuilder(
-          animation: _controller,
+          animation: _controller.throughputListenable,
           builder: (context, _) {
             if (!_controller.showExitNodeInfoBar) {
               return const SizedBox.shrink();
@@ -660,8 +628,51 @@ class _HomeScreenState extends State<HomeScreen> {
             );
           },
         ),
-        Expanded(child: _buildList(context, t)),
       ],
+    );
+  }
+
+  Widget _buildCollapsedTopWidgets(
+    BuildContext context,
+    VpnConnectionState state,
+  ) {
+    final t = VoidTokens.of(context);
+    final l = AppLocalizations.of(context);
+    final busy = _isBusyState(state) && !_controller.isRecoveringNetwork;
+    return Padding(
+      key: const ValueKey('home-top-collapsed'),
+      padding: const EdgeInsets.fromLTRB(20, 6, 20, 4),
+      child: Row(
+        children: [
+          CompactTriangleHub(
+            key: const ValueKey('home-compact-triangle-hub'),
+            state: _hubVisualStateFor(state),
+            enabled: !busy,
+            onTap: _toggleConnection,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              _statusLabelFor(context, state),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: VoidType.mono(
+                fontSize: 16,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.4,
+                color: t.fg1,
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          VoidIconActionButton(
+            key: const ValueKey('home-top-expand-button'),
+            icon: Icons.keyboard_arrow_down_rounded,
+            tooltip: l.tooltipExpandTopWidgets,
+            onTap: _expandTopWidgets,
+          ),
+        ],
+      ),
     );
   }
 
@@ -681,7 +692,9 @@ class _HomeScreenState extends State<HomeScreen> {
         return l.statusIdle;
       case VpnConnectionState.preparing:
       case VpnConnectionState.connecting:
-        return l.statusNegotiating;
+        return _controller.isRecoveringNetwork
+            ? l.statusReconnecting
+            : l.statusNegotiating;
       case VpnConnectionState.connected:
         return l.statusSecure;
       case VpnConnectionState.disconnecting:
@@ -812,7 +825,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: _controller.favoritesSectionCollapsed
               ? const SizedBox.shrink()
               : SizedBox(
-                  height: 64,
+                  height: 54,
                   child: ReorderableListView.builder(
                     scrollDirection: Axis.horizontal,
                     buildDefaultDragHandles: false,
@@ -822,7 +835,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         setState(() => _favoritesMoveMode = false);
                       }
                     },
-                    onReorder: (oldIndex, newIndex) async {
+                    onReorderItem: (oldIndex, newIndex) async {
                       await _controller.reorderFavoriteServers(
                         oldIndex,
                         newIndex,
@@ -860,9 +873,7 @@ class _HomeScreenState extends State<HomeScreen> {
         style: NodePingBadgeStyle.fav,
       ),
       selected: _controller.selectedName == server.name,
-      onTap: _favoritesMoveMode
-          ? null
-          : () => _selectServer(server.name),
+      onTap: _favoritesMoveMode ? null : () => _selectServer(server.name),
       onLongPressStart: _favoritesMoveMode
           ? null
           : (details) => _showFavoriteMenu(server, details),
@@ -927,7 +938,7 @@ class _HomeScreenState extends State<HomeScreen> {
       slivers.add(
         SliverReorderableList(
           itemCount: manual.length,
-          onReorder: (oldIndex, newIndex) {
+          onReorderItem: (oldIndex, newIndex) {
             _controller.reorderServers(oldIndex, newIndex);
           },
           proxyDecorator: _reorderProxyDecorator,
@@ -936,7 +947,7 @@ class _HomeScreenState extends State<HomeScreen> {
             return Padding(
               key: ValueKey('manual:${server.name}'),
               padding: EdgeInsets.only(
-                bottom: index < manual.length - 1 ? 6 : 12,
+                bottom: index < manual.length - 1 ? 4 : 12,
               ),
               child: ReorderableDelayedDragStartListener(
                 index: index,
@@ -1051,7 +1062,7 @@ class _HomeScreenState extends State<HomeScreen> {
             return Padding(
               key: ValueKey('search:${server.name}'),
               padding: EdgeInsets.only(
-                bottom: index < results.length - 1 ? 6 : 12,
+                bottom: index < results.length - 1 ? 4 : 12,
               ),
               child: _buildNodeTile(
                 server,
@@ -1079,7 +1090,7 @@ class _HomeScreenState extends State<HomeScreen> {
       return [
         SliverReorderableList(
           itemCount: subscriptions.length,
-          onReorder: (oldIndex, newIndex) {
+          onReorderItem: (oldIndex, newIndex) {
             _controller.reorderSubscriptions(oldIndex, newIndex);
           },
           proxyDecorator: _reorderProxyDecorator,
@@ -1137,7 +1148,7 @@ class _HomeScreenState extends State<HomeScreen> {
             return Padding(
               key: ValueKey('${sub.id}:${server.id}'),
               padding: EdgeInsets.only(
-                bottom: index < visible.length - 1 ? 6 : 0,
+                bottom: index < visible.length - 1 ? 4 : 0,
               ),
               child: _buildNodeTile(
                 server,

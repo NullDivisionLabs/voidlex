@@ -134,6 +134,15 @@ Java_com_voidlex_voidlex_XrayNativeProcess_start(
         dup2(outputPipe[1], STDERR_FILENO);
         close(outputPipe[1]);
 
+        // Close all inherited file descriptors above stderr (except kChildTunFd)
+        // to prevent JVM sockets, pipes, or DB handles from leaking into the child.
+        const int maxFd = static_cast<int>(sysconf(_SC_OPEN_MAX));
+        for (int fd = STDERR_FILENO + 1; fd < maxFd; ++fd) {
+            if (fd != kChildTunFd) {
+                close(fd);
+            }
+        }
+
         if (!workDir.empty()) {
             chdir(workDir.c_str());
         }

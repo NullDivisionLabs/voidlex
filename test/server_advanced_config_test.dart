@@ -90,6 +90,141 @@ void main() {
     expect(url, isNot(contains('up_mbps')));
   });
 
+  test('Hysteria2 unknown JSON survives and typed fields take priority', () {
+    final imported = const ServerImporter().parse('''
+{
+  "outbounds": [{
+    "type": "hysteria2",
+    "tag": "Raw HY2",
+    "server": "raw.example.com",
+    "server_port": 8443,
+    "password": "secret",
+    "detour": "unsafe",
+    "custom": {"list": [1, true, {"nested": "value"}]},
+    "obfs": {
+      "type": "gecko",
+      "password": "mask",
+      "min_packet_size": 512,
+      "max_packet_size": 1200,
+      "custom_obfs": ["a", 2]
+    },
+    "tls": {
+      "enabled": true,
+      "server_name": "raw.example.com",
+      "custom_tls": {"enabled": false}
+    }
+  }]
+}
+''');
+
+    expect(imported.isOk, isTrue);
+    final server = imported.configs.single;
+    expect(server.hysteria2RawOutbound['custom'], isA<Map>());
+    expect(server.hysteria2RawOutbound, isNot(contains('detour')));
+    expect(server.hysteria2RawObfs['custom_obfs'], ['a', 2]);
+    expect((server.hysteria2RawTls['custom_tls'] as Map)['enabled'], isFalse);
+
+    final edited = server.copyWith(
+      address: 'typed.example.com',
+      hysteria2ObfsPassword: 'typed-mask',
+    );
+    final stored = ServerConfig.decodeList(
+      ServerConfig.encodeList([edited]),
+    ).single;
+    expect(stored.hysteria2RawOutbound, edited.hysteria2RawOutbound);
+    expect(stored.hysteria2RawObfs, edited.hysteria2RawObfs);
+    expect(stored.hysteria2RawTls, edited.hysteria2RawTls);
+
+    final exported =
+        jsonDecode(ServerConfigExporter.toXrayJson(stored))
+            as Map<String, dynamic>;
+    final outbound = (exported['outbounds'] as List).first as Map;
+    expect(outbound['server'], 'typed.example.com');
+    expect(outbound, isNot(contains('detour')));
+    expect(((outbound['custom'] as Map)['list'] as List)[2], {
+      'nested': 'value',
+    });
+    expect((outbound['obfs'] as Map)['password'], 'typed-mask');
+    expect((outbound['obfs'] as Map)['custom_obfs'], ['a', 2]);
+    expect(((outbound['tls'] as Map)['custom_tls'] as Map)['enabled'], isFalse);
+
+    final args = stored.toNativeArgs(
+      isGlobalProxy: true,
+      tunEngineMode: TunEngineMode.libbox,
+    );
+    expect(jsonDecode(args['hysteria2RawOutboundJson'] as String), {
+      'custom': {
+        'list': [
+          1,
+          true,
+          {'nested': 'value'},
+        ],
+      },
+    });
+    expect(jsonDecode(args['hysteria2RawObfsJson'] as String), {
+      'custom_obfs': ['a', 2],
+    });
+  });
+
+  test('Hysteria2 JSON rejects missing password and invalid Gecko sizes', () {
+    const importer = ServerImporter();
+    for (final obfs in const [
+      '{"type":"gecko"}',
+      '{"type":"gecko","password":"mask","min_packet_size":2049}',
+      '{"type":"gecko","password":"mask","min_packet_size":1200,"max_packet_size":512}',
+    ]) {
+      final result = importer.parse(
+        '{"outbounds":[{"type":"hysteria2","server":"hy2.example.com",'
+        '"server_port":443,"password":"secret","obfs":$obfs}]}',
+      );
+      expect(result.isError, isTrue, reason: obfs);
+    }
+  });
+
+  test('disabling obfs does not resurrect raw obfs fields', () {
+    final server = _base(
+      protocol: ServerProtocol.hysteria2,
+      security: VlessSecurity.tls,
+      hysteria2ObfsType: 'gecko',
+      hysteria2ObfsPassword: 'mask',
+      hysteria2RawObfs: const {
+        'custom': {'preserved': true},
+      },
+    ).copyWith(hysteria2ObfsType: '', hysteria2ObfsPassword: '');
+
+    final exported =
+        jsonDecode(ServerConfigExporter.toXrayJson(server))
+            as Map<String, dynamic>;
+    final outbound = (exported['outbounds'] as List).first as Map;
+    expect(outbound, isNot(contains('obfs')));
+    expect(server.hysteria2RawObfs, isNotEmpty);
+  });
+
+  test('legacy password-only obfs stays Salamander', () {
+    final legacy = ServerConfig.fromJson({
+      'name': 'Legacy',
+      'address': 'legacy.example.com',
+      'port': 443,
+      'uuid': 'secret',
+      'protocol': 'hysteria2',
+      'hysteria2ObfsPassword': 'legacy-mask',
+    })!;
+
+    expect(legacy.hysteria2ObfsType, 'salamander');
+    expect(legacy.effectiveHysteria2ObfsType, 'salamander');
+    final outbound =
+        ((jsonDecode(ServerConfigExporter.toXrayJson(legacy))
+                        as Map)['outbounds']
+                    as List)
+                .first
+            as Map;
+    expect((outbound['obfs'] as Map)['type'], 'salamander');
+
+    final explicit = legacy.copyWith(hysteria2ObfsType: 'salamander');
+    expect(explicit.effectiveHysteria2ObfsType, 'salamander');
+    expect(explicit.hysteria2ObfsType, isNot('gecko'));
+  });
+
   test('Naive advanced fields round-trip through sing-box JSON only', () {
     final original = _base(
       protocol: ServerProtocol.naive,
@@ -155,6 +290,9 @@ ServerConfig _base({
   int hysteria2DownMbps = 0,
   String hysteria2Network = '',
   String hysteria2BbrProfile = '',
+  Map<String, dynamic> hysteria2RawOutbound = const {},
+  Map<String, dynamic> hysteria2RawObfs = const {},
+  Map<String, dynamic> hysteria2RawTls = const {},
   int naiveInsecureConcurrency = 0,
   Map<String, String> naiveExtraHeaders = const {},
   bool naiveUdpOverTcp = false,
@@ -186,6 +324,9 @@ ServerConfig _base({
     hysteria2DownMbps: hysteria2DownMbps,
     hysteria2Network: hysteria2Network,
     hysteria2BbrProfile: hysteria2BbrProfile,
+    hysteria2RawOutbound: hysteria2RawOutbound,
+    hysteria2RawObfs: hysteria2RawObfs,
+    hysteria2RawTls: hysteria2RawTls,
     naiveInsecureConcurrency: naiveInsecureConcurrency,
     naiveExtraHeaders: naiveExtraHeaders,
     naiveUdpOverTcp: naiveUdpOverTcp,

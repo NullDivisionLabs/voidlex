@@ -16,6 +16,7 @@ import '../core/app_log.dart';
 import '../core/device_identity.dart';
 import '../core/geo_data.dart';
 import '../core/installed_apps.dart';
+import '../core/libbox_version_bridge.dart';
 import '../core/connection_policy_settings.dart';
 import '../core/multiplex_settings.dart';
 import '../core/run_mode.dart';
@@ -84,6 +85,7 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   static const _deviceIdentityBridge = DeviceIdentityBridge();
+  static const _libboxVersionBridge = LibboxVersionBridge();
 
   late bool _isDarkTheme;
   // null while the HWID is still loading; [_hwidUnavailable] flips to true
@@ -91,6 +93,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // localized at build time since no context exists at field-init.
   String? _deviceHwid;
   bool _hwidUnavailable = false;
+  String? _libboxVersion;
 
   @override
   void initState() {
@@ -100,6 +103,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _handleTvLayoutPreferenceChanged,
     );
     _loadDeviceHwid();
+    _loadLibboxVersion();
   }
 
   @override
@@ -117,6 +121,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String _hwidDisplay(AppLocalizations l) =>
       _deviceHwid ??
       (_hwidUnavailable ? l.settingsHwidUnavailable : l.settingsHwidLoading);
+
+  String get _libboxVersionDisplay => _libboxVersion ?? '—';
 
   Future<void> _loadDeviceHwid() async {
     try {
@@ -136,6 +142,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
       setState(() {
         _deviceHwid = null;
         _hwidUnavailable = true;
+      });
+    }
+  }
+
+  Future<void> _loadLibboxVersion() async {
+    try {
+      final version = await _libboxVersionBridge.getVersion();
+      if (!mounted) return;
+      setState(() {
+        _libboxVersion = version.isEmpty ? null : version;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _libboxVersion = null;
       });
     }
   }
@@ -271,8 +292,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           label: l.settingsVersionLabel,
           value: SubscriptionClientIdentity.appVersion,
         ),
-        _AboutRow(label: l.settingsXrayCoreLabel, value: '26.5.9'),
-        _AboutRow(label: l.settingsLibboxLabel, value: '1.14.0-alpha.24'),
+        _AboutRow(label: l.settingsXrayCoreLabel, value: '26.7.28'),
+        _AboutRow(label: l.settingsLibboxLabel, value: _libboxVersionDisplay),
         _AboutRow(label: l.settingsHwidLabel, value: _hwidDisplay(l)),
         _AboutRow(
           label: l.settingsProtocolLabel,
@@ -318,8 +339,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           label: l.settingsVersionLabel,
           value: SubscriptionClientIdentity.appVersion,
         ),
-        _AboutRow(label: l.settingsXrayCoreLabel, value: '26.5.9'),
-        _AboutRow(label: l.settingsLibboxLabel, value: '1.14.0-alpha.24'),
+        _AboutRow(label: l.settingsXrayCoreLabel, value: '26.7.28'),
+        _AboutRow(label: l.settingsLibboxLabel, value: _libboxVersionDisplay),
         _AboutRow(label: l.settingsHwidLabel, value: _hwidDisplay(l)),
         _AboutRow(
           label: l.settingsProtocolLabel,

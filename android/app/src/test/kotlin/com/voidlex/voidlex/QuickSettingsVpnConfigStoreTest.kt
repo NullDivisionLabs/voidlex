@@ -21,7 +21,7 @@ class QuickSettingsVpnConfigStoreTest {
         transportServiceName = "",
         transportHost = "",
         transportMode = "",
-        xhttpPadding = "",
+        xPaddingBytes = "",
         xhttpMaxPostBytes = "",
         xhttpMinPostInterval = "",
         sni = "",
@@ -178,5 +178,81 @@ class QuickSettingsVpnConfigStoreTest {
         assertTrue(stored.naiveUdpOverTcp)
         assertEquals(2, stored.naiveUdpOverTcpVersion)
         assertEquals("naive.example.com", stored.effectiveSni)
+    }
+
+    @Test
+    fun storedServer_preservesHysteria2RawJsonForQuickSettings() {
+        val stored = QuickSettingsVpnConfigStore.StoredServer.fromJson(
+            JSONObject().apply {
+                put("name", "Gecko")
+                put("address", "hy2.example.com")
+                put("port", 443)
+                put("protocol", "hysteria2")
+                put("uuid", "secret")
+                put("hysteria2ObfsType", "gecko")
+                put("hysteria2ObfsPassword", "mask")
+                put("hysteria2RawOutbound", JSONObject("""{"custom":[1,true]}"""))
+                put("hysteria2RawObfs", JSONObject("""{"custom_obfs":{"enabled":true}}"""))
+                put("hysteria2RawTls", JSONObject("""{"custom_tls":["x",2]}"""))
+            },
+        )
+
+        assertNotNull(stored)
+        assertEquals("gecko", stored!!.hysteria2ObfsType)
+        assertTrue(
+            JSONObject(stored.hysteria2RawOutboundJson)
+                .getJSONArray("custom")
+                .getBoolean(1),
+        )
+        assertTrue(
+            JSONObject(stored.hysteria2RawObfsJson)
+                .getJSONObject("custom_obfs")
+                .getBoolean("enabled"),
+        )
+        assertEquals(
+            2,
+            JSONObject(stored.hysteria2RawTlsJson)
+                .getJSONArray("custom_tls")
+                .getInt(1),
+        )
+    }
+
+    @Test
+    fun storedServer_parsesXhttpFieldsAndLegacyPaddingForQuickSettings() {
+        val stored = QuickSettingsVpnConfigStore.StoredServer.fromJson(
+            JSONObject().apply {
+                put("name", "XHTTP")
+                put("address", "cdn.example.com")
+                put("port", 443)
+                put("protocol", "vless")
+                put("transport", "xhttp")
+                put("xPaddingObfsMode", false)
+                put("xPaddingPlacement", "query-in-header")
+                put("xPaddingKey", "v")
+                put("xPaddingHeader", "Referer")
+                put("xPaddingMethod", "tokenish")
+                put("xhttpPadding", "100-1000")
+                put("sessionIDPlacement", "query")
+                put("sessionIDKey", "sid")
+                put("seqPlacement", "query")
+                put("seqKey", "n")
+                put("xhttpRawSettings", JSONObject().put("futureTop", 1))
+                put("xhttpRawExtra", JSONObject().put("futureExtra", true))
+            },
+        )
+
+        assertNotNull(stored)
+        assertEquals(false, stored!!.xPaddingObfsMode)
+        assertEquals("query-in-header", stored.xPaddingPlacement)
+        assertEquals("v", stored.xPaddingKey)
+        assertEquals("Referer", stored.xPaddingHeader)
+        assertEquals("tokenish", stored.xPaddingMethod)
+        assertEquals("100-1000", stored.xPaddingBytes)
+        assertEquals("query", stored.sessionIDPlacement)
+        assertEquals("sid", stored.sessionIDKey)
+        assertEquals("query", stored.seqPlacement)
+        assertEquals("n", stored.seqKey)
+        assertEquals(1, JSONObject(stored.xhttpRawSettingsJson).getInt("futureTop"))
+        assertTrue(JSONObject(stored.xhttpRawExtraJson).getBoolean("futureExtra"))
     }
 }

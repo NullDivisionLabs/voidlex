@@ -21,10 +21,15 @@ abstract final class Msg {
   static const vpnFailedToReconnect = 'vpnFailedToReconnect';
   static const vpnUnknownError = 'vpnUnknownError';
   static const vpnConnectionTimedOut = 'vpnConnectionTimedOut';
+  static const vpnLibboxNetworkUnavailable = 'vpnLibboxNetworkUnavailable';
   static const vpnNaiveRequiresLibbox = 'vpnNaiveRequiresLibbox';
   static const vpnNaiveTunOnly = 'vpnNaiveTunOnly';
   static const vpnNaiveBridgeUnsupported = 'vpnNaiveBridgeUnsupported';
   static const vpnNaiveExitUnsupported = 'vpnNaiveExitUnsupported';
+  static const vpnDirectLibboxBridgeUnsupported =
+      'vpnDirectLibboxBridgeUnsupported';
+  static const vpnDirectLibboxRequiresLibbox = 'vpnDirectLibboxRequiresLibbox';
+  static const vpnDirectLibboxTunOnly = 'vpnDirectLibboxTunOnly';
 
   static const subImportInvalidUrl = 'subImportInvalidUrl';
   static const subImportTimeout = 'subImportTimeout';
@@ -48,6 +53,7 @@ abstract final class Msg {
   static const deepLinkRulesetEmpty = 'deepLinkRulesetEmpty';
   static const deepLinkRulesetNoRules = 'deepLinkRulesetNoRules';
   static const deepLinkRulesetInvalidJson = 'deepLinkRulesetInvalidJson';
+  static const deepLinkImportTooLarge = 'deepLinkImportTooLarge';
 
   static String deepLinkRulesetHttpStatus(int code) =>
       'deepLinkRulesetHttpStatus:$code';

@@ -66,12 +66,12 @@ internal object QuickSettingsVpnConfigStore {
 
     fun selectedNodeName(context: Context): String? {
         val prefs = flutterPrefs(context)
-        return resolveSelectedServer(loadServers(prefs), prefs.string(KEY_SELECTED))?.name
+        return resolveSelectedServer(loadServers(context, prefs), prefs.string(KEY_SELECTED))?.name
     }
 
     fun widgetSnapshot(context: Context): WidgetSnapshot {
         val prefs = flutterPrefs(context)
-        val servers = loadServers(prefs)
+        val servers = loadServers(context, prefs)
         val selected = resolveSelectedServer(servers, prefs.string(KEY_SELECTED))
         return WidgetSnapshot(
             selectedNodeName = selected?.name,
@@ -128,7 +128,7 @@ internal object QuickSettingsVpnConfigStore {
             "transportHost=${server.transportHost.ifBlank { "-" }} " +
             "transportMode=${server.transportMode.ifBlank { "-" }} " +
             "transportSvc=${server.transportServiceName.ifBlank { "-" }} " +
-            "xhttpPad=${if (server.xhttpPadding.isNotBlank()) server.xhttpPadding else "default"} " +
+            "xhttpPad=${if (server.xPaddingBytes.isNotBlank()) server.xPaddingBytes else "stock"} " +
             "xhttpMaxPost=${if (server.xhttpMaxPostBytes.isNotBlank()) server.xhttpMaxPostBytes else "default"} " +
             "xhttpMinInt=${if (server.xhttpMinPostInterval.isNotBlank()) server.xhttpMinPostInterval else "default"} " +
             "hy2Obfs=${server.hysteria2ObfsType.ifBlank { if (server.hysteria2ObfsPassword.isBlank()) "-" else "salamander" }} " +
@@ -169,7 +169,7 @@ internal object QuickSettingsVpnConfigStore {
 
     fun buildStartConfig(context: Context): TileStartConfig? {
         val prefs = flutterPrefs(context)
-        val servers = loadServers(prefs)
+        val servers = loadServers(context, prefs)
         val tunnel = resolveTunnelServers(
             servers = servers,
             selectedName = prefs.string(KEY_SELECTED),
@@ -180,15 +180,15 @@ internal object QuickSettingsVpnConfigStore {
         val isGlobalProxy = prefs.boolean(KEY_GLOBAL_PROXY, false)
         val tunEngineMode = TunEngineMode.fromWire(prefs.string(KEY_TUN_ENGINE_MODE))
         val runMode = RunMode.fromWire(prefs.string(KEY_RUN_MODE))
-        val naiveRestriction = NaiveRuntimeConstraints.validationError(
+        val directLibboxRestriction = DirectLibboxRuntimeConstraints.validationError(
             protocol = outer.protocol,
             detourProtocol = entry.protocol.takeIf { tunnel.isBridge },
             tunEngineMode = tunEngineMode,
             runMode = runMode,
             isBridge = tunnel.isBridge,
         )
-        if (naiveRestriction != null) {
-            AppLogger.w(TAG, "Rejecting NaiveProxy quick start: $naiveRestriction")
+        if (directLibboxRestriction != null) {
+            AppLogger.w(TAG, "Rejecting direct-libbox quick start: $directLibboxRestriction")
             return null
         }
 
@@ -330,14 +330,20 @@ internal object QuickSettingsVpnConfigStore {
         return if (contains(prefixedKey)) getBoolean(prefixedKey, fallback) else fallback
     }
 
-    private fun loadServers(prefs: SharedPreferences): List<StoredServer> {
+    private fun loadServers(context: Context, prefs: SharedPreferences): List<StoredServer> {
         val output = mutableListOf<StoredServer>()
-        parseArray(prefs.string(KEY_SERVERS))?.let { array ->
+        val serversRaw = (if (prefs.contains(FLUTTER_PREFIX + KEY_SERVERS)) prefs.string(KEY_SERVERS) else null)
+            ?: SecurePrefsBridge.get(context, KEY_SERVERS)
+            ?: prefs.string(KEY_SERVERS)
+        parseArray(serversRaw)?.let { array ->
             for (index in 0 until array.length()) {
                 array.optJSONObject(index)?.let(StoredServer::fromJson)?.let(output::add)
             }
         }
-        parseArray(prefs.string(KEY_SUBSCRIPTIONS))?.let { subscriptions ->
+        val subscriptionsRaw = (if (prefs.contains(FLUTTER_PREFIX + KEY_SUBSCRIPTIONS)) prefs.string(KEY_SUBSCRIPTIONS) else null)
+            ?: SecurePrefsBridge.get(context, KEY_SUBSCRIPTIONS)
+            ?: prefs.string(KEY_SUBSCRIPTIONS)
+        parseArray(subscriptionsRaw)?.let { subscriptions ->
             for (index in 0 until subscriptions.length()) {
                 val servers = subscriptions.optJSONObject(index)?.optJSONArray("servers") ?: continue
                 for (serverIndex in 0 until servers.length()) {
@@ -559,7 +565,24 @@ internal object QuickSettingsVpnConfigStore {
         )
         putExtra(prefix + VoidVpnService.EXTRA_TRANSPORT_HOST, server.transportHost)
         putExtra(prefix + VoidVpnService.EXTRA_TRANSPORT_MODE, server.transportMode)
-        putExtra(prefix + VoidVpnService.EXTRA_XHTTP_PADDING, server.xhttpPadding)
+        putExtra(
+            prefix + VoidVpnService.EXTRA_X_PADDING_OBFS_MODE_PRESENT,
+            server.xPaddingObfsMode != null,
+        )
+        server.xPaddingObfsMode?.let {
+            putExtra(prefix + VoidVpnService.EXTRA_X_PADDING_OBFS_MODE, it)
+        }
+        putExtra(prefix + VoidVpnService.EXTRA_X_PADDING_PLACEMENT, server.xPaddingPlacement)
+        putExtra(prefix + VoidVpnService.EXTRA_X_PADDING_KEY, server.xPaddingKey)
+        putExtra(prefix + VoidVpnService.EXTRA_X_PADDING_HEADER, server.xPaddingHeader)
+        putExtra(prefix + VoidVpnService.EXTRA_X_PADDING_METHOD, server.xPaddingMethod)
+        putExtra(prefix + VoidVpnService.EXTRA_X_PADDING_BYTES, server.xPaddingBytes)
+        putExtra(prefix + VoidVpnService.EXTRA_SESSION_ID_PLACEMENT, server.sessionIDPlacement)
+        putExtra(prefix + VoidVpnService.EXTRA_SESSION_ID_KEY, server.sessionIDKey)
+        putExtra(prefix + VoidVpnService.EXTRA_SEQ_PLACEMENT, server.seqPlacement)
+        putExtra(prefix + VoidVpnService.EXTRA_SEQ_KEY, server.seqKey)
+        putExtra(prefix + VoidVpnService.EXTRA_XHTTP_RAW_SETTINGS_JSON, server.xhttpRawSettingsJson)
+        putExtra(prefix + VoidVpnService.EXTRA_XHTTP_RAW_EXTRA_JSON, server.xhttpRawExtraJson)
         putExtra(
             prefix + VoidVpnService.EXTRA_XHTTP_MAX_POST_BYTES,
             server.xhttpMaxPostBytes,
@@ -595,6 +618,18 @@ internal object QuickSettingsVpnConfigStore {
         putExtra(
             prefix + VoidVpnService.EXTRA_HYSTERIA2_OBFS_MAX_PACKET_SIZE,
             server.hysteria2ObfsMaxPacketSize,
+        )
+        putExtra(
+            prefix + VoidVpnService.EXTRA_HYSTERIA2_RAW_OUTBOUND_JSON,
+            server.hysteria2RawOutboundJson,
+        )
+        putExtra(
+            prefix + VoidVpnService.EXTRA_HYSTERIA2_RAW_OBFS_JSON,
+            server.hysteria2RawObfsJson,
+        )
+        putExtra(
+            prefix + VoidVpnService.EXTRA_HYSTERIA2_RAW_TLS_JSON,
+            server.hysteria2RawTlsJson,
         )
         putExtra(prefix + VoidVpnService.EXTRA_HYSTERIA2_HOP_PORTS, server.hysteria2HopPorts)
         putExtra(prefix + VoidVpnService.EXTRA_HYSTERIA2_HOP_INTERVAL, server.hysteria2HopInterval)
@@ -794,7 +829,18 @@ internal object QuickSettingsVpnConfigStore {
         val transportServiceName: String,
         val transportHost: String,
         val transportMode: String,
-        val xhttpPadding: String,
+        val xPaddingObfsMode: Boolean? = null,
+        val xPaddingPlacement: String = "",
+        val xPaddingKey: String = "",
+        val xPaddingHeader: String = "",
+        val xPaddingMethod: String = "",
+        val xPaddingBytes: String = "",
+        val sessionIDPlacement: String = "",
+        val sessionIDKey: String = "",
+        val seqPlacement: String = "",
+        val seqKey: String = "",
+        val xhttpRawSettingsJson: String = "{}",
+        val xhttpRawExtraJson: String = "{}",
         val xhttpMaxPostBytes: String,
         val xhttpMinPostInterval: String,
         val sni: String,
@@ -811,6 +857,9 @@ internal object QuickSettingsVpnConfigStore {
         val hysteria2ObfsPassword: String,
         val hysteria2ObfsMinPacketSize: Int = 0,
         val hysteria2ObfsMaxPacketSize: Int = 0,
+        val hysteria2RawOutboundJson: String = "{}",
+        val hysteria2RawObfsJson: String = "{}",
+        val hysteria2RawTlsJson: String = "{}",
         val hysteria2HopPorts: String,
         val hysteria2HopInterval: String = "",
         val hysteria2HopIntervalMax: String = "",
@@ -856,7 +905,24 @@ internal object QuickSettingsVpnConfigStore {
                     transportServiceName = optString(json, "transportServiceName"),
                     transportHost = optString(json, "transportHost"),
                     transportMode = optString(json, "transportMode"),
-                    xhttpPadding = optString(json, "xhttpPadding"),
+                    xPaddingObfsMode = if (json.has("xPaddingObfsMode")) {
+                        json.optBoolean("xPaddingObfsMode")
+                    } else {
+                        null
+                    },
+                    xPaddingPlacement = optString(json, "xPaddingPlacement"),
+                    xPaddingKey = optString(json, "xPaddingKey"),
+                    xPaddingHeader = optString(json, "xPaddingHeader"),
+                    xPaddingMethod = optString(json, "xPaddingMethod"),
+                    xPaddingBytes = optString(json, "xPaddingBytes").ifBlank {
+                        optString(json, "xhttpPadding")
+                    },
+                    sessionIDPlacement = optString(json, "sessionIDPlacement"),
+                    sessionIDKey = optString(json, "sessionIDKey"),
+                    seqPlacement = optString(json, "seqPlacement"),
+                    seqKey = optString(json, "seqKey"),
+                    xhttpRawSettingsJson = json.optJSONObject("xhttpRawSettings")?.toString() ?: "{}",
+                    xhttpRawExtraJson = json.optJSONObject("xhttpRawExtra")?.toString() ?: "{}",
                     xhttpMaxPostBytes = optString(json, "xhttpMaxPostBytes"),
                     xhttpMinPostInterval = optString(json, "xhttpMinPostInterval"),
                     sni = optString(json, "sni"),
@@ -873,6 +939,12 @@ internal object QuickSettingsVpnConfigStore {
                     hysteria2ObfsPassword = optString(json, "hysteria2ObfsPassword"),
                     hysteria2ObfsMinPacketSize = optInt(json, "hysteria2ObfsMinPacketSize", 0),
                     hysteria2ObfsMaxPacketSize = optInt(json, "hysteria2ObfsMaxPacketSize", 0),
+                    hysteria2RawOutboundJson =
+                        json.optJSONObject("hysteria2RawOutbound")?.toString() ?: "{}",
+                    hysteria2RawObfsJson =
+                        json.optJSONObject("hysteria2RawObfs")?.toString() ?: "{}",
+                    hysteria2RawTlsJson =
+                        json.optJSONObject("hysteria2RawTls")?.toString() ?: "{}",
                     hysteria2HopPorts = optString(json, "hysteria2HopPorts"),
                     hysteria2HopInterval = optString(json, "hysteria2HopInterval"),
                     hysteria2HopIntervalMax = optString(json, "hysteria2HopIntervalMax"),

@@ -9,7 +9,6 @@ internal object TunToSocksConfigBuilder {
     private const val PROBE_INBOUND_TAG = "probe-in"
     private const val PROXY_OUTBOUND_TAG = "proxy"
     private const val DIRECT_OUTBOUND_TAG = "direct"
-    private const val BLOCK_OUTBOUND_TAG = "block"
     private const val DNS_REMOTE_TAG = "dns-remote"
     private const val DNS_LOCAL_TAG = "dns-local"
     private const val REMOTE_DNS_SERVER = "1.1.1.1"
@@ -53,9 +52,6 @@ internal object TunToSocksConfigBuilder {
                     put("type", "direct")
                     put("tag", DIRECT_OUTBOUND_TAG)
                 })
-                if (networkSettings.blockUdp) {
-                    put(buildBlockOutbound())
-                }
             })
             put(
                 "route",
@@ -135,6 +131,10 @@ internal object TunToSocksConfigBuilder {
             put("address", buildTunAddresses(settings.ipMode))
             put("mtu", settings.mtu)
             put("auto_route", true)
+            // Pin the Android behavior explicitly. sing-box 1.14 defaults to
+            // hijack mode, but relying on that implicit default would make a
+            // future core update able to change how VpnService DNS is wired.
+            put("dns_mode", "hijack")
             // strict_route is intentionally OFF on Android.
             //
             // sing-box's strict_route installs additional kernel-level
@@ -206,7 +206,14 @@ internal object TunToSocksConfigBuilder {
     }
 
     private fun buildHysteria2Outbound(server: ServerConfig): JSONObject {
-        return JSONObject().apply {
+        return (parseJsonObject(server.hysteria2RawOutboundJson) ?: JSONObject()).apply {
+            removeKeys(
+                "type", "tag", "name", "server", "server_port", "serverPort", "port",
+                "password", "auth", "uuid", "server_ports", "ports", "tls", "sni",
+                "alpn", "skip-cert-verify", "obfs", "obfs-password", "obfsPassword",
+                "hop_interval", "hop_interval_max", "up_mbps", "down_mbps", "network",
+                "bbr_profile", "detour",
+            )
             put("type", "hysteria2")
             put("tag", PROXY_OUTBOUND_TAG)
             put("server", server.server)
@@ -217,7 +224,8 @@ internal object TunToSocksConfigBuilder {
             }
             put("password", server.uuid)
             if (server.hysteria2ObfsPassword.isNotBlank()) {
-                put("obfs", JSONObject().apply {
+                put("obfs", (parseJsonObject(server.hysteria2RawObfsJson) ?: JSONObject()).apply {
+                    removeKeys("type", "password", "min_packet_size", "max_packet_size")
                     val type = server.hysteria2ObfsType.ifBlank { "salamander" }
                     put("type", type)
                     put("password", server.hysteria2ObfsPassword)
@@ -294,13 +302,6 @@ internal object TunToSocksConfigBuilder {
         }
     }
 
-    private fun buildBlockOutbound(): JSONObject {
-        return JSONObject().apply {
-            put("type", "block")
-            put("tag", BLOCK_OUTBOUND_TAG)
-        }
-    }
-
     private fun parseStringObject(raw: String): JSONObject? {
         return try {
             val parsed = JSONObject(raw)
@@ -317,8 +318,24 @@ internal object TunToSocksConfigBuilder {
         }
     }
 
+    private fun parseJsonObject(raw: String): JSONObject? {
+        return try {
+            JSONObject(raw)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun JSONObject.removeKeys(vararg keys: String) {
+        keys.forEach(::remove)
+    }
+
     private fun buildHysteria2Tls(server: ServerConfig): JSONObject {
-        return JSONObject().apply {
+        return (parseJsonObject(server.hysteria2RawTlsJson) ?: JSONObject()).apply {
+            removeKeys(
+                "enabled", "server_name", "serverName", "insecure",
+                "skip_cert_verify", "skip-cert-verify", "alpn",
+            )
             put("enabled", true)
             put("server_name", server.tlsSni.ifBlank { server.server })
             put("insecure", server.tlsInsecure)
@@ -413,17 +430,28 @@ internal object TunToSocksConfigBuilder {
                     })
                 }
 
-                // UDP block runs AFTER the LAN-direct fallback so local
-                // UDP services (mDNS, SSDP, NTP-to-router, multicast) keep
-                // working even when the global UDP block is on. In global-
-                // proxy mode there is no LAN fallback, so the block applies
-                // to everything UDP — which is what the user asked for.
+                // Reject QUIC before it enters the local SOCKS UDP path.
+                // Unlike a silent block outbound, reject returns an error to
+                // the TUN client so browsers can immediately fall back to
+                // HTTPS over TCP. Keep this after the private-IP rule so LAN
+                // UDP services remain unaffected in split mode.
+                put(JSONObject().apply {
+                    put("inbound", TUN_INBOUND_TAG)
+                    put("network", "udp")
+                    put("port", 443)
+                    put("action", "reject")
+                    put("method", "default")
+                })
+
+                // The optional full UDP block uses the same explicit reject
+                // semantics. In global-proxy mode it applies to all UDP; in
+                // split mode private destinations have already gone direct.
                 if (settings.blockUdp) {
                     put(JSONObject().apply {
                         put("inbound", TUN_INBOUND_TAG)
                         put("network", "udp")
-                        put("action", "route")
-                        put("outbound", BLOCK_OUTBOUND_TAG)
+                        put("action", "reject")
+                        put("method", "default")
                     })
                 }
             })

@@ -17,7 +17,7 @@ void main() {
         theme: AppTheme.lightTheme,
         home: Scaffold(
           body: VoidTopBar(
-            version: 'v1.1.2-beta',
+            version: 'v1.1.5-beta',
             rightBadge: 'BRIDGE MODE',
             onRightBadgeDisable: () => disableCount += 1,
           ),

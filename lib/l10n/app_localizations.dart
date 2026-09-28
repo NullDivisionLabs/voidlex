@@ -320,6 +320,30 @@ abstract class AppLocalizations {
   /// **'May not work on some devices.'**
   String get autoConnectOnLaunchSubtitle;
 
+  /// No description provided for @allowDeepLinkVpnAutomationTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow VPN automation links'**
+  String get allowDeepLinkVpnAutomationTitle;
+
+  /// No description provided for @allowDeepLinkVpnAutomationSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'When enabled, voidlex://connect and similar links can change the connection without asking each time.'**
+  String get allowDeepLinkVpnAutomationSubtitle;
+
+  /// No description provided for @startHomeWidgetsCollapsedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Start with widgets collapsed'**
+  String get startHomeWidgetsCollapsedTitle;
+
+  /// No description provided for @startHomeWidgetsCollapsedSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Open the home screen in compact mode by default.'**
+  String get startHomeWidgetsCollapsedSubtitle;
+
   /// No description provided for @restartOnSettingsChangeTitle.
   ///
   /// In en, this message translates to:
@@ -656,6 +680,36 @@ abstract class AppLocalizations {
   /// **'This link wants to import a subscription or server into Void//Lex.'**
   String get deepLinkConsentImportSubscription;
 
+  /// No description provided for @deepLinkConsentVpnControlConnect.
+  ///
+  /// In en, this message translates to:
+  /// **'This link wants to connect Void//Lex to your selected server.'**
+  String get deepLinkConsentVpnControlConnect;
+
+  /// No description provided for @deepLinkConsentVpnControlDisconnect.
+  ///
+  /// In en, this message translates to:
+  /// **'This link wants to disconnect Void//Lex.'**
+  String get deepLinkConsentVpnControlDisconnect;
+
+  /// No description provided for @deepLinkConsentVpnControlToggle.
+  ///
+  /// In en, this message translates to:
+  /// **'This link wants to toggle the Void//Lex connection.'**
+  String get deepLinkConsentVpnControlToggle;
+
+  /// No description provided for @deepLinkConsentVpnControlRestart.
+  ///
+  /// In en, this message translates to:
+  /// **'This link wants to restart the active Void//Lex connection.'**
+  String get deepLinkConsentVpnControlRestart;
+
+  /// No description provided for @deepLinkConsentVpnControlConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Allow'**
+  String get deepLinkConsentVpnControlConfirm;
+
   /// No description provided for @deepLinkConsentSourceLabel.
   ///
   /// In en, this message translates to:
@@ -677,8 +731,14 @@ abstract class AppLocalizations {
   /// No description provided for @deepLinkRulesetInvalidUrl.
   ///
   /// In en, this message translates to:
-  /// **'Ruleset URL must be a valid http(s) address.'**
+  /// **'Ruleset URL must be a valid https address on a public host.'**
   String get deepLinkRulesetInvalidUrl;
+
+  /// No description provided for @deepLinkImportTooLarge.
+  ///
+  /// In en, this message translates to:
+  /// **'Import payload is too large.'**
+  String get deepLinkImportTooLarge;
 
   /// No description provided for @deepLinkRulesetTimeout.
   ///
@@ -1102,13 +1162,13 @@ abstract class AppLocalizations {
   /// No description provided for @editServerXhttpModeHelper.
   ///
   /// In en, this message translates to:
-  /// **'Default: stream-up (lowest DPI signature)'**
+  /// **'Blank uses the Xray-core default'**
   String get editServerXhttpModeHelper;
 
   /// No description provided for @editServerXhttpModeAuto.
   ///
   /// In en, this message translates to:
-  /// **'Auto (recommended)'**
+  /// **'Core default'**
   String get editServerXhttpModeAuto;
 
   /// No description provided for @editServerXhttpPaddingLabel.
@@ -1120,7 +1180,7 @@ abstract class AppLocalizations {
   /// No description provided for @editServerXhttpPaddingHelper.
   ///
   /// In en, this message translates to:
-  /// **'Default: 100-1000'**
+  /// **'Optional positive value or range, for example 100-1000'**
   String get editServerXhttpPaddingHelper;
 
   /// No description provided for @editServerXhttpMaxPostLabel.
@@ -1132,7 +1192,7 @@ abstract class AppLocalizations {
   /// No description provided for @editServerXhttpMaxPostHelper.
   ///
   /// In en, this message translates to:
-  /// **'Default: 500000-1000000 (packet-up only)'**
+  /// **'Optional; packet-up only'**
   String get editServerXhttpMaxPostHelper;
 
   /// No description provided for @editServerXhttpMinIntervalLabel.
@@ -1144,8 +1204,98 @@ abstract class AppLocalizations {
   /// No description provided for @editServerXhttpMinIntervalHelper.
   ///
   /// In en, this message translates to:
-  /// **'Default: 10-50 (packet-up only)'**
+  /// **'Optional; packet-up only'**
   String get editServerXhttpMinIntervalHelper;
+
+  /// No description provided for @editServerXhttpObfsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Advanced padding obfuscation'**
+  String get editServerXhttpObfsTitle;
+
+  /// No description provided for @editServerXhttpObfsHelper.
+  ///
+  /// In en, this message translates to:
+  /// **'Off keeps the stock Xray-core padding behavior'**
+  String get editServerXhttpObfsHelper;
+
+  /// No description provided for @editServerXhttpPaddingPlacementLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Padding placement'**
+  String get editServerXhttpPaddingPlacementLabel;
+
+  /// No description provided for @editServerXhttpPaddingKeyLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Padding key'**
+  String get editServerXhttpPaddingKeyLabel;
+
+  /// No description provided for @editServerXhttpPaddingHeaderLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Padding header'**
+  String get editServerXhttpPaddingHeaderLabel;
+
+  /// No description provided for @editServerXhttpPaddingMethodLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Padding method'**
+  String get editServerXhttpPaddingMethodLabel;
+
+  /// No description provided for @editServerXhttpSessionPlacementLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Session ID placement'**
+  String get editServerXhttpSessionPlacementLabel;
+
+  /// No description provided for @editServerXhttpSessionKeyLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Session ID key'**
+  String get editServerXhttpSessionKeyLabel;
+
+  /// No description provided for @editServerXhttpSeqPlacementLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Sequence placement'**
+  String get editServerXhttpSeqPlacementLabel;
+
+  /// No description provided for @editServerXhttpSeqKeyLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Sequence key'**
+  String get editServerXhttpSeqKeyLabel;
+
+  /// No description provided for @editServerXhttpCdnWafPreset.
+  ///
+  /// In en, this message translates to:
+  /// **'CDN/WAF compatibility'**
+  String get editServerXhttpCdnWafPreset;
+
+  /// No description provided for @editServerXhttpStockDefault.
+  ///
+  /// In en, this message translates to:
+  /// **'Core default'**
+  String get editServerXhttpStockDefault;
+
+  /// No description provided for @editServerXhttpRangeInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Use a positive number or range up to 2147483647'**
+  String get editServerXhttpRangeInvalid;
+
+  /// No description provided for @editServerXhttpTokenInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Contains characters not allowed in an HTTP token'**
+  String get editServerXhttpTokenInvalid;
+
+  /// No description provided for @editServerXhttpValueRequired.
+  ///
+  /// In en, this message translates to:
+  /// **'Required for the selected placement'**
+  String get editServerXhttpValueRequired;
 
   /// No description provided for @editServerAdvancedTitle.
   ///
@@ -1717,6 +1867,18 @@ abstract class AppLocalizations {
   /// **'Close search'**
   String get tooltipCloseSearch;
 
+  /// No description provided for @tooltipCollapseTopWidgets.
+  ///
+  /// In en, this message translates to:
+  /// **'Hide widgets'**
+  String get tooltipCollapseTopWidgets;
+
+  /// No description provided for @tooltipExpandTopWidgets.
+  ///
+  /// In en, this message translates to:
+  /// **'Show widgets'**
+  String get tooltipExpandTopWidgets;
+
   /// No description provided for @searchNodesHint.
   ///
   /// In en, this message translates to:
@@ -1734,6 +1896,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'IDLE'**
   String get statusIdle;
+
+  /// No description provided for @statusReconnecting.
+  ///
+  /// In en, this message translates to:
+  /// **'Reconnecting'**
+  String get statusReconnecting;
 
   /// No description provided for @statusNegotiating.
   ///
@@ -1939,6 +2107,42 @@ abstract class AppLocalizations {
   /// **'Enter a valid HTTP or HTTPS subscription URL.'**
   String get subscriptionInvalidUrl;
 
+  /// No description provided for @insecureSubscriptionTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Use an insecure subscription?'**
+  String get insecureSubscriptionTitle;
+
+  /// No description provided for @insecureSubscriptionBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This subscription uses plain HTTP. Its node list can be read or modified in transit, which could redirect your VPN traffic through an attacker-controlled server.'**
+  String get insecureSubscriptionBody;
+
+  /// No description provided for @insecureSubscriptionConfirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Use HTTP anyway'**
+  String get insecureSubscriptionConfirm;
+
+  /// No description provided for @discardChangesTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard unsaved changes?'**
+  String get discardChangesTitle;
+
+  /// No description provided for @discardChangesBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Your changes have not been saved and will be lost.'**
+  String get discardChangesBody;
+
+  /// No description provided for @discardChangesAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Discard'**
+  String get discardChangesAction;
+
   /// No description provided for @presetNameRequired.
   ///
   /// In en, this message translates to:
@@ -2011,6 +2215,12 @@ abstract class AppLocalizations {
   /// **'VPN connection timed out'**
   String get vpnConnectionTimedOut;
 
+  /// No description provided for @vpnLibboxNetworkUnavailable.
+  ///
+  /// In en, this message translates to:
+  /// **'libbox could not access an underlying network'**
+  String get vpnLibboxNetworkUnavailable;
+
   /// No description provided for @vpnNaiveRequiresLibbox.
   ///
   /// In en, this message translates to:
@@ -2034,6 +2244,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'NaiveProxy cannot be selected as an exit node'**
   String get vpnNaiveExitUnsupported;
+
+  /// No description provided for @vpnDirectLibboxBridgeUnsupported.
+  ///
+  /// In en, this message translates to:
+  /// **'Hysteria2 and NaiveProxy cannot be used in a two-hop chain'**
+  String get vpnDirectLibboxBridgeUnsupported;
+
+  /// No description provided for @vpnDirectLibboxRequiresLibbox.
+  ///
+  /// In en, this message translates to:
+  /// **'Hysteria2 and NaiveProxy require the libbox TUN engine'**
+  String get vpnDirectLibboxRequiresLibbox;
+
+  /// No description provided for @vpnDirectLibboxTunOnly.
+  ///
+  /// In en, this message translates to:
+  /// **'Hysteria2 and NaiveProxy are not available in proxy-only mode'**
+  String get vpnDirectLibboxTunOnly;
 
   /// No description provided for @vpnEventChannelError.
   ///
@@ -2953,6 +3181,12 @@ abstract class AppLocalizations {
   /// **'Port'**
   String get routingRulePortLabel;
 
+  /// No description provided for @routingRulePortInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter ports from 1 to 65535, separated by commas; ranges must use start-end.'**
+  String get routingRulePortInvalid;
+
   /// No description provided for @routingRuleNetworkLabel.
   ///
   /// In en, this message translates to:
@@ -3331,11 +3565,23 @@ abstract class AppLocalizations {
   /// **'Use local DNS'**
   String get tunnelUseLocalDns;
 
+  /// No description provided for @tunnelUseLocalDnsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Use the device\'s system resolver instead of a remote DNS server.'**
+  String get tunnelUseLocalDnsDescription;
+
   /// No description provided for @tunnelEnableServerResolving.
   ///
   /// In en, this message translates to:
   /// **'Server DNS'**
   String get tunnelEnableServerResolving;
+
+  /// No description provided for @tunnelEnableServerResolvingDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Resolve proxy server domain names to IP addresses before connecting.'**
+  String get tunnelEnableServerResolvingDescription;
 
   /// No description provided for @tunnelPacketAnalysis.
   ///
@@ -3343,17 +3589,35 @@ abstract class AppLocalizations {
   /// **'Packet analysis'**
   String get tunnelPacketAnalysis;
 
+  /// No description provided for @tunnelPacketAnalysisDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Inspect HTTP, TLS, and QUIC metadata to route traffic by destination domain.'**
+  String get tunnelPacketAnalysisDescription;
+
   /// No description provided for @tunnelNetworkStack.
   ///
   /// In en, this message translates to:
   /// **'Network stack'**
   String get tunnelNetworkStack;
 
+  /// No description provided for @tunnelNetworkStackDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Select the TCP and UDP implementation used by the TUN engine. gVisor is the recommended default on Android.'**
+  String get tunnelNetworkStackDescription;
+
   /// No description provided for @tunnelMtu.
   ///
   /// In en, this message translates to:
   /// **'MTU'**
   String get tunnelMtu;
+
+  /// No description provided for @tunnelMtuDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Maximum packet size on the TUN interface. Allowed range: 1280–9000.'**
+  String get tunnelMtuDescription;
 
   /// No description provided for @tunnelMtuHint.
   ///
@@ -3366,6 +3630,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'IP mode'**
   String get tunnelIpMode;
+
+  /// No description provided for @tunnelIpModeDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose which IP families are routed through the tunnel.'**
+  String get tunnelIpModeDescription;
 
   /// No description provided for @tunnelNetStackSystem.
   ///
@@ -3432,6 +3702,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Enable DNS for TUN'**
   String get tunnelEnableDnsForTun;
+
+  /// No description provided for @tunnelEnableDnsForTunDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Override the upstream DNS server used by Xray TUN with the address below.'**
+  String get tunnelEnableDnsForTunDescription;
 
   /// No description provided for @tunnelTunDnsLabel.
   ///
@@ -3511,11 +3787,23 @@ abstract class AppLocalizations {
   /// **'Fragment packets'**
   String get tunnelFragmentPackets;
 
+  /// No description provided for @tunnelFragmentPacketsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose which initial TCP writes are split; tlshello targets the TLS ClientHello.'**
+  String get tunnelFragmentPacketsDescription;
+
   /// No description provided for @tunnelFragmentLength.
   ///
   /// In en, this message translates to:
   /// **'Fragment length (min-max)'**
   String get tunnelFragmentLength;
+
+  /// No description provided for @tunnelFragmentLengthDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Random size range for each fragment, in bytes.'**
+  String get tunnelFragmentLengthDescription;
 
   /// No description provided for @tunnelFragmentInterval.
   ///
@@ -3523,11 +3811,23 @@ abstract class AppLocalizations {
   /// **'Fragment interval (min-max)'**
   String get tunnelFragmentInterval;
 
+  /// No description provided for @tunnelFragmentIntervalDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Random delay between fragments, in milliseconds.'**
+  String get tunnelFragmentIntervalDescription;
+
   /// No description provided for @tunnelFragmentMaxSplit.
   ///
   /// In en, this message translates to:
   /// **'Fragment max split (min-max)'**
   String get tunnelFragmentMaxSplit;
+
+  /// No description provided for @tunnelFragmentMaxSplitDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Random limit for the number of fragments created from one write.'**
+  String get tunnelFragmentMaxSplitDescription;
 
   /// No description provided for @tunnelNoiseSettings.
   ///
@@ -3535,11 +3835,23 @@ abstract class AppLocalizations {
   /// **'Noise settings'**
   String get tunnelNoiseSettings;
 
+  /// No description provided for @tunnelNoiseSettingsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Send UDP noise before the first real packet. This may disrupt some connections.'**
+  String get tunnelNoiseSettingsDescription;
+
   /// No description provided for @tunnelNoiseType.
   ///
   /// In en, this message translates to:
   /// **'Noise type'**
   String get tunnelNoiseType;
+
+  /// No description provided for @tunnelNoiseTypeDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Select how the noise packet contents are generated or encoded.'**
+  String get tunnelNoiseTypeDescription;
 
   /// No description provided for @tunnelNoisePacketLengthRange.
   ///
@@ -3547,11 +3859,23 @@ abstract class AppLocalizations {
   /// **'Packet length range'**
   String get tunnelNoisePacketLengthRange;
 
+  /// No description provided for @tunnelNoisePacketLengthRangeDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Random byte-length range for generated noise.'**
+  String get tunnelNoisePacketLengthRangeDescription;
+
   /// No description provided for @tunnelNoisePacket.
   ///
   /// In en, this message translates to:
   /// **'Noise packet'**
   String get tunnelNoisePacket;
+
+  /// No description provided for @tunnelNoisePacketDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Packet contents in the format selected above.'**
+  String get tunnelNoisePacketDescription;
 
   /// No description provided for @tunnelNoiseDelay.
   ///
@@ -3559,11 +3883,23 @@ abstract class AppLocalizations {
   /// **'Noise delay (min-max)'**
   String get tunnelNoiseDelay;
 
+  /// No description provided for @tunnelNoiseDelayDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Random delay after the noise packet, in milliseconds.'**
+  String get tunnelNoiseDelayDescription;
+
   /// No description provided for @tunnelNoiseApplyTo.
   ///
   /// In en, this message translates to:
   /// **'Apply to'**
   String get tunnelNoiseApplyTo;
+
+  /// No description provided for @tunnelNoiseApplyToDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Limit noise to all IP traffic, IPv4, or IPv6.'**
+  String get tunnelNoiseApplyToDescription;
 
   /// No description provided for @tunnelNoiseTypeRandom.
   ///
@@ -3631,17 +3967,35 @@ abstract class AppLocalizations {
   /// **'TCP connections (-1 to 128)'**
   String get tunnelMuxTcpConnections;
 
+  /// No description provided for @tunnelMuxTcpConnectionsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Maximum TCP sub-connections per MUX connection. -1 disables MUX for TCP.'**
+  String get tunnelMuxTcpConnectionsDescription;
+
   /// No description provided for @tunnelMuxXudpConnections.
   ///
   /// In en, this message translates to:
   /// **'XUDP connections (-1 to 1024)'**
   String get tunnelMuxXudpConnections;
 
+  /// No description provided for @tunnelMuxXudpConnectionsDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Maximum UDP sub-connections per XUDP tunnel. -1 disables MUX for UDP.'**
+  String get tunnelMuxXudpConnectionsDescription;
+
   /// No description provided for @tunnelMuxQuicBehavior.
   ///
   /// In en, this message translates to:
   /// **'QUIC in MUX'**
   String get tunnelMuxQuicBehavior;
+
+  /// No description provided for @tunnelMuxQuicBehaviorDescription.
+  ///
+  /// In en, this message translates to:
+  /// **'Reject, carry through MUX, or pass UDP/443 outside MUX.'**
+  String get tunnelMuxQuicBehaviorDescription;
 
   /// No description provided for @tunnelMuxQuicReject.
   ///
@@ -4222,7 +4576,7 @@ abstract class AppLocalizations {
   /// No description provided for @faqA10.
   ///
   /// In en, this message translates to:
-  /// **'**system** is the fastest — uses the kernel TCP stack, but a few exotic networks cause it to drop.\n**gVisor** is a user-space TCP stack; more reliable on «odd» networks (certain mobile carriers), slightly slower and warmer.\n**mixed** is the compromise: gVisor for TCP, system for UDP.\nIf **system** works, stay on **system**.'**
+  /// **'**gVisor** is the default on Android. It handles TUN traffic in user space and works reliably with libbox 1.14.\n**system** uses the platform kernel stack and should only be selected on environments where that TUN path is known to work.\n**mixed** uses gVisor for TCP and system for UDP.'**
   String get faqA10;
 
   /// No description provided for @faqQ11.

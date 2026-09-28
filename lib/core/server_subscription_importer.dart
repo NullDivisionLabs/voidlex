@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'app_message_code.dart';
+import 'deep_link_handler.dart';
 import 'hysteria2_parser.dart';
 import 'subscription_client_identity.dart';
 import 'models/server_config.dart';
@@ -116,13 +117,49 @@ class ServerSubscriptionImporter {
   static const Duration _requestTimeout = Duration(seconds: 12);
   static const int _maxPayloadBytes = 1024 * 1024;
 
+  static final _whitespaceRegex = RegExp(r'\s');
+  static final _whitespacePlusRegex = RegExp(r'\s+');
+  static final _serverLinksRegex = RegExp(
+    r'''(?:vless|hysteria2|hy2|naive|naive\+https|naive\+quic)://[^\s<>"']+''',
+    caseSensitive: false,
+  );
+  static final _expireRegex = RegExp(
+    r'(?:^|[;,\s])expire(?:s|d|_at|-at)?\s*=\s*([^;,\s]+)',
+    caseSensitive: false,
+  );
+  static final _uploadRegex = RegExp(
+    r'(?:^|[;,\s])(?:upload|uplink|up)\s*=\s*([^;,\s]+)',
+    caseSensitive: false,
+  );
+  static final _downloadRegex = RegExp(
+    r'(?:^|[;,\s])(?:download|downlink|down)\s*=\s*([^;,\s]+)',
+    caseSensitive: false,
+  );
+  static final _usedRegex = RegExp(
+    r'(?:^|[;,\s])(?:used|usage|traffic|used_traffic|used-traffic)\s*=\s*([^;,\s]+)',
+    caseSensitive: false,
+  );
+  static final _totalRegex = RegExp(
+    r'(?:^|[;,\s])(?:total|limit|transfer_enable|transfer-enable)\s*=\s*([^;,\s]+)',
+    caseSensitive: false,
+  );
+  static final _contentDispositionUtf8Regex = RegExp(
+    r'''filename\*=UTF-8''([^;]+)''',
+    caseSensitive: false,
+  );
+  static final _contentDispositionPlainRegex = RegExp(
+    r'''filename="?([^";]+)"?''',
+    caseSensitive: false,
+  );
+  static final _extensionCleanRegex = RegExp(r'\.(txt|json)$');
+
   final VlessParser vlessParser;
   final Hysteria2Parser hysteria2Parser;
   final NaiveParser naiveParser;
 
   static Uri? tryParseSubscriptionUri(String raw) {
     final trimmed = raw.trim();
-    if (trimmed.isEmpty || trimmed.contains(RegExp(r'\s'))) return null;
+    if (trimmed.isEmpty || trimmed.contains(_whitespaceRegex)) return null;
     final uri = Uri.tryParse(trimmed);
     if (uri == null || uri.host.isEmpty) return null;
     final scheme = uri.scheme.toLowerCase();
@@ -238,7 +275,7 @@ class ServerSubscriptionImporter {
   }
 
   Future<_SubscriptionResponse> _fetch(
-    Uri uri, {
+    Uri initialUri, {
     String? hwid,
     bool allowInsecureTls = false,
   }) async {
@@ -248,46 +285,78 @@ class ServerSubscriptionImporter {
       if (allowInsecureTls) {
         client.badCertificateCallback = (_, _, _) => true;
       }
-      final request = await client.getUrl(uri).timeout(_requestTimeout);
-      request.followRedirects = true;
-      request.maxRedirects = 5;
-      SubscriptionClientIdentity.applyTo(request);
-      request.headers.set(
-        HttpHeaders.acceptHeader,
-        'text/plain, application/json;q=0.9, */*;q=0.8',
-      );
-      request.headers.set(HttpHeaders.cacheControlHeader, 'no-cache');
-      final trimmedHwid = hwid?.trim();
-      if (trimmedHwid != null && trimmedHwid.isNotEmpty) {
-        request.headers.set('X-HWID', trimmedHwid);
-      }
+      var currentUri = initialUri;
+      for (var redirectCount = 0; redirectCount <= 5; redirectCount++) {
+        final request = await client.getUrl(currentUri).timeout(_requestTimeout);
+        request.followRedirects = false;
+        SubscriptionClientIdentity.applyTo(request);
+        request.headers.set(
+          HttpHeaders.acceptHeader,
+          'text/plain, application/json;q=0.9, */*;q=0.8',
+        );
+        request.headers.set(HttpHeaders.cacheControlHeader, 'no-cache');
+        final trimmedHwid = hwid?.trim();
+        if (trimmedHwid != null && trimmedHwid.isNotEmpty) {
+          request.headers.set('X-HWID', trimmedHwid);
+        }
 
-      final response = await request.close().timeout(_requestTimeout);
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw HttpException(
-          'Subscription returned HTTP ${response.statusCode}',
-          uri: uri,
+        final response = await request.close().timeout(_requestTimeout);
+        if (response.isRedirect) {
+          final location = response.headers.value(HttpHeaders.locationHeader);
+          if (location == null || location.isEmpty) {
+            throw HttpException(
+              'Redirect missing Location header',
+              uri: currentUri,
+            );
+          }
+          final resolvedUri = currentUri.resolve(location);
+          if (!resolvedUri.hasScheme ||
+              (resolvedUri.scheme != 'http' && resolvedUri.scheme != 'https')) {
+            throw HttpException(
+              'Unsupported redirect scheme: ${resolvedUri.scheme}',
+              uri: resolvedUri,
+            );
+          }
+          if (!DeepLinkHandler.isPublicRulesetHost(resolvedUri.host)) {
+            throw HttpException(
+              'Redirect to private or internal host is not allowed: ${resolvedUri.host}',
+              uri: resolvedUri,
+            );
+          }
+          currentUri = resolvedUri;
+          continue;
+        }
+
+        if (response.statusCode < 200 || response.statusCode >= 300) {
+          throw HttpException(
+            'Subscription returned HTTP ${response.statusCode}',
+            uri: currentUri,
+          );
+        }
+
+        final headers = <String, String>{};
+        response.headers.forEach((name, values) {
+          if (values.isNotEmpty) {
+            headers[name.toLowerCase()] = values.join(',');
+          }
+        });
+
+        final bytes = <int>[];
+        await for (final chunk in response.timeout(_requestTimeout)) {
+          bytes.addAll(chunk);
+          if (bytes.length > _maxPayloadBytes) {
+            throw HttpException(
+              'Subscription response is too large',
+              uri: currentUri,
+            );
+          }
+        }
+        return _SubscriptionResponse(
+          body: utf8.decode(bytes, allowMalformed: true),
+          headers: headers,
         );
       }
-
-      final headers = <String, String>{};
-      response.headers.forEach((name, values) {
-        if (values.isNotEmpty) {
-          headers[name.toLowerCase()] = values.join(',');
-        }
-      });
-
-      final bytes = <int>[];
-      await for (final chunk in response.timeout(_requestTimeout)) {
-        bytes.addAll(chunk);
-        if (bytes.length > _maxPayloadBytes) {
-          throw HttpException('Subscription response is too large', uri: uri);
-        }
-      }
-      return _SubscriptionResponse(
-        body: utf8.decode(bytes, allowMalformed: true),
-        headers: headers,
-      );
+      throw HttpException('Too many redirects', uri: currentUri);
     } finally {
       client?.close(force: true);
     }
@@ -407,15 +476,12 @@ class ServerSubscriptionImporter {
   }
 
   List<String> _extractServerLinks(String raw) {
-    final matches = RegExp(
-      r'''(?:vless|hysteria2|hy2|naive|naive\+https|naive\+quic)://[^\s<>"']+''',
-      caseSensitive: false,
-    ).allMatches(raw);
+    final matches = _serverLinksRegex.allMatches(raw);
     return matches.map((match) => match.group(0)!.trim()).toList();
   }
 
   String? _tryDecodeBase64Payload(String raw) {
-    final compact = raw.replaceAll(RegExp(r'\s+'), '');
+    final compact = raw.replaceAll(_whitespacePlusRegex, '');
     if (compact.length < 8) return null;
     final normalized = _normalizeBase64(compact);
     if (normalized == null) return null;
@@ -513,10 +579,7 @@ class ServerSubscriptionImporter {
 
   DateTime? _expireFromKeyValueList(String? raw) {
     if (raw == null || raw.trim().isEmpty) return null;
-    final match = RegExp(
-      r'(?:^|[;,\s])expire(?:s|d|_at|-at)?\s*=\s*([^;,\s]+)',
-      caseSensitive: false,
-    ).firstMatch(raw);
+    final match = _expireRegex.firstMatch(raw);
     return _parseExpireValue(match?.group(1));
   }
 
@@ -542,34 +605,15 @@ class ServerSubscriptionImporter {
   _SubscriptionTraffic? _trafficFromKeyValueList(String? raw) {
     if (raw == null || raw.trim().isEmpty) return null;
 
-    final upload = _bytesFromKeyValueList(raw, const [
-      'upload',
-      'uplink',
-      'up',
-    ]);
-    final download = _bytesFromKeyValueList(raw, const [
-      'download',
-      'downlink',
-      'down',
-    ]);
-    final explicitUsed = _bytesFromKeyValueList(raw, const [
-      'used',
-      'usage',
-      'traffic',
-      'used_traffic',
-      'used-traffic',
-    ]);
+    final upload = _bytesFromRegex(raw, _uploadRegex);
+    final download = _bytesFromRegex(raw, _downloadRegex);
+    final explicitUsed = _bytesFromRegex(raw, _usedRegex);
     final combinedUsed = upload == null && download == null
         ? null
         : (upload ?? 0) + (download ?? 0);
     final usedBytes = explicitUsed ?? combinedUsed;
 
-    final total = _bytesFromKeyValueList(raw, const [
-      'total',
-      'limit',
-      'transfer_enable',
-      'transfer-enable',
-    ]);
+    final total = _bytesFromRegex(raw, _totalRegex);
     final limitBytes = total == null || total <= 0 ? null : total;
     if (usedBytes == null && limitBytes == null) return null;
 
@@ -579,12 +623,8 @@ class ServerSubscriptionImporter {
     );
   }
 
-  int? _bytesFromKeyValueList(String raw, List<String> keys) {
-    final pattern = keys.map(RegExp.escape).join('|');
-    final match = RegExp(
-      '(?:^|[;,\\s])(?:$pattern)\\s*=\\s*([^;,\\s]+)',
-      caseSensitive: false,
-    ).firstMatch(raw);
+  int? _bytesFromRegex(String raw, RegExp regex) {
+    final match = regex.firstMatch(raw);
     return _parseTrafficBytes(match?.group(1));
   }
 
@@ -630,10 +670,7 @@ class ServerSubscriptionImporter {
 
   String? _filenameFromContentDisposition(String? raw) {
     if (raw == null) return null;
-    final encoded = RegExp(
-      r'''filename\*=UTF-8''([^;]+)''',
-      caseSensitive: false,
-    ).firstMatch(raw);
+    final encoded = _contentDispositionUtf8Regex.firstMatch(raw);
     if (encoded != null) {
       try {
         return _cleanName(Uri.decodeComponent(encoded.group(1)!));
@@ -642,16 +679,13 @@ class ServerSubscriptionImporter {
       }
     }
 
-    final plain = RegExp(
-      r'''filename="?([^";]+)"?''',
-      caseSensitive: false,
-    ).firstMatch(raw);
+    final plain = _contentDispositionPlainRegex.firstMatch(raw);
     return _cleanName(plain?.group(1));
   }
 
   String? _cleanName(String? raw) {
     if (raw == null) return null;
-    final cleaned = raw.trim().replaceAll(RegExp(r'\.(txt|json)$'), '');
+    final cleaned = raw.trim().replaceAll(_extensionCleanRegex, '');
     return cleaned.isEmpty ? null : cleaned;
   }
 }

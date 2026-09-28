@@ -70,6 +70,12 @@ class _RoutingRuleEditorScreenState extends State<_RoutingRuleEditorScreen> {
     final domains = _parseList(_domainController.text);
     final ips = _parseList(_ipController.text);
     final port = _portController.text.trim().replaceAll(' ', '');
+    if (!RoutingRule.isValidPortExpression(port)) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(SnackBar(content: Text(l.routingRulePortInvalid)));
+      return;
+    }
     final hasMatcher =
         domains.isNotEmpty ||
         ips.isNotEmpty ||

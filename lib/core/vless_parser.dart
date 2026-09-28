@@ -177,13 +177,52 @@ class VlessParser {
           '',
       transportHost: transportHost,
       transportMode: _firstQueryValue(uri, const ['mode']) ?? '',
-      xhttpPadding:
+      xPaddingObfsMode: _boolQueryValue(uri, const [
+        'xPaddingObfsMode',
+        'x-padding-obfs-mode',
+      ]),
+      xPaddingPlacement: _normalizePaddingPlacement(
+        _firstQueryValue(uri, const [
+              'xPaddingPlacement',
+              'x-padding-placement',
+            ]) ??
+            '',
+      ),
+      xPaddingKey:
+          _firstQueryValue(uri, const ['xPaddingKey', 'x-padding-key']) ?? '',
+      xPaddingHeader:
+          _firstQueryValue(uri, const ['xPaddingHeader', 'x-padding-header']) ??
+          '',
+      xPaddingMethod:
+          _firstQueryValue(uri, const ['xPaddingMethod', 'x-padding-method']) ??
+          '',
+      xPaddingBytes:
           _firstQueryValue(uri, const [
             'xPadding',
             'xPaddingBytes',
+            'x-padding-bytes',
             'padding',
           ]) ??
           '',
+      sessionIDPlacement:
+          _firstQueryValue(uri, const [
+            'sessionIDPlacement',
+            'sessionIdPlacement',
+            'sessionPlacement',
+            'session-placement',
+          ]) ??
+          '',
+      sessionIDKey:
+          _firstQueryValue(uri, const [
+            'sessionIDKey',
+            'sessionIdKey',
+            'sessionKey',
+            'session-key',
+          ]) ??
+          '',
+      seqPlacement:
+          _firstQueryValue(uri, const ['seqPlacement', 'seq-placement']) ?? '',
+      seqKey: _firstQueryValue(uri, const ['seqKey', 'seq-key']) ?? '',
       xhttpMaxPostBytes:
           _firstQueryValue(uri, const ['scMaxEachPostBytes', 'maxPostBytes']) ??
           '',
@@ -253,4 +292,9 @@ class VlessParser {
 
   bool? _boolQueryValue(Uri uri, List<String> keys) =>
       parseQueryBoolFlag(_firstQueryValue(uri, keys));
+
+  String _normalizePaddingPlacement(String raw) {
+    final value = raw.trim();
+    return value == 'queryInHeader' ? 'query-in-header' : value.toLowerCase();
+  }
 }

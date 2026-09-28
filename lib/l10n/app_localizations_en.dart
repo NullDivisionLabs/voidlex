@@ -126,6 +126,20 @@ class AppLocalizationsEn extends AppLocalizations {
   String get autoConnectOnLaunchSubtitle => 'May not work on some devices.';
 
   @override
+  String get allowDeepLinkVpnAutomationTitle => 'Allow VPN automation links';
+
+  @override
+  String get allowDeepLinkVpnAutomationSubtitle =>
+      'When enabled, voidlex://connect and similar links can change the connection without asking each time.';
+
+  @override
+  String get startHomeWidgetsCollapsedTitle => 'Start with widgets collapsed';
+
+  @override
+  String get startHomeWidgetsCollapsedSubtitle =>
+      'Open the home screen in compact mode by default.';
+
+  @override
   String get restartOnSettingsChangeTitle => 'Restart on changes';
 
   @override
@@ -320,6 +334,25 @@ class AppLocalizationsEn extends AppLocalizations {
       'This link wants to import a subscription or server into Void//Lex.';
 
   @override
+  String get deepLinkConsentVpnControlConnect =>
+      'This link wants to connect Void//Lex to your selected server.';
+
+  @override
+  String get deepLinkConsentVpnControlDisconnect =>
+      'This link wants to disconnect Void//Lex.';
+
+  @override
+  String get deepLinkConsentVpnControlToggle =>
+      'This link wants to toggle the Void//Lex connection.';
+
+  @override
+  String get deepLinkConsentVpnControlRestart =>
+      'This link wants to restart the active Void//Lex connection.';
+
+  @override
+  String get deepLinkConsentVpnControlConfirm => 'Allow';
+
+  @override
   String get deepLinkConsentSourceLabel => 'Source';
 
   @override
@@ -331,7 +364,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get deepLinkRulesetInvalidUrl =>
-      'Ruleset URL must be a valid http(s) address.';
+      'Ruleset URL must be a valid https address on a public host.';
+
+  @override
+  String get deepLinkImportTooLarge => 'Import payload is too large.';
 
   @override
   String get deepLinkRulesetTimeout => 'Ruleset download timed out.';
@@ -561,33 +597,80 @@ class AppLocalizationsEn extends AppLocalizations {
   String get editServerXhttpModeLabel => 'Mode';
 
   @override
-  String get editServerXhttpModeHelper =>
-      'Default: stream-up (lowest DPI signature)';
+  String get editServerXhttpModeHelper => 'Blank uses the Xray-core default';
 
   @override
-  String get editServerXhttpModeAuto => 'Auto (recommended)';
+  String get editServerXhttpModeAuto => 'Core default';
 
   @override
   String get editServerXhttpPaddingLabel => 'Padding range (xPaddingBytes)';
 
   @override
-  String get editServerXhttpPaddingHelper => 'Default: 100-1000';
+  String get editServerXhttpPaddingHelper =>
+      'Optional positive value or range, for example 100-1000';
 
   @override
   String get editServerXhttpMaxPostLabel =>
       'Max POST bytes (scMaxEachPostBytes)';
 
   @override
-  String get editServerXhttpMaxPostHelper =>
-      'Default: 500000-1000000 (packet-up only)';
+  String get editServerXhttpMaxPostHelper => 'Optional; packet-up only';
 
   @override
   String get editServerXhttpMinIntervalLabel =>
       'Min POST interval ms (scMinPostsIntervalMs)';
 
   @override
-  String get editServerXhttpMinIntervalHelper =>
-      'Default: 10-50 (packet-up only)';
+  String get editServerXhttpMinIntervalHelper => 'Optional; packet-up only';
+
+  @override
+  String get editServerXhttpObfsTitle => 'Advanced padding obfuscation';
+
+  @override
+  String get editServerXhttpObfsHelper =>
+      'Off keeps the stock Xray-core padding behavior';
+
+  @override
+  String get editServerXhttpPaddingPlacementLabel => 'Padding placement';
+
+  @override
+  String get editServerXhttpPaddingKeyLabel => 'Padding key';
+
+  @override
+  String get editServerXhttpPaddingHeaderLabel => 'Padding header';
+
+  @override
+  String get editServerXhttpPaddingMethodLabel => 'Padding method';
+
+  @override
+  String get editServerXhttpSessionPlacementLabel => 'Session ID placement';
+
+  @override
+  String get editServerXhttpSessionKeyLabel => 'Session ID key';
+
+  @override
+  String get editServerXhttpSeqPlacementLabel => 'Sequence placement';
+
+  @override
+  String get editServerXhttpSeqKeyLabel => 'Sequence key';
+
+  @override
+  String get editServerXhttpCdnWafPreset => 'CDN/WAF compatibility';
+
+  @override
+  String get editServerXhttpStockDefault => 'Core default';
+
+  @override
+  String get editServerXhttpRangeInvalid =>
+      'Use a positive number or range up to 2147483647';
+
+  @override
+  String get editServerXhttpTokenInvalid =>
+      'Contains characters not allowed in an HTTP token';
+
+  @override
+  String get editServerXhttpValueRequired =>
+      'Required for the selected placement';
 
   @override
   String get editServerAdvancedTitle => 'Advanced';
@@ -900,6 +983,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tooltipCloseSearch => 'Close search';
 
   @override
+  String get tooltipCollapseTopWidgets => 'Hide widgets';
+
+  @override
+  String get tooltipExpandTopWidgets => 'Show widgets';
+
+  @override
   String get searchNodesHint => 'Search by name';
 
   @override
@@ -907,6 +996,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get statusIdle => 'IDLE';
+
+  @override
+  String get statusReconnecting => 'Reconnecting';
 
   @override
   String get statusNegotiating => 'NEGOTIATING';
@@ -1018,6 +1110,26 @@ class AppLocalizationsEn extends AppLocalizations {
       'Enter a valid HTTP or HTTPS subscription URL.';
 
   @override
+  String get insecureSubscriptionTitle => 'Use an insecure subscription?';
+
+  @override
+  String get insecureSubscriptionBody =>
+      'This subscription uses plain HTTP. Its node list can be read or modified in transit, which could redirect your VPN traffic through an attacker-controlled server.';
+
+  @override
+  String get insecureSubscriptionConfirm => 'Use HTTP anyway';
+
+  @override
+  String get discardChangesTitle => 'Discard unsaved changes?';
+
+  @override
+  String get discardChangesBody =>
+      'Your changes have not been saved and will be lost.';
+
+  @override
+  String get discardChangesAction => 'Discard';
+
+  @override
   String get presetNameRequired => 'Enter a preset name.';
 
   @override
@@ -1054,6 +1166,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get vpnConnectionTimedOut => 'VPN connection timed out';
 
   @override
+  String get vpnLibboxNetworkUnavailable =>
+      'libbox could not access an underlying network';
+
+  @override
   String get vpnNaiveRequiresLibbox =>
       'NaiveProxy requires the libbox TUN engine';
 
@@ -1068,6 +1184,18 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get vpnNaiveExitUnsupported =>
       'NaiveProxy cannot be selected as an exit node';
+
+  @override
+  String get vpnDirectLibboxBridgeUnsupported =>
+      'Hysteria2 and NaiveProxy cannot be used in a two-hop chain';
+
+  @override
+  String get vpnDirectLibboxRequiresLibbox =>
+      'Hysteria2 and NaiveProxy require the libbox TUN engine';
+
+  @override
+  String get vpnDirectLibboxTunOnly =>
+      'Hysteria2 and NaiveProxy are not available in proxy-only mode';
 
   @override
   String vpnEventChannelError(String error) {
@@ -1585,6 +1713,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get routingRulePortLabel => 'Port';
 
   @override
+  String get routingRulePortInvalid =>
+      'Enter ports from 1 to 65535, separated by commas; ranges must use start-end.';
+
+  @override
   String get routingRuleNetworkLabel => 'Network';
 
   @override
@@ -1803,22 +1935,46 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tunnelUseLocalDns => 'Use local DNS';
 
   @override
+  String get tunnelUseLocalDnsDescription =>
+      'Use the device\'s system resolver instead of a remote DNS server.';
+
+  @override
   String get tunnelEnableServerResolving => 'Server DNS';
+
+  @override
+  String get tunnelEnableServerResolvingDescription =>
+      'Resolve proxy server domain names to IP addresses before connecting.';
 
   @override
   String get tunnelPacketAnalysis => 'Packet analysis';
 
   @override
+  String get tunnelPacketAnalysisDescription =>
+      'Inspect HTTP, TLS, and QUIC metadata to route traffic by destination domain.';
+
+  @override
   String get tunnelNetworkStack => 'Network stack';
 
   @override
+  String get tunnelNetworkStackDescription =>
+      'Select the TCP and UDP implementation used by the TUN engine. gVisor is the recommended default on Android.';
+
+  @override
   String get tunnelMtu => 'MTU';
+
+  @override
+  String get tunnelMtuDescription =>
+      'Maximum packet size on the TUN interface. Allowed range: 1280–9000.';
 
   @override
   String get tunnelMtuHint => '1500';
 
   @override
   String get tunnelIpMode => 'IP mode';
+
+  @override
+  String get tunnelIpModeDescription =>
+      'Choose which IP families are routed through the tunnel.';
 
   @override
   String get tunnelNetStackSystem => 'System';
@@ -1854,6 +2010,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get tunnelEnableDnsForTun => 'Enable DNS for TUN';
+
+  @override
+  String get tunnelEnableDnsForTunDescription =>
+      'Override the upstream DNS server used by Xray TUN with the address below.';
 
   @override
   String get tunnelTunDnsLabel => 'TUN DNS';
@@ -1900,31 +2060,71 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tunnelFragmentPackets => 'Fragment packets';
 
   @override
+  String get tunnelFragmentPacketsDescription =>
+      'Choose which initial TCP writes are split; tlshello targets the TLS ClientHello.';
+
+  @override
   String get tunnelFragmentLength => 'Fragment length (min-max)';
+
+  @override
+  String get tunnelFragmentLengthDescription =>
+      'Random size range for each fragment, in bytes.';
 
   @override
   String get tunnelFragmentInterval => 'Fragment interval (min-max)';
 
   @override
+  String get tunnelFragmentIntervalDescription =>
+      'Random delay between fragments, in milliseconds.';
+
+  @override
   String get tunnelFragmentMaxSplit => 'Fragment max split (min-max)';
+
+  @override
+  String get tunnelFragmentMaxSplitDescription =>
+      'Random limit for the number of fragments created from one write.';
 
   @override
   String get tunnelNoiseSettings => 'Noise settings';
 
   @override
+  String get tunnelNoiseSettingsDescription =>
+      'Send UDP noise before the first real packet. This may disrupt some connections.';
+
+  @override
   String get tunnelNoiseType => 'Noise type';
+
+  @override
+  String get tunnelNoiseTypeDescription =>
+      'Select how the noise packet contents are generated or encoded.';
 
   @override
   String get tunnelNoisePacketLengthRange => 'Packet length range';
 
   @override
+  String get tunnelNoisePacketLengthRangeDescription =>
+      'Random byte-length range for generated noise.';
+
+  @override
   String get tunnelNoisePacket => 'Noise packet';
+
+  @override
+  String get tunnelNoisePacketDescription =>
+      'Packet contents in the format selected above.';
 
   @override
   String get tunnelNoiseDelay => 'Noise delay (min-max)';
 
   @override
+  String get tunnelNoiseDelayDescription =>
+      'Random delay after the noise packet, in milliseconds.';
+
+  @override
   String get tunnelNoiseApplyTo => 'Apply to';
+
+  @override
+  String get tunnelNoiseApplyToDescription =>
+      'Limit noise to all IP traffic, IPv4, or IPv6.';
 
   @override
   String get tunnelNoiseTypeRandom => 'Random';
@@ -1962,10 +2162,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get tunnelMuxTcpConnections => 'TCP connections (-1 to 128)';
 
   @override
+  String get tunnelMuxTcpConnectionsDescription =>
+      'Maximum TCP sub-connections per MUX connection. -1 disables MUX for TCP.';
+
+  @override
   String get tunnelMuxXudpConnections => 'XUDP connections (-1 to 1024)';
 
   @override
+  String get tunnelMuxXudpConnectionsDescription =>
+      'Maximum UDP sub-connections per XUDP tunnel. -1 disables MUX for UDP.';
+
+  @override
   String get tunnelMuxQuicBehavior => 'QUIC in MUX';
+
+  @override
+  String get tunnelMuxQuicBehaviorDescription =>
+      'Reject, carry through MUX, or pass UDP/443 outside MUX.';
 
   @override
   String get tunnelMuxQuicReject => 'Reject';
@@ -2308,7 +2520,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get faqA10 =>
-      '**system** is the fastest — uses the kernel TCP stack, but a few exotic networks cause it to drop.\n**gVisor** is a user-space TCP stack; more reliable on «odd» networks (certain mobile carriers), slightly slower and warmer.\n**mixed** is the compromise: gVisor for TCP, system for UDP.\nIf **system** works, stay on **system**.';
+      '**gVisor** is the default on Android. It handles TUN traffic in user space and works reliably with libbox 1.14.\n**system** uses the platform kernel stack and should only be selected on environments where that TUN path is known to work.\n**mixed** uses gVisor for TCP and system for UDP.';
 
   @override
   String get faqQ11 =>

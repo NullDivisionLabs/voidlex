@@ -12,13 +12,13 @@ class TvTopStrip extends StatelessWidget {
     required this.connectionState,
     required this.latencyMs,
     required this.now,
-    this.versionLabel = 'TV · v${SubscriptionClientIdentity.appVersion}',
+    this.versionLabel,
   });
 
   final VpnConnectionState connectionState;
   final int? latencyMs;
   final DateTime now;
-  final String versionLabel;
+  final String? versionLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -53,7 +53,8 @@ class TvTopStrip extends StatelessWidget {
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(
-              versionLabel,
+              versionLabel ??
+                  'TV \u00b7 v${SubscriptionClientIdentity.appVersion}',
               style: VoidType.mono(
                 fontSize: 10,
                 fontWeight: FontWeight.w500,

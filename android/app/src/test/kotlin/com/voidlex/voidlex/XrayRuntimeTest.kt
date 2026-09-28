@@ -26,6 +26,39 @@ class XrayRuntimeTest {
     }
 
     @Test
+    fun `accepts reachable socks inbound when startup marker is missing`() {
+        assertEquals(
+            SocksRuntimeReadiness.READY_WITHOUT_STARTUP_LOG,
+            XrayRuntime.socksRuntimeReadiness(
+                startupReported = false,
+                inboundReachable = true,
+            ),
+        )
+    }
+
+    @Test
+    fun `waits when startup marker arrives before socks inbound`() {
+        assertEquals(
+            SocksRuntimeReadiness.WAITING,
+            XrayRuntime.socksRuntimeReadiness(
+                startupReported = true,
+                inboundReachable = false,
+            ),
+        )
+    }
+
+    @Test
+    fun `reports normal readiness when marker and socks inbound are available`() {
+        assertEquals(
+            SocksRuntimeReadiness.READY_AFTER_STARTUP_LOG,
+            XrayRuntime.socksRuntimeReadiness(
+                startupReported = true,
+                inboundReachable = true,
+            ),
+        )
+    }
+
+    @Test
     fun `explains unsupported xray tun inbound`() {
         val message = XrayRuntime.configTestFailureMessage(
             mode = XrayRuntimeMode.TUN,

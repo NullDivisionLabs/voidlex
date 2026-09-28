@@ -1,3 +1,5 @@
+import 'deep_link_handler.dart' show VpnDeepLinkCommand;
+
 /// A configuration-changing `voidlex://` deep link that is awaiting explicit
 /// user consent before it runs. Surfaced via [VpnController.pendingDeepLink]
 /// so the UI can show the source/URL and let the user accept or reject it,
@@ -12,6 +14,9 @@ enum DeepLinkActionKind {
 
   /// Encrypted subscription code or a plain http(s) subscription URL.
   importSubscription,
+
+  /// `voidlex://connect|disconnect|toggle|restart` — changes VPN state.
+  vpnControl,
 }
 
 class PendingDeepLink {
@@ -19,6 +24,7 @@ class PendingDeepLink {
     required this.kind,
     required this.displayUrl,
     this.isInsecureHttp = false,
+    this.vpnCommand,
   });
 
   final DeepLinkActionKind kind;
@@ -29,4 +35,7 @@ class PendingDeepLink {
   /// True when the payload would be fetched over plain `http://` (no TLS),
   /// so the UI can warn that the link can be observed/tampered in transit.
   final bool isInsecureHttp;
+
+  /// Set for [DeepLinkActionKind.vpnControl] deep links.
+  final VpnDeepLinkCommand? vpnCommand;
 }

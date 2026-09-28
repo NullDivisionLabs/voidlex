@@ -114,7 +114,7 @@ class VpnRuntimeStateTest {
             transportServiceName = "",
             transportHost = "",
             transportMode = "",
-            xhttpPadding = "",
+            xPaddingBytes = "",
             xhttpMaxPostBytes = "",
             xhttpMinPostInterval = "",
             tlsEnabled = true,

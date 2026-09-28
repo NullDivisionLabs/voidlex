@@ -42,13 +42,26 @@ internal object InstalledAppsBridge {
 
         val ownPackage = context.packageName
 
+        val launcherPackages = runCatching {
+            val intent = android.content.Intent(android.content.Intent.ACTION_MAIN)
+                .addCategory(android.content.Intent.CATEGORY_LAUNCHER)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                pm.queryIntentActivities(intent, PackageManager.ResolveInfoFlags.of(0))
+            } else {
+                @Suppress("DEPRECATION")
+                pm.queryIntentActivities(intent, 0)
+            }
+        }.getOrDefault(emptyList())
+            .mapNotNull { it.activityInfo?.packageName }
+            .toSet()
+
         return installed
             .asSequence()
             .filter { info -> info.packageName != ownPackage }
             .map { info ->
                 val label = runCatching { pm.getApplicationLabel(info).toString() }
                     .getOrDefault(info.packageName)
-                val isSystem = isAndroidInternalApp(pm, info)
+                val isSystem = isAndroidInternalApp(info, launcherPackages)
                 mapOf(
                     "name" to label,
                     "packageName" to info.packageName,
@@ -94,12 +107,10 @@ internal object InstalledAppsBridge {
     // providers, services without a launcher entry). User-facing preinstalls —
     // Chrome, YouTube, Gmail, Phone, Settings — all expose a launcher intent
     // and are surfaced as regular apps regardless of partition.
-    private fun isAndroidInternalApp(pm: PackageManager, info: ApplicationInfo): Boolean {
+    private fun isAndroidInternalApp(info: ApplicationInfo, launcherPackages: Set<String>): Boolean {
         val onSystemPartition = (info.flags and ApplicationInfo.FLAG_SYSTEM) != 0
         if (!onSystemPartition) return false
-        val launchIntent = runCatching { pm.getLaunchIntentForPackage(info.packageName) }
-            .getOrNull()
-        return launchIntent == null
+        return info.packageName !in launcherPackages
     }
 
     private fun encodeIcon(pm: PackageManager, info: ApplicationInfo): ByteArray {

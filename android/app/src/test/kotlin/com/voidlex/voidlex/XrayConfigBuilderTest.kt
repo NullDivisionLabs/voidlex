@@ -122,6 +122,95 @@ class XrayConfigBuilderTest {
     }
 
     @Test
+    fun `plain xhttp keeps stock core settings`() {
+        val config = ServerConfig(
+            isGlobalProxy = true,
+            server = "stock.example.com",
+            serverPort = 443,
+            uuid = "00000000-0000-4000-8000-000000000000",
+            transport = "xhttp",
+            transportPath = "/cdnapi.txt",
+            transportServiceName = "",
+            transportHost = "cdn.example.com",
+            tlsEnabled = true,
+            tlsSni = "stock.example.com",
+            tlsInsecure = false,
+            flow = "",
+            security = "tls",
+            realityPbk = "",
+            realitySid = "",
+            fingerprint = "",
+            alpn = "",
+        )
+
+        val xhttp = JSONObject(XrayConfigBuilder.build(config))
+            .getJSONArray("outbounds")
+            .getJSONObject(0)
+            .getJSONObject("streamSettings")
+            .getJSONObject("xhttpSettings")
+
+        assertEquals("/cdnapi.txt", xhttp.getString("path"))
+        assertFalse(xhttp.has("mode"))
+        assertFalse(xhttp.has("extra"))
+    }
+
+    @Test
+    fun `builds CDN WAF xhttp settings with exact wire names`() {
+        val config = ServerConfig(
+            isGlobalProxy = true,
+            server = "waf.example.com",
+            serverPort = 443,
+            uuid = "00000000-0000-4000-8000-000000000000",
+            transport = "xhttp",
+            transportPath = "/cdnapi.txt",
+            transportServiceName = "",
+            transportHost = "cdn.example.com",
+            xPaddingObfsMode = true,
+            xPaddingPlacement = "query-in-header",
+            xPaddingKey = "v",
+            xPaddingHeader = "Referer",
+            xPaddingMethod = "tokenish",
+            xPaddingBytes = "100-1000",
+            sessionIDPlacement = "query",
+            sessionIDKey = "sid",
+            seqPlacement = "query",
+            seqKey = "n",
+            xhttpRawSettingsJson = """{"futureTop":{"keep":true}}""",
+            xhttpRawExtraJson = """{"futureExtra":{"keep":[1,2]}}""",
+            tlsEnabled = true,
+            tlsSni = "waf.example.com",
+            tlsInsecure = false,
+            flow = "",
+            security = "tls",
+            realityPbk = "",
+            realitySid = "",
+            fingerprint = "",
+            alpn = "",
+        )
+
+        val xhttp = JSONObject(XrayConfigBuilder.build(config))
+            .getJSONArray("outbounds")
+            .getJSONObject(0)
+            .getJSONObject("streamSettings")
+            .getJSONObject("xhttpSettings")
+        val extra = xhttp.getJSONObject("extra")
+
+        assertEquals("/cdnapi.txt", xhttp.getString("path"))
+        assertTrue(xhttp.getJSONObject("futureTop").getBoolean("keep"))
+        assertTrue(extra.getBoolean("xPaddingObfsMode"))
+        assertEquals("queryInHeader", extra.getString("xPaddingPlacement"))
+        assertEquals("Referer", extra.getString("xPaddingHeader"))
+        assertEquals("v", extra.getString("xPaddingKey"))
+        assertEquals("tokenish", extra.getString("xPaddingMethod"))
+        assertEquals("100-1000", extra.getString("xPaddingBytes"))
+        assertEquals("query", extra.getString("sessionIDPlacement"))
+        assertEquals("sid", extra.getString("sessionIDKey"))
+        assertEquals("query", extra.getString("seqPlacement"))
+        assertEquals("n", extra.getString("seqKey"))
+        assertEquals(2, extra.getJSONObject("futureExtra").getJSONArray("keep").length())
+    }
+
+    @Test
     fun `builds reality settings for xhttp outbound`() {
         val config = ServerConfig(
             isGlobalProxy = true,
@@ -1047,7 +1136,7 @@ class XrayConfigBuilderTest {
     }
 
     @Test
-    fun `external ip probe inbound enforces basic auth when credentials are configured`() {
+    fun `external ip probe inbound omits basic auth when toggle is disabled`() {
         val config = ServerConfig(
             isGlobalProxy = false,
             server = "probe.example.com",
@@ -1068,6 +1157,41 @@ class XrayConfigBuilderTest {
             alpn = "",
             proxyUser = "u",
             proxyPassword = "p",
+            httpProxyAuthEnabled = false,
+        )
+
+        val inbounds = JSONObject(XrayConfigBuilder.build(config))
+            .getJSONArray("inbounds")
+        val probe = (0 until inbounds.length())
+            .map { inbounds.getJSONObject(it) }
+            .first { it.getString("tag") == "external-ip-probe-in" }
+
+        assertFalse(probe.getJSONObject("settings").has("accounts"))
+    }
+
+    @Test
+    fun `external ip probe inbound enforces basic auth when toggle is enabled`() {
+        val config = ServerConfig(
+            isGlobalProxy = false,
+            server = "probe.example.com",
+            serverPort = 443,
+            uuid = "00000000-0000-4000-8000-000000000000",
+            transport = "tcp",
+            transportPath = "/",
+            transportServiceName = "",
+            transportHost = "",
+            tlsEnabled = true,
+            tlsSni = "probe.example.com",
+            tlsInsecure = false,
+            flow = "",
+            security = "tls",
+            realityPbk = "",
+            realitySid = "",
+            fingerprint = "",
+            alpn = "",
+            proxyUser = "u",
+            proxyPassword = "p",
+            httpProxyAuthEnabled = true,
         )
 
         val inbounds = JSONObject(XrayConfigBuilder.build(config))
@@ -1159,6 +1283,7 @@ class XrayConfigBuilderTest {
             realitySid = "",
             fingerprint = "",
             alpn = "",
+            httpProxyAuthEnabled = true,
         )
 
         val inbounds = JSONObject(XrayConfigBuilder.build(config))
@@ -1175,7 +1300,7 @@ class XrayConfigBuilderTest {
     }
 
     @Test
-    fun `experimental xray tun config also enforces probe auth when credentials are configured`() {
+    fun `experimental xray tun config also enforces probe auth when toggle is enabled`() {
         val config = ServerConfig(
             tunEngineMode = TunEngineMode.XRAY,
             isGlobalProxy = true,
@@ -1197,6 +1322,7 @@ class XrayConfigBuilderTest {
             alpn = "",
             proxyUser = "tun-user",
             proxyPassword = "tun-pass",
+            httpProxyAuthEnabled = true,
         )
 
         val inbounds = JSONObject(XrayTunConfigBuilder.build(config))

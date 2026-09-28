@@ -12,22 +12,26 @@ own upstream license.
 ### sing-box / libbox
 
 - Local artifact: `android/app/libs/libbox.aar`
-- SHA-256: `E97C284DCB227122DFB76DA96E27DC343C88DF260862BD60E054440BB724C040`
+- Size: `86,833,563` bytes
+- SHA-256: `513D487735C5CF80196C761E7C80BF63FAB4CA3AC7BFB2E9305E7FDA7EF24B42`
 - Upstream project: https://github.com/SagerNet/sing-box
-- Upstream tag: `v1.14.0-alpha.24`
-- Upstream commit: `6b07a229185de1566a403582832df5aae8276bc0`
+- Upstream tag: `v1.14.0`
+- Upstream commit: `0b8995879f29a9b98ee027bc17b75e101445b238`
 - Upstream license: GNU GPL v3.0 or later
 - Android ABIs in this artifact: `arm64-v8a`, `armeabi-v7a`, `x86_64`
 - Go: `go1.26.2 windows/amd64`
-- Java for build: Temurin `17.0.19+10`
+- Java for build: Eclipse Temurin `17.0.20+8`
 - Android NDK: `28.2.13676358` (`r28c`)
-- gomobile/gobind: `github.com/sagernet/gomobile@v0.1.12`
+- gomobile/gobind: `github.com/sagernet/gomobile@v0.1.13`
+- Android API: `24`
+- Upstream build tags include `with_quic` and `with_naive_outbound` (plus the
+  remaining tags selected by `cmd/internal/build_libbox` at the recorded tag).
 
 Build commands from the checked-out upstream tag:
 
 ```powershell
-go install -v github.com/sagernet/gomobile/cmd/gomobile@v0.1.12
-go install -v github.com/sagernet/gomobile/cmd/gobind@v0.1.12
+go install -v github.com/sagernet/gomobile/cmd/gomobile@v0.1.13
+go install -v github.com/sagernet/gomobile/cmd/gobind@v0.1.13
 $env:JAVA_HOME='<OpenJDK 17 home>'
 $env:ANDROID_HOME='<Android SDK root>'
 $env:ANDROID_NDK_HOME="$env:ANDROID_HOME\ndk\28.2.13676358"
@@ -43,14 +47,14 @@ object code.
 
 - Local artifacts:
   - `android/app/src/main/jniLibs/arm64-v8a/libxray.so`
-    - SHA-256: `15C4816996F2232A8E6EB98B1B90B7B68A553E1B61B181D9D986BB6BD5E42B10`
+    - SHA-256: `5AAB1C7153A763DCD6710FAD10EB2D17EC295206CA6F24B9C9F0A462D93EC3B9`
   - `android/app/src/main/jniLibs/armeabi-v7a/libxray.so`
-    - SHA-256: `7CBC85873719944E1D789EED23FEBB72A3BA57B41B3BE5079FF3384594BBE892`
+    - SHA-256: `B4101D642D7E93F7D992CD081DBACA9510B3FFEDFD38BE88E77B2F3DF2BEBC5F`
   - `android/app/src/main/jniLibs/x86_64/libxray.so`
-    - SHA-256: `89C2B49892ACC9573607200493BE2FA188FFF561BA5398736A4F47D06861C9A0`
+    - SHA-256: `194BA0992F4F48A9394F270F51F130FE1CE16E05FDFB67B24B3730A129EBAA8D`
 - Upstream project: https://github.com/XTLS/Xray-core
-- Upstream tag: `v26.5.9`
-- Upstream commit: `1bdb488c9ec09ea51e6899697d5b7437f3cf6eb2`
+- Upstream tag: `v26.7.28`
+- Upstream commit: `5ca6f4b7d4dc20a881d4330e498892697627ec0c`
 - Upstream license: Mozilla Public License 2.0
 - Go: `go1.26.2 windows/amd64`
 - Android NDK: `28.2.13676358` (`r28c`)
@@ -64,7 +68,7 @@ $env:CGO_ENABLED='1'
 $env:ANDROID_HOME='<Android SDK root>'
 $env:ANDROID_NDK_HOME="$env:ANDROID_HOME\ndk\28.2.13676358"
 $env:CC="$env:ANDROID_NDK_HOME\toolchains\llvm\prebuilt\windows-x86_64\bin\aarch64-linux-android23-clang.cmd"
-go build -trimpath -buildvcs=false -buildmode=pie -ldflags='-s -w -buildid=' -o libxray.so ./main
+go build -trimpath -buildvcs=false -buildmode=pie -gcflags='all=-l=4' -ldflags='-X github.com/xtls/xray-core/core.build=5ca6f4b -s -w -buildid= -checklinkname=0' -o libxray.so ./main
 
 $env:GOOS='android'
 $env:GOARCH='arm'
@@ -73,7 +77,7 @@ $env:CGO_ENABLED='1'
 $env:ANDROID_HOME='<Android SDK root>'
 $env:ANDROID_NDK_HOME="$env:ANDROID_HOME\ndk\28.2.13676358"
 $env:CC="$env:ANDROID_NDK_HOME\toolchains\llvm\prebuilt\windows-x86_64\bin\armv7a-linux-androideabi23-clang.cmd"
-go build -trimpath -buildvcs=false -buildmode=pie -ldflags='-s -w -buildid=' -o libxray.so ./main
+go build -trimpath -buildvcs=false -buildmode=pie -gcflags='all=-l=4' -ldflags='-X github.com/xtls/xray-core/core.build=5ca6f4b -s -w -buildid= -checklinkname=0' -o libxray.so ./main
 
 $env:GOOS='android'
 $env:GOARCH='amd64'
@@ -81,7 +85,7 @@ $env:CGO_ENABLED='1'
 $env:ANDROID_HOME='<Android SDK root>'
 $env:ANDROID_NDK_HOME="$env:ANDROID_HOME\ndk\28.2.13676358"
 $env:CC="$env:ANDROID_NDK_HOME\toolchains\llvm\prebuilt\windows-x86_64\bin\x86_64-linux-android23-clang.cmd"
-go build -trimpath -buildvcs=false -buildmode=pie -ldflags='-s -w -buildid=' -o libxray.so ./main
+go build -trimpath -buildvcs=false -buildmode=pie -gcflags='all=-l=4' -ldflags='-X github.com/xtls/xray-core/core.build=5ca6f4b -s -w -buildid= -checklinkname=0' -o libxray.so ./main
 ```
 
 APK/AAB releases that include these binaries must preserve upstream notices and

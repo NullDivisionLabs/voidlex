@@ -1,6 +1,52 @@
 # Void//Lex Checkpoint
 
-Date: 2026-05-23
+Date: 2026-09-03
+
+## Current Status
+
+Void//Lex now ships the stable sing-box/libbox `1.14.0` Android API 24 AAR,
+built from signed upstream commit
+`0b8995879f29a9b98ee027bc17b75e101445b238`. App version
+App version is now `1.1.7-beta+1`; Xray-core remains `26.7.28`.
+
+## Added In This Checkpoint
+
+- Rebuilt the main (non-legacy) `libbox.aar` for `android/arm`,
+  `android/arm64`, and `android/amd64` with Temurin `17.0.20+8`, Go `1.26.2`,
+  NDK `r28c`, and gomobile/gobind `v0.1.13`. Size, SHA-256, exact tag,
+  commit, and reproduction command are recorded in `THIRD_PARTY_NOTICES.md`.
+- Adapted the Android platform interface for the stable API: notification
+  cancellation is a safe no-op and interface data now includes IPv4/IPv6
+  gateways taken from Android default routes.
+- Pinned libbox TUN routing to `auto_route=true`, `strict_route=false`, and
+  `dns_mode=hijack`.
+- Startup now waits up to three seconds for a successful libbox default-interface
+  update. A timeout tears down partial TUN/runtime resources and publishes the
+  localized `vpnLibboxNetworkUnavailable` error instead of `connected`.
+- Settings → About reads the packaged version from `Libbox.version()` through
+  the existing service method channel for both mobile and TV layouts. Loading
+  and failure states display `—`.
+
+## Verification
+
+- `flutter gen-l10n` completed successfully.
+- `dart analyze` → no issues.
+- `flutter test` → 241 passed; the existing real-Xray integration test was
+  skipped because no host-runnable `XRAY_TEST_BINARY` was supplied.
+- `./gradlew.bat :app:testDebugUnitTest` on Temurin `17.0.20+8` →
+  `BUILD SUCCESSFUL`.
+- `./gradlew.bat :app:assembleDebug` on Temurin `17.0.20+8` →
+  `BUILD SUCCESSFUL`.
+- The debug APK contains `libbox.so` and `libxray.so` for `arm64-v8a`,
+  `armeabi-v7a`, and `x86_64`.
+- Packaged AAR SHA-256 matches `THIRD_PARTY_NOTICES.md`:
+  `513D487735C5CF80196C761E7C80BF63FAB4CA3AC7BFB2E9305E7FDA7EF24B42`.
+- `git diff --check` → clean (line-ending conversion warnings only).
+
+Hardware/device acceptance remains a manual release gate and was intentionally
+not run from the workstation test suite.
+
+## Previous Checkpoint (2026-05-23)
 
 ## Current Status
 

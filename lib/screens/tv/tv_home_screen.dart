@@ -306,7 +306,8 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
         );
       return;
     }
-    if (_controller.connectionState == VpnConnectionState.disconnected) {
+    if (_controller.connectionState == VpnConnectionState.disconnected ||
+        _controller.connectionState == VpnConnectionState.error) {
       await _controller.connect();
     }
   }
@@ -693,33 +694,36 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
                   children: [
                     Expanded(
                       flex: 100,
-                      child: TvLeftPanel(
-                        connectionState: _controller.connectionState,
-                        hubFocused:
-                            _focus.column == TvFocusColumn.hub &&
-                            !_focus.isOverlayOpen,
-                        sideRailFocusedIndex:
-                            showFocus &&
-                                _focus.column == TvFocusColumn.side &&
-                                !_focus.isOverlayOpen
-                            ? _focus.row
-                            : -1,
-                        sideRailItems: sideRailItems,
-                        exitNodeName:
-                            exitServer?.name ?? selectedServer?.name ?? '—',
-                        exitIpLabel:
-                            externalIp ??
-                            (_controller.connectionState ==
-                                    VpnConnectionState.connected
-                                ? '…'
-                                : '———.———.———.———'),
-                        regionLabel: TvRegionLabel.regionFor(
-                          exitServer?.name ?? selectedServer?.name,
+                      child: AnimatedBuilder(
+                        animation: _controller.throughputListenable,
+                        builder: (context, _) => TvLeftPanel(
+                          connectionState: _controller.connectionState,
+                          hubFocused:
+                              _focus.column == TvFocusColumn.hub &&
+                              !_focus.isOverlayOpen,
+                          sideRailFocusedIndex:
+                              showFocus &&
+                                  _focus.column == TvFocusColumn.side &&
+                                  !_focus.isOverlayOpen
+                              ? _focus.row
+                              : -1,
+                          sideRailItems: sideRailItems,
+                          exitNodeName:
+                              exitServer?.name ?? selectedServer?.name ?? '—',
+                          exitIpLabel:
+                              externalIp ??
+                              (_controller.connectionState ==
+                                      VpnConnectionState.connected
+                                  ? '…'
+                                  : '———.———.———.———'),
+                          regionLabel: TvRegionLabel.regionFor(
+                            exitServer?.name ?? selectedServer?.name,
+                          ),
+                          downHistory: _controller.downloadBpsHistory,
+                          upHistory: _controller.uploadBpsHistory,
+                          onHubTap: () =>
+                              _handlePointerAction(_toggleOrCancelConnection),
                         ),
-                        downHistory: _controller.downloadBpsHistory,
-                        upHistory: _controller.uploadBpsHistory,
-                        onHubTap: () =>
-                            _handlePointerAction(_toggleOrCancelConnection),
                       ),
                     ),
                     const SizedBox(width: 56),

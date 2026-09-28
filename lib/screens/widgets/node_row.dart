@@ -17,12 +17,14 @@ enum NodePingTone {
   ///
   /// Buckets follow the design canvas: < 180 ms is OK, < 300 ms is WARN,
   /// timeouts (`> …`) and explicit `ERR` markers go to the ERR bucket.
+  static final _digitsRegex = RegExp(r'\d+');
+
   /// Empty / `--` / non-numeric values render as the neutral NONE tone.
   static NodePingTone fromRaw(String? raw) {
     final upper = (raw ?? '').trim().toUpperCase();
     if (upper.isEmpty || upper == '--') return NodePingTone.none;
     if (upper == 'ERR' || upper.startsWith('>')) return NodePingTone.err;
-    final digits = RegExp(r'\d+').firstMatch(upper)?.group(0);
+    final digits = _digitsRegex.firstMatch(upper)?.group(0);
     final value = int.tryParse(digits ?? '');
     if (value == null) return NodePingTone.none;
     if (value < 180) return NodePingTone.ok;
@@ -38,7 +40,7 @@ enum NodePingTone {
     final trimmed = (raw ?? '').trim();
     if (trimmed.isEmpty || trimmed == '--') return '—';
     if (trimmed.toUpperCase() == 'ERR' || trimmed.startsWith('>')) return 'N/A';
-    final digits = RegExp(r'\d+').firstMatch(trimmed)?.group(0);
+    final digits = _digitsRegex.firstMatch(trimmed)?.group(0);
     if (digits == null) return trimmed;
     return digits;
   }
@@ -106,7 +108,7 @@ class NodeRow extends StatelessWidget {
         onTap: onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 200),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
           decoration: BoxDecoration(
             border: Border.all(color: borderColor, width: selected ? 1.4 : 1),
             borderRadius: BorderRadius.circular(10),
@@ -116,7 +118,7 @@ class NodeRow extends StatelessWidget {
             children: [
               SizedBox(
                 width: 20,
-                height: 18,
+                height: 16,
                 child: CustomPaint(
                   painter: _MiniTrianglePainter(color: t.fg1, fill: selected),
                 ),
@@ -133,12 +135,13 @@ class NodeRow extends StatelessWidget {
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: t.fg1,
+                        height: 1.0,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 2),
                     Wrap(
                       spacing: 6,
-                      runSpacing: 4,
+                      runSpacing: 2,
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         if (protocol.isNotEmpty) _Tag(text: protocol),
@@ -190,7 +193,7 @@ class _Tag extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = VoidTokens.of(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 0),
       decoration: BoxDecoration(
         border: Border.all(color: t.border),
         borderRadius: BorderRadius.circular(3),

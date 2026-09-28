@@ -1,5 +1,8 @@
 # Void//Lex
 
+**Development branches:** `main` — standard; `codex/alpha-xdrive` — experimental xdrive integration.
+See [project versions and folder layout](docs/PROJECT_VERSIONS.md) for release boundaries, build commands, and alpha limitations.
+
 [English](#english) · [Русский](#russian)
 
 ---
@@ -18,7 +21,7 @@ Void//Lex is a full VPN client with its own UI — not a thin shell over a stati
 
 On Android it uses the system `VpnService`: traffic (all apps or a selected subset, depending on policy) goes through a local TUN, then into the Xray/libbox core with your routing rules.
 
-**Shipped version:** 1.1.2-beta · **Xray-core:** 26.5.9 · **libbox (sing-box):** 1.14.0-alpha.24
+**Shipped version:** 1.1.7-beta+1 · **Xray-core:** 26.7.28 · **libbox (sing-box):** 1.14.0
 
 ### Features
 
@@ -42,7 +45,7 @@ On Android it uses the system `VpnService`: traffic (all apps or a selected subs
 
 Add servers manually, from clipboard, QR, file, `voidlex://…` deep links, or subscriptions. **Edit**, **duplicate**, **share** as a link, or **delete**. Full **profile** import/export (servers, subscriptions, routing presets). Per-server **Advanced** panel and **JSON / sing-box** editor for non-standard tuning.
 
-NaiveProxy and Hysteria2 run as direct **libbox** outbounds in single-hop VPN/TUN mode. For NaiveProxy, Xray TUN, proxy-only mode, exit-node selection, and bridge chains are intentionally unavailable.
+NaiveProxy and Hysteria2 run as direct **libbox** outbounds. Two-hop bridge chains are intentionally unavailable when either protocol is present; NaiveProxy additionally requires VPN/TUN mode with the libbox engine.
 
 #### Servers & subscriptions
 
@@ -122,7 +125,7 @@ Void//Lex — полноценный VPN-клиент с собственным 
 
 На Android используется системный `VpnService`: весь трафик (или выбранные приложения — по политике) проходит через локальный TUN, затем в ядро Xray/libbox с вашими правилами маршрутизации.
 
-**Версия в сборке:** 1.1.2-beta · **Xray-core:** 26.5.9 · **libbox (sing-box):** 1.14.0-alpha.24
+**Версия в сборке:** 1.1.7-beta+1 · **Xray-core:** 26.7.28 · **libbox (sing-box):** 1.14.0
 
 ### Возможности
 
@@ -146,7 +149,7 @@ Void//Lex — полноценный VPN-клиент с собственным 
 
 Узлы добавляются вручную, из буфера, QR, файла, deep link `voidlex://…` или из подписки. **Редактирование**, **дублирование**, **экспорт** в share-ссылку, **удаление**. Импорт/экспорт **полного профиля** (узлы, подписки, пресеты). Панель **Расширенные** и редактор **JSON / sing-box** для нестандартных параметров.
 
-NaiveProxy и Hysteria2 работают как прямые outbound **libbox** в одиночном VPN/TUN. Для NaiveProxy намеренно недоступны Xray TUN, proxy-only, назначение exit-узлом и bridge-цепочки.
+NaiveProxy и Hysteria2 работают как прямые outbound **libbox**. Двухступенчатые bridge-цепочки намеренно недоступны, если любой из узлов использует один из этих протоколов; NaiveProxy дополнительно требует VPN/TUN с движком libbox.
 
 #### Узлы и подписки
 

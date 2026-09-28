@@ -8,7 +8,7 @@ class TunnelNetworkSettings {
     this.serverResolvingEnabled = false,
     this.packetAnalysisEnabled = true,
     this.blockUdp = false,
-    this.networkStack = TunnelNetworkStack.system,
+    this.networkStack = TunnelNetworkStack.gvisor,
     this.mtu = defaultMtu,
     this.ipMode = TunnelIpMode.ipv4,
     this.xrayTunDnsEnabled = false,
@@ -68,7 +68,9 @@ class TunnelNetworkSettings {
       mtu: _clamp(mtu, minMtu, maxMtu),
       ipMode: ipMode,
       xrayTunDnsEnabled: xrayTunDnsEnabled,
-      xrayTunDnsServer: trimmedDns.isEmpty ? defaultXrayTunDnsServer : trimmedDns,
+      xrayTunDnsServer: trimmedDns.isEmpty
+          ? defaultXrayTunDnsServer
+          : trimmedDns,
     );
   }
 
@@ -122,7 +124,10 @@ class TunnelNetworkSettings {
   static TunnelNetworkSettings decode(String? raw) {
     if (raw == null || raw.isEmpty) return defaults;
     try {
-      final decoded = tryDecodeJson(raw, maxBytes: JsonPayloadLimits.settingsBlob);
+      final decoded = tryDecodeJson(
+        raw,
+        maxBytes: JsonPayloadLimits.settingsBlob,
+      );
       if (decoded is! Map<String, dynamic>) return defaults;
       return TunnelNetworkSettings(
         useLocalDns: decoded['useLocalDns'] as bool? ?? defaults.useLocalDns,
@@ -142,8 +147,8 @@ class TunnelNetworkSettings {
             decoded['xrayTunDnsEnabled'] as bool? ?? defaults.xrayTunDnsEnabled,
         xrayTunDnsServer:
             (decoded['xrayTunDnsServer'] as String?)?.trim().isNotEmpty == true
-                ? (decoded['xrayTunDnsServer'] as String).trim()
-                : defaults.xrayTunDnsServer,
+            ? (decoded['xrayTunDnsServer'] as String).trim()
+            : defaults.xrayTunDnsServer,
       ).normalized();
     } on FormatException {
       return defaults;

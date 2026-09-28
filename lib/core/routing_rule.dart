@@ -66,6 +66,22 @@ class RoutingRule {
       networks.isNotEmpty ||
       protocols.isNotEmpty;
 
+  /// Validates Xray's comma-separated port expression syntax, for example
+  /// `53,80,443,1000-2000`.
+  static bool isValidPortExpression(String raw) {
+    final normalized = raw.replaceAll(RegExp(r'\s+'), '');
+    if (normalized.isEmpty) return true;
+    for (final token in normalized.split(',')) {
+      if (!RegExp(r'^\d+(?:-\d+)?$').hasMatch(token)) return false;
+      final bounds = token.split('-');
+      final start = int.tryParse(bounds.first);
+      final end = bounds.length == 2 ? int.tryParse(bounds.last) : start;
+      if (start == null || end == null) return false;
+      if (start < 1 || end > 65535 || start > end) return false;
+    }
+    return true;
+  }
+
   RoutingRule copyWith({
     String? id,
     String? name,
@@ -213,7 +229,10 @@ class RoutingRule {
   /// `{ "rules": [...] }` form (the file format the user supplied) or a
   /// bare array of field rules.
   static List<RoutingRule> importRulesFromJsonString(String raw) {
-    final decoded = decodeJson(raw, maxBytes: JsonPayloadLimits.routingDocument);
+    final decoded = decodeJson(
+      raw,
+      maxBytes: JsonPayloadLimits.routingDocument,
+    );
     final list = decoded is Map ? decoded['rules'] : decoded;
     if (list is! List) return const [];
     return list

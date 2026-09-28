@@ -6,6 +6,7 @@ import android.os.Build
 import java.io.File
 import java.io.IOException
 import java.io.InputStream
+import java.io.OutputStream
 import java.net.HttpURLConnection
 import java.net.URL
 
@@ -14,6 +15,7 @@ internal object GeoDataManager {
     private const val ASSET_DIRECTORY_NAME = "xray-assets"
     private const val CONNECT_TIMEOUT_MS = 15_000
     private const val READ_TIMEOUT_MS = 30_000
+    internal const val MAX_GEODATA_BYTES = 128L * 1024L * 1024L
 
     internal enum class Kind(val wireName: String, val fileName: String) {
         GEOIP("geoip", "geoip.dat"),
@@ -52,8 +54,8 @@ internal object GeoDataManager {
             throw IllegalArgumentException("URL is empty")
         }
         val url = URL(urlText)
-        if (url.protocol != "https" && url.protocol != "http") {
-            throw IllegalArgumentException("Only HTTP and HTTPS URLs are supported")
+        if (url.protocol != "https") {
+            throw IllegalArgumentException("Only HTTPS URLs are supported")
         }
 
         val connection = (url.openConnection() as HttpURLConnection).apply {
@@ -68,12 +70,16 @@ internal object GeoDataManager {
             if (code !in 200..299) {
                 throw IOException("Download failed: HTTP $code")
             }
+            val totalBytes = connection.contentLengthLong
+            if (totalBytes > MAX_GEODATA_BYTES) {
+                throw IOException(tooLargeMessage(kind, totalBytes))
+            }
             connection.inputStream.use { input ->
                 replaceWithInput(
                     context,
                     kind,
                     input,
-                    totalBytes = connection.contentLengthLong,
+                    totalBytes = totalBytes,
                     onProgress = onProgress,
                 )
             }
@@ -134,26 +140,7 @@ internal object GeoDataManager {
     }
 
     private fun bundledAssetCandidates(fileName: String): List<String> {
-        // geoip.dat / geosite.dat are ABI-independent. The canonical path is
-        // `xray/<fileName>`; the per-ABI variants below remain only so that
-        // installs holding the pre-relocation layout still find their data
-        // until the next geodata refresh writes the new path.
-        val abiCandidates = buildList {
-            Build.SUPPORTED_ABIS?.forEach { add(it) }
-            add("arm64-v8a")
-            add("armeabi-v7a")
-            add("x86_64")
-            add("x86")
-        }.distinct()
-
-        return buildList {
-            add("xray/$fileName")
-            add(fileName)
-            abiCandidates.forEach { abi ->
-                add("xray/$abi/$fileName")
-                add("$abi/xray/$fileName")
-            }
-        }
+        return listOf("xray/$fileName", fileName)
     }
 
     private fun replaceWithInput(
@@ -172,30 +159,13 @@ internal object GeoDataManager {
         var completed = false
         try {
             temp.outputStream().use { output ->
-                if (totalBytes > 0L) {
-                    onProgress?.invoke(kind, 0)
-                    val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-                    var downloaded = 0L
-                    var lastPercent = -1
-                    while (true) {
-                        val read = input.read(buffer)
-                        if (read <= 0) break
-                        output.write(buffer, 0, read)
-                        downloaded += read
-                        // Cap at 99 so 100% is only emitted after replaceFile completes
-                        val percent = ((downloaded * 100L) / totalBytes)
-                            .toInt()
-                            .coerceIn(0, 99)
-                        if (percent != lastPercent) {
-                            lastPercent = percent
-                            onProgress?.invoke(kind, percent)
-                        }
-                    }
-                } else {
-                    // Content-Length unknown: signal indeterminate with -1
-                    onProgress?.invoke(kind, -1)
-                    input.copyTo(output)
-                }
+                copyBounded(
+                    input = input,
+                    output = output,
+                    kind = kind,
+                    totalBytes = totalBytes,
+                    onProgress = onProgress,
+                )
             }
             if (temp.length() <= 0L) {
                 throw IOException("${kind.fileName} is empty")
@@ -208,6 +178,60 @@ internal object GeoDataManager {
                 temp.delete()
             }
         }
+    }
+
+    internal fun copyBounded(
+        input: InputStream,
+        output: OutputStream,
+        kind: Kind,
+        totalBytes: Long = -1L,
+        maxBytes: Long = MAX_GEODATA_BYTES,
+        onProgress: ((kind: Kind, percent: Int) -> Unit)? = null,
+    ): Long {
+        require(maxBytes > 0L) { "maxBytes must be positive" }
+        if (totalBytes > maxBytes) {
+            throw IOException(tooLargeMessage(kind, totalBytes, maxBytes))
+        }
+
+        val progressTotal = if (totalBytes > 0L) totalBytes else -1L
+        if (progressTotal > 0L) {
+            onProgress?.invoke(kind, 0)
+        } else {
+            // Content-Length unknown: signal indeterminate with -1.
+            onProgress?.invoke(kind, -1)
+        }
+
+        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+        var copied = 0L
+        var lastPercent = -1
+        while (true) {
+            val read = input.read(buffer)
+            if (read <= 0) break
+            if (copied > maxBytes - read) {
+                throw IOException(tooLargeMessage(kind, maxBytes + 1L, maxBytes))
+            }
+            output.write(buffer, 0, read)
+            copied += read
+            if (progressTotal > 0L) {
+                // Cap at 99 so 100% is only emitted after replaceFile completes.
+                val percent = ((copied * 100L) / progressTotal)
+                    .toInt()
+                    .coerceIn(0, 99)
+                if (percent != lastPercent) {
+                    lastPercent = percent
+                    onProgress?.invoke(kind, percent)
+                }
+            }
+        }
+        return copied
+    }
+
+    private fun tooLargeMessage(
+        kind: Kind,
+        actualBytes: Long,
+        maxBytes: Long = MAX_GEODATA_BYTES,
+    ): String {
+        return "${kind.fileName} is too large: $actualBytes bytes exceeds the $maxBytes byte limit"
     }
 
     private fun replaceFile(temp: File, target: File) {

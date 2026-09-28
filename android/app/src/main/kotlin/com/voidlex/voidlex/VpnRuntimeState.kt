@@ -50,6 +50,11 @@ internal object VpnRuntimeState {
         proxyPassword = config.proxyPassword
     }
 
+    fun markRecovering(config: ServerConfig) {
+        markConnecting(config)
+        message = "recovering"
+    }
+
     fun markConnected(config: ServerConfig) {
         state = STATE_CONNECTED
         message = null
@@ -138,6 +143,7 @@ internal object VpnRuntimeState {
         return mapOf(
             "state" to currentState,
             "message" to message,
+            "recovering" to (currentState == STATE_CONNECTING && message == "recovering"),
             "connectedDurationMillis" to connectedDurationMillis,
             "proxyUser" to proxyUser,
             "proxyPassword" to proxyPassword,

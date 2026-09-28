@@ -26,8 +26,8 @@ class BottomDock extends StatelessWidget {
   Widget build(BuildContext context) {
     final t = VoidTokens.of(context);
     return Container(
-      margin: const EdgeInsets.fromLTRB(16, 0, 16, 14),
-      padding: const EdgeInsets.all(8),
+      margin: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+      padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
         color: t.surface,
         border: Border.all(color: t.border),
@@ -101,13 +101,11 @@ class _DockBtn extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(10),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 6),
+          padding: const EdgeInsets.symmetric(vertical: 5),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(10),
             color: isActive
-                ? (t.isDark
-                    ? const Color(0x14FFFFFF)
-                    : const Color(0x0F0A0B0C))
+                ? (t.isDark ? const Color(0x14FFFFFF) : const Color(0x0F0A0B0C))
                 : Colors.transparent,
           ),
           child: Column(
@@ -162,6 +160,5 @@ class _SolidTrianglePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _SolidTrianglePainter old) =>
-      old.color != color;
+  bool shouldRepaint(covariant _SolidTrianglePainter old) => old.color != color;
 }

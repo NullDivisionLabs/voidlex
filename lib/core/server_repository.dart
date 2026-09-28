@@ -34,6 +34,7 @@ class ServerRepositorySnapshot {
     required this.restartConnectionOnSettingsChanges,
     required this.showGlobalProxyButton,
     required this.showExitNodeInfoBar,
+    required this.startHomeWidgetsCollapsed,
     required this.autoSortServersByPing,
     required this.latencyProbeTarget,
     required this.favoritesSectionCollapsed,
@@ -72,6 +73,7 @@ class ServerRepositorySnapshot {
   final bool restartConnectionOnSettingsChanges;
   final bool showGlobalProxyButton;
   final bool showExitNodeInfoBar;
+  final bool startHomeWidgetsCollapsed;
   final bool autoSortServersByPing;
   final LatencyProbeTarget latencyProbeTarget;
   final bool favoritesSectionCollapsed;
@@ -115,6 +117,7 @@ class ServerRepository {
       'void.restartConnectionOnSettingsChanges';
   static const _kShowGlobalProxyButton = 'void.showGlobalProxyButton';
   static const _kShowExitNodeInfoBar = 'void.showExitNodeInfoBar';
+  static const _kStartHomeWidgetsCollapsed = 'void.startHomeWidgetsCollapsed';
   static const _kLegacyHideGlobalProxyButton = 'void.hideGlobalProxyButton';
   static const _kAutoSortServersByPing = 'void.autoSortServersByPing';
   static const _kLatencyProbeTarget = 'void.latencyProbeTarget';
@@ -155,6 +158,7 @@ class ServerRepository {
   static const _kGeoDataFileSizePrefix = 'void.geoData.fileSize.';
   static const _kGeoDataAutoUpdateInterval = 'void.geoData.autoUpdateInterval';
   static const _kKillSwitchEnabled = 'void.killSwitchEnabled';
+  static const _kAllowDeepLinkVpnAutomation = 'void.allowDeepLinkVpnAutomation';
   static const _kRunMode = 'void.runMode';
   static const _kHotspotBindEnabled = 'void.hotspotBindEnabled';
   static const _kHttpProxyAuthEnabled = 'void.httpProxyAuthEnabled';
@@ -163,6 +167,8 @@ class ServerRepository {
 
   final SharedPreferences _prefs;
   final SecureStorage _secure;
+  String? _cachedServersRaw;
+  String? _cachedSubscriptionsRaw;
   late final ValueNotifier<TvLayoutPreference> _tvLayoutPrefNotifier =
       ValueNotifier(_resolveInitialTvLayoutPreference());
 
@@ -179,14 +185,64 @@ class ServerRepository {
 
   static Future<ServerRepository> open() async {
     final prefs = await SharedPreferences.getInstance();
-    return ServerRepository(prefs);
+    final repo = ServerRepository(prefs);
+    await repo.init();
+    return repo;
+  }
+
+  Future<void> init() async {
+    try {
+      if (_prefs.containsKey(_kServers)) {
+        final fallbackOrLegacy = _prefs.getString(_kServers);
+        _cachedServersRaw = fallbackOrLegacy;
+        if (fallbackOrLegacy != null && fallbackOrLegacy.isNotEmpty) {
+          try {
+            await _secure.writeString(_kServers, fallbackOrLegacy);
+            await _prefs.remove(_kServers);
+          } catch (_) {
+            try {
+              await _secure.remove(_kServers);
+            } catch (_) {}
+          }
+        }
+      } else {
+        _cachedServersRaw = await _secure.readString(_kServers);
+      }
+    } catch (_) {}
+
+    try {
+      if (_prefs.containsKey(_kSubscriptions)) {
+        final fallbackOrLegacy = _prefs.getString(_kSubscriptions);
+        _cachedSubscriptionsRaw = fallbackOrLegacy;
+        if (fallbackOrLegacy != null && fallbackOrLegacy.isNotEmpty) {
+          try {
+            await _secure.writeString(_kSubscriptions, fallbackOrLegacy);
+            await _prefs.remove(_kSubscriptions);
+          } catch (_) {
+            try {
+              await _secure.remove(_kSubscriptions);
+            } catch (_) {}
+          }
+        }
+      } else {
+        _cachedSubscriptionsRaw = await _secure.readString(_kSubscriptions);
+      }
+    } catch (_) {}
   }
 
   ServerRepositorySnapshot load() {
-    final raw = _prefs.getString(_kServers) ?? '';
+    final raw =
+        (_prefs.containsKey(_kServers) ? _prefs.getString(_kServers) : null) ??
+        _cachedServersRaw ??
+        _prefs.getString(_kServers) ??
+        '';
     final servers = ServerConfig.decodeList(raw);
     final subscriptions = ServerSubscription.decodeList(
-      _prefs.getString(_kSubscriptions),
+      (_prefs.containsKey(_kSubscriptions)
+              ? _prefs.getString(_kSubscriptions)
+              : null) ??
+          _cachedSubscriptionsRaw ??
+          _prefs.getString(_kSubscriptions),
     );
     final routingMode = AppRoutingMode.parse(
       _prefs.getString(_kAppRoutingMode),
@@ -226,6 +282,8 @@ class ServerRepository {
           _prefs.getBool(_kShowGlobalProxyButton) ??
           !(_prefs.getBool(_kLegacyHideGlobalProxyButton) ?? true),
       showExitNodeInfoBar: _prefs.getBool(_kShowExitNodeInfoBar) ?? true,
+      startHomeWidgetsCollapsed:
+          _prefs.getBool(_kStartHomeWidgetsCollapsed) ?? false,
       autoSortServersByPing: _prefs.getBool(_kAutoSortServersByPing) ?? false,
       latencyProbeTarget: LatencyProbeTarget.decode(
         _prefs.getString(_kLatencyProbeTarget),
@@ -272,14 +330,32 @@ class ServerRepository {
 
   Future<void> saveServers(List<ServerConfig> servers) async {
     final encoded = await Isolate.run(() => ServerConfig.encodeList(servers));
-    await _prefs.setString(_kServers, encoded);
+    _cachedServersRaw = encoded;
+    try {
+      await _secure.writeString(_kServers, encoded);
+      await _prefs.remove(_kServers);
+    } catch (_) {
+      try {
+        await _secure.remove(_kServers);
+      } catch (_) {}
+      await _prefs.setString(_kServers, encoded);
+    }
   }
 
   Future<void> saveSubscriptions(List<ServerSubscription> subscriptions) async {
     final encoded = await Isolate.run(
       () => ServerSubscription.encodeList(subscriptions),
     );
-    await _prefs.setString(_kSubscriptions, encoded);
+    _cachedSubscriptionsRaw = encoded;
+    try {
+      await _secure.writeString(_kSubscriptions, encoded);
+      await _prefs.remove(_kSubscriptions);
+    } catch (_) {
+      try {
+        await _secure.remove(_kSubscriptions);
+      } catch (_) {}
+      await _prefs.setString(_kSubscriptions, encoded);
+    }
   }
 
   Future<void> saveSelected(String? name) async {
@@ -320,6 +396,10 @@ class ServerRepository {
 
   Future<void> saveShowExitNodeInfoBar(bool value) async {
     await _prefs.setBool(_kShowExitNodeInfoBar, value);
+  }
+
+  Future<void> saveStartHomeWidgetsCollapsed(bool value) async {
+    await _prefs.setBool(_kStartHomeWidgetsCollapsed, value);
   }
 
   Future<void> saveAutoSortServersByPing(bool value) async {
@@ -527,6 +607,13 @@ class ServerRepository {
     await _prefs.setBool(_kKillSwitchEnabled, value);
   }
 
+  bool loadAllowDeepLinkVpnAutomation() =>
+      _prefs.getBool(_kAllowDeepLinkVpnAutomation) ?? false;
+
+  Future<void> saveAllowDeepLinkVpnAutomation(bool value) async {
+    await _prefs.setBool(_kAllowDeepLinkVpnAutomation, value);
+  }
+
   Future<void> saveRunMode(RunMode mode) async {
     await _prefs.setString(_kRunMode, mode.wireName);
   }
@@ -544,10 +631,7 @@ class ServerRepository {
   }
 
   Future<void> saveConnectionPolicy(ConnectionPolicySettings settings) async {
-    await _prefs.setString(
-      _kConnectionPolicy,
-      settings.normalized().encode(),
-    );
+    await _prefs.setString(_kConnectionPolicy, settings.normalized().encode());
   }
 
   GeoDataMetadata loadGeoDataMetadata(GeoDataKind kind) {

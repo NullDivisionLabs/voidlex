@@ -39,7 +39,7 @@ internal enum class TunnelNetworkStack(val wireName: String) {
 
     companion object {
         fun fromWire(raw: String?): TunnelNetworkStack {
-            return entries.firstOrNull { it.wireName == raw } ?: SYSTEM
+            return entries.firstOrNull { it.wireName == raw } ?: GVISOR
         }
     }
 }
@@ -131,7 +131,7 @@ internal data class TunnelNetworkSettings(
     val serverResolvingEnabled: Boolean = false,
     val packetAnalysisEnabled: Boolean = true,
     val blockUdp: Boolean = false,
-    val networkStack: TunnelNetworkStack = TunnelNetworkStack.SYSTEM,
+    val networkStack: TunnelNetworkStack = TunnelNetworkStack.GVISOR,
     val mtu: Int = DEFAULT_MTU,
     val ipMode: TunnelIpMode = TunnelIpMode.IPV4,
     val xrayTunDnsEnabled: Boolean = false,
@@ -170,7 +170,7 @@ internal enum class RunMode(val wireName: String) {
     }
 }
 
-internal object NaiveRuntimeConstraints {
+internal object DirectLibboxRuntimeConstraints {
     fun validationError(
         protocol: String,
         detourProtocol: String? = null,
@@ -178,15 +178,17 @@ internal object NaiveRuntimeConstraints {
         runMode: RunMode,
         isBridge: Boolean,
     ): String? {
-        if (!isNaive(protocol) && !isNaive(detourProtocol)) return null
+        val hasNaive = isNaive(protocol) || isNaive(detourProtocol)
+        val hasHysteria2 = isHysteria2(protocol) || isHysteria2(detourProtocol)
+        if (!hasNaive && !hasHysteria2) return null
         if (runMode != RunMode.TUN) {
-            return "NaiveProxy is not available in proxy-only mode."
+            return "Hysteria2 and NaiveProxy are not available in proxy-only mode."
         }
         if (tunEngineMode != TunEngineMode.LIBBOX) {
-            return "NaiveProxy requires the libbox TUN engine; switch the engine in settings."
+            return "Hysteria2 and NaiveProxy require the libbox TUN engine; switch the engine in settings."
         }
         if (isBridge) {
-            return "NaiveProxy cannot be used in a two-hop chain."
+            return "Hysteria2 and NaiveProxy cannot be used in a two-hop chain."
         }
         return null
     }
@@ -194,6 +196,12 @@ internal object NaiveRuntimeConstraints {
     fun isNaive(protocol: String?): Boolean {
         return protocol.equals("naive", ignoreCase = true) ||
             protocol.equals("naiveproxy", ignoreCase = true)
+    }
+
+
+    fun isHysteria2(protocol: String?): Boolean {
+        return protocol.equals("hysteria2", ignoreCase = true) ||
+            protocol.equals("hy2", ignoreCase = true)
     }
 }
 
@@ -233,16 +241,24 @@ internal data class ServerConfig(
     val transportServiceName: String,
     val transportHost: String,
     val transportMode: String = "",
-    /// xhttp `extra.xPaddingBytes`. Random range like "100-1000". Blank ⇒
-    /// builder substitutes the curated default. Exposed so a user / share
-    /// link can pin the padding to a server-side expected value.
-    val xhttpPadding: String = "",
+    val xPaddingObfsMode: Boolean? = null,
+    val xPaddingPlacement: String = "",
+    val xPaddingKey: String = "",
+    val xPaddingHeader: String = "",
+    val xPaddingMethod: String = "",
+    val xPaddingBytes: String = "",
+    val sessionIDPlacement: String = "",
+    val sessionIDKey: String = "",
+    val seqPlacement: String = "",
+    val seqKey: String = "",
+    val xhttpRawSettingsJson: String = "{}",
+    val xhttpRawExtraJson: String = "{}",
     /// xhttp `extra.scMaxEachPostBytes`. Controls per-POST payload cap in
     /// packet-up mode (ignored by stream-up but harmless to send). Blank ⇒
-    /// curated default in the builder.
+    /// omit the field and use the Xray default.
     val xhttpMaxPostBytes: String = "",
     /// xhttp `extra.scMinPostsIntervalMs`. Min spacing between successive
-    /// POSTs in packet-up. Blank ⇒ curated default.
+    /// POSTs in packet-up. Blank ⇒ omit the field and use the Xray default.
     val xhttpMinPostInterval: String = "",
     val tlsEnabled: Boolean,
     val tlsSni: String,
@@ -260,6 +276,9 @@ internal data class ServerConfig(
     val hysteria2ObfsPassword: String = "",
     val hysteria2ObfsMinPacketSize: Int = 0,
     val hysteria2ObfsMaxPacketSize: Int = 0,
+    val hysteria2RawOutboundJson: String = "{}",
+    val hysteria2RawObfsJson: String = "{}",
+    val hysteria2RawTlsJson: String = "{}",
     val hysteria2HopPorts: String = "",
     val hysteria2HopInterval: String = "",
     val hysteria2HopIntervalMax: String = "",

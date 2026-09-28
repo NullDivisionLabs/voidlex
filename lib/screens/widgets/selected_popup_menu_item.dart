@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 /// light underline.
 class SelectedPopupMenuItem<T> extends PopupMenuItem<T> {
   SelectedPopupMenuItem({
+    super.key,
     required super.value,
     required String label,
     required bool selected,

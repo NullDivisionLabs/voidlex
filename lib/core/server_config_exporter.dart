@@ -6,9 +6,16 @@ class ServerConfigExporter {
   const ServerConfigExporter._();
 
   static bool hasUrlOmittedAdvancedFields(ServerConfig server) {
-    if (server.isVless) return server.realityMldsa65Verify.trim().isNotEmpty;
+    if (server.isVless) {
+      return server.realityMldsa65Verify.trim().isNotEmpty ||
+          server.xhttpRawSettings.isNotEmpty ||
+          server.xhttpRawExtra.isNotEmpty;
+    }
     if (server.isHysteria2) {
-      return server.hysteria2ObfsMinPacketSize > 0 ||
+      return server.hysteria2RawOutbound.isNotEmpty ||
+          server.hysteria2RawObfs.isNotEmpty ||
+          server.hysteria2RawTls.isNotEmpty ||
+          server.hysteria2ObfsMinPacketSize > 0 ||
           server.hysteria2ObfsMaxPacketSize > 0 ||
           server.hysteria2HopInterval.trim().isNotEmpty ||
           server.hysteria2HopIntervalMax.trim().isNotEmpty ||
@@ -42,7 +49,18 @@ class ServerConfigExporter {
     _addQuery(query, 'host', server.transportHost);
     _addQuery(query, 'serviceName', server.transportServiceName);
     _addQuery(query, 'mode', server.transportMode);
-    _addQuery(query, 'xPadding', server.xhttpPadding);
+    if (server.xPaddingObfsMode != null) {
+      query['xPaddingObfsMode'] = server.xPaddingObfsMode.toString();
+    }
+    _addQuery(query, 'xPaddingPlacement', server.xPaddingPlacement);
+    _addQuery(query, 'xPaddingKey', server.xPaddingKey);
+    _addQuery(query, 'xPaddingHeader', server.xPaddingHeader);
+    _addQuery(query, 'xPaddingMethod', server.xPaddingMethod);
+    _addQuery(query, 'xPaddingBytes', server.xPaddingBytes);
+    _addQuery(query, 'sessionIDPlacement', server.sessionIDPlacement);
+    _addQuery(query, 'sessionIDKey', server.sessionIDKey);
+    _addQuery(query, 'seqPlacement', server.seqPlacement);
+    _addQuery(query, 'seqKey', server.seqKey);
     _addQuery(query, 'scMaxEachPostBytes', server.xhttpMaxPostBytes);
     _addQuery(query, 'scMinPostsIntervalMs', server.xhttpMinPostInterval);
     _addQuery(query, 'sni', server.sni);
@@ -172,18 +190,58 @@ class ServerConfigExporter {
   }
 
   static Map<String, dynamic> _singBoxHysteria2Outbound(ServerConfig server) {
-    final outbound = <String, dynamic>{
+    final outbound = Map<String, dynamic>.of(server.hysteria2RawOutbound);
+    for (final key in const <String>{
+      'type',
+      'tag',
+      'name',
+      'server',
+      'server_port',
+      'serverPort',
+      'port',
+      'password',
+      'auth',
+      'uuid',
+      'server_ports',
+      'ports',
+      'tls',
+      'sni',
+      'alpn',
+      'skip-cert-verify',
+      'obfs',
+      'obfs-password',
+      'obfsPassword',
+      'hop_interval',
+      'hop_interval_max',
+      'up_mbps',
+      'down_mbps',
+      'network',
+      'bbr_profile',
+      'detour',
+    }) {
+      outbound.remove(key);
+    }
+    outbound.addAll(<String, dynamic>{
       'type': 'hysteria2',
       'tag': 'proxy',
       'server': server.address,
       'server_port': server.port,
       'password': server.uuid,
       'tls': _singBoxHysteria2Tls(server),
-    };
+    });
     final hopPorts = _formatHopPortsForSingBox(server.hysteria2HopPorts);
     if (hopPorts != null) outbound['server_ports'] = hopPorts;
     if (server.hysteria2ObfsPassword.trim().isNotEmpty) {
-      outbound['obfs'] = {
+      final obfs = Map<String, dynamic>.of(server.hysteria2RawObfs);
+      for (final key in const <String>{
+        'type',
+        'password',
+        'min_packet_size',
+        'max_packet_size',
+      }) {
+        obfs.remove(key);
+      }
+      obfs.addAll(<String, dynamic>{
         'type': server.effectiveHysteria2ObfsType,
         'password': server.hysteria2ObfsPassword.trim(),
         if (server.effectiveHysteria2ObfsType == 'gecko' &&
@@ -192,7 +250,8 @@ class ServerConfigExporter {
         if (server.effectiveHysteria2ObfsType == 'gecko' &&
             server.hysteria2ObfsMaxPacketSize > 0)
           'max_packet_size': server.hysteria2ObfsMaxPacketSize,
-      };
+      });
+      outbound['obfs'] = obfs;
     }
     if (server.hysteria2HopInterval.trim().isNotEmpty) {
       outbound['hop_interval'] = server.hysteria2HopInterval.trim();
@@ -248,12 +307,25 @@ class ServerConfigExporter {
   }
 
   static Map<String, dynamic> _singBoxHysteria2Tls(ServerConfig server) {
-    return <String, dynamic>{
+    final tls = Map<String, dynamic>.of(server.hysteria2RawTls);
+    for (final key in const <String>{
+      'enabled',
+      'server_name',
+      'serverName',
+      'insecure',
+      'skip_cert_verify',
+      'skip-cert-verify',
+      'alpn',
+    }) {
+      tls.remove(key);
+    }
+    tls.addAll(<String, dynamic>{
       'enabled': true,
       'server_name': server.effectiveSni,
       'insecure': server.tlsInsecure,
       'alpn': _csvList(server.alpn.isEmpty ? 'h3' : server.alpn),
-    };
+    });
+    return tls;
   }
 
   static List<String>? _formatHopPortsForSingBox(String raw) {
@@ -392,7 +464,12 @@ class ServerConfigExporter {
             'host': server.transportHost.trim(),
         });
       case VlessTransport.xhttp:
-        return MapEntry('xhttpSettings', {
+        final settings = Map<String, dynamic>.of(server.xhttpRawSettings)
+          ..remove('path')
+          ..remove('host')
+          ..remove('mode')
+          ..remove('extra');
+        settings.addAll({
           'path': _pathOrSlash(server.transportPath),
           if (server.transportHost.trim().isNotEmpty)
             'host': server.transportHost.trim(),
@@ -400,25 +477,62 @@ class ServerConfigExporter {
             'mode': server.transportMode.trim(),
           'extra': ?_xhttpExtraExport(server),
         });
+        return MapEntry('xhttpSettings', settings);
     }
   }
 
   /// Emits the xhttp `extra` block for exported Xray JSON. We only include
   /// it if the user pinned at least one of the override fields — for plain
-  /// "no override" configs the export stays minimal so importers don't
-  /// see surprising defaults. The Android runtime applies its own curated
-  /// defaults at build time regardless of this.
+  /// "no override" configs the export stays minimal and Xray applies its
+  /// stock behaviour.
   static Map<String, dynamic>? _xhttpExtraExport(ServerConfig server) {
-    final pad = server.xhttpPadding.trim();
+    final extra = Map<String, dynamic>.of(server.xhttpRawExtra);
+    for (final key in const <String>{
+      'xPaddingObfsMode',
+      'xPaddingPlacement',
+      'xPaddingKey',
+      'xPaddingHeader',
+      'xPaddingMethod',
+      'xPaddingBytes',
+      'sessionIDPlacement',
+      'sessionIDKey',
+      'seqPlacement',
+      'seqKey',
+      'scMaxEachPostBytes',
+      'scMinPostsIntervalMs',
+    }) {
+      extra.remove(key);
+    }
+    final pad = server.xPaddingBytes.trim();
     final maxPost = server.xhttpMaxPostBytes.trim();
     final minInterval = server.xhttpMinPostInterval.trim();
-    if (pad.isEmpty && maxPost.isEmpty && minInterval.isEmpty) return null;
-    return <String, dynamic>{
+    extra.addAll(<String, dynamic>{
+      if (server.xPaddingObfsMode != null)
+        'xPaddingObfsMode': server.xPaddingObfsMode,
+      if (server.xPaddingPlacement.trim().isNotEmpty)
+        'xPaddingPlacement': _paddingPlacementWire(server.xPaddingPlacement),
+      if (server.xPaddingKey.trim().isNotEmpty)
+        'xPaddingKey': server.xPaddingKey.trim(),
+      if (server.xPaddingHeader.trim().isNotEmpty)
+        'xPaddingHeader': server.xPaddingHeader.trim(),
+      if (server.xPaddingMethod.trim().isNotEmpty)
+        'xPaddingMethod': server.xPaddingMethod.trim(),
       if (pad.isNotEmpty) 'xPaddingBytes': pad,
+      if (server.sessionIDPlacement.trim().isNotEmpty)
+        'sessionIDPlacement': server.sessionIDPlacement.trim(),
+      if (server.sessionIDKey.trim().isNotEmpty)
+        'sessionIDKey': server.sessionIDKey.trim(),
+      if (server.seqPlacement.trim().isNotEmpty)
+        'seqPlacement': server.seqPlacement.trim(),
+      if (server.seqKey.trim().isNotEmpty) 'seqKey': server.seqKey.trim(),
       if (maxPost.isNotEmpty) 'scMaxEachPostBytes': maxPost,
       if (minInterval.isNotEmpty) 'scMinPostsIntervalMs': minInterval,
-    };
+    });
+    return extra.isEmpty ? null : extra;
   }
+
+  static String _paddingPlacementWire(String value) =>
+      value.trim() == 'query-in-header' ? 'queryInHeader' : value.trim();
 
   static void _addQuery(Map<String, String> query, String key, String value) {
     if (value.trim().isEmpty) return;

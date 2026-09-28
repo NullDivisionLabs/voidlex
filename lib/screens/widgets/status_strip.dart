@@ -9,12 +9,14 @@ class StatusStrip extends StatefulWidget {
     required this.tone,
     this.right,
     this.statusHeading,
+    this.trailing,
   });
 
   final String label;
   final StatusTone tone;
   final String? right;
   final String? statusHeading;
+  final Widget? trailing;
 
   @override
   State<StatusStrip> createState() => _StatusStripState();
@@ -60,6 +62,7 @@ class _StatusStripState extends State<StatusStrip>
   @override
   Widget build(BuildContext context) {
     final t = VoidTokens.of(context);
+    final trailing = widget.trailing;
     final dot = switch (widget.tone) {
       StatusTone.idle => t.fg3,
       StatusTone.busy => t.accent,
@@ -68,62 +71,88 @@ class _StatusStripState extends State<StatusStrip>
     };
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 10, 20, 10),
-      child: Row(
-        children: [
-          AnimatedBuilder(
-            animation: _pulse,
-            builder: (context, _) {
-              final opacity = widget.tone == StatusTone.busy
-                  ? 0.5 + 0.5 * (1 - _pulse.value)
-                  : 1.0;
-              return Container(
-                width: 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: dot.withValues(alpha: opacity),
-                  borderRadius: BorderRadius.circular(1),
+      padding: const EdgeInsets.fromLTRB(20, 10, 20, 4),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(
+          minHeight: trailing == null ? 0 : _StatusStripLayout.trailingSize,
+        ),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Row(
+              children: [
+                AnimatedBuilder(
+                  animation: _pulse,
+                  builder: (context, _) {
+                    final opacity = widget.tone == StatusTone.busy
+                        ? 0.5 + 0.5 * (1 - _pulse.value)
+                        : 1.0;
+                    return Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: dot.withValues(alpha: opacity),
+                        borderRadius: BorderRadius.circular(1),
+                      ),
+                    );
+                  },
                 ),
-              );
-            },
-          ),
-          const SizedBox(width: 8),
-          Text(
-            widget.statusHeading ?? 'STATUS',
-            style: VoidType.mono(
-              fontSize: 10,
-              fontWeight: FontWeight.w500,
-              letterSpacing: 1.4,
-              color: t.fg2,
+                const SizedBox(width: 8),
+                Text(
+                  widget.statusHeading ?? 'STATUS',
+                  style: VoidType.mono(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 1.4,
+                    color: t.fg2,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    widget.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: VoidType.mono(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 1.4,
+                      color: t.fg1,
+                    ),
+                  ),
+                ),
+                const Spacer(),
+                if (widget.right != null)
+                  Text(
+                    widget.right!,
+                    style: VoidType.mono(
+                      fontSize: 10,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: 1.4,
+                      color: t.fg3,
+                    ),
+                  ),
+                if (trailing != null)
+                  const SizedBox(width: _StatusStripLayout.trailingReserve),
+              ],
             ),
-          ),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Text(
-              widget.label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: VoidType.mono(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 1.4,
-                color: t.fg1,
+            if (trailing != null)
+              Positioned(
+                right: 0,
+                child: SizedBox(
+                  width: _StatusStripLayout.trailingSize,
+                  height: _StatusStripLayout.trailingSize,
+                  child: Center(child: trailing),
+                ),
               ),
-            ),
-          ),
-          const Spacer(),
-          if (widget.right != null)
-            Text(
-              widget.right!,
-              style: VoidType.mono(
-                fontSize: 10,
-                fontWeight: FontWeight.w500,
-                letterSpacing: 1.4,
-                color: t.fg3,
-              ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
+}
+
+class _StatusStripLayout {
+  static const double trailingSize = 24;
+  static const double trailingReserve = 40;
 }

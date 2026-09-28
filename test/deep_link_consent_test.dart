@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:voidlex/core/deep_link_handler.dart';
 import 'package:voidlex/core/deep_link_channel.dart';
 import 'package:voidlex/core/pending_deep_link.dart';
 import 'package:voidlex/core/server_repository.dart';
@@ -16,6 +17,8 @@ void main() {
   const validUuid = 'f1cba4a1-1f16-4176-9c71-d7508ccd4db1';
   const serverLink =
       'vless://$validUuid@example.net:443?type=tcp&security=tls&sni=example.net#Imported';
+  const secondServerLink =
+      'vless://$validUuid@example.org:443?type=tcp&security=tls&sni=example.org#Second';
 
   setUp(() {
     SharedPreferences.setMockInitialValues({});
@@ -83,7 +86,32 @@ void main() {
     controller.dispose();
   });
 
-  test('http ruleset deep link is flagged as insecure', () async {
+  test('new deep links cannot replace the action shown for consent', () async {
+    final prefs = await SharedPreferences.getInstance();
+    final repository = ServerRepository(prefs);
+    final channel = _StreamDeepLinkChannel();
+    final controller = VpnController(repository, deepLinkChannel: channel);
+    await controller.bootstrap();
+
+    channel.emit(serverLink);
+    await _settle();
+    channel.emit(secondServerLink);
+    await _settle();
+
+    expect(controller.pendingDeepLink?.displayUrl, serverLink);
+
+    await controller.confirmPendingDeepLink();
+    await _settle();
+
+    expect(controller.servers.map((server) => server.name), ['Imported']);
+    expect(controller.pendingDeepLink?.displayUrl, secondServerLink);
+
+    controller.cancelPendingDeepLink();
+    await channel.close();
+    controller.dispose();
+  });
+
+  test('http ruleset deep link is rejected before consent', () async {
     final prefs = await SharedPreferences.getInstance();
     final repository = ServerRepository(prefs);
     final channel = _StreamDeepLinkChannel();
@@ -93,15 +121,52 @@ void main() {
     channel.emit('voidlex://import-ruleset/http://rules.example.com/r.json');
     await _settle();
 
+    expect(controller.pendingDeepLink, isNull);
+    expect(controller.consumeDeepLinkNotice(), isNotEmpty);
+
+    await channel.close();
+    controller.dispose();
+  });
+
+  test('vpn control deep link waits for consent by default', () async {
+    final prefs = await SharedPreferences.getInstance();
+    final repository = ServerRepository(prefs);
+    final channel = _StreamDeepLinkChannel();
+    final controller = VpnController(repository, deepLinkChannel: channel);
+    await controller.bootstrap();
+
+    channel.emit('voidlex://disconnect');
+    await _settle();
+
     final pending = controller.pendingDeepLink;
     expect(pending, isNotNull);
-    expect(pending!.kind, DeepLinkActionKind.importRuleset);
-    expect(pending.isInsecureHttp, isTrue);
+    expect(pending!.kind, DeepLinkActionKind.vpnControl);
+    expect(pending.vpnCommand, VpnDeepLinkCommand.disconnect);
 
     controller.cancelPendingDeepLink();
     await channel.close();
     controller.dispose();
   });
+
+  test(
+    'vpn control deep link skips consent when automation is enabled',
+    () async {
+      final prefs = await SharedPreferences.getInstance();
+      final repository = ServerRepository(prefs);
+      final channel = _StreamDeepLinkChannel();
+      final controller = VpnController(repository, deepLinkChannel: channel);
+      await controller.bootstrap();
+      await controller.setAllowDeepLinkVpnAutomation(true);
+
+      channel.emit('voidlex://disconnect');
+      await _settle();
+
+      expect(controller.pendingDeepLink, isNull);
+
+      await channel.close();
+      controller.dispose();
+    },
+  );
 }
 
 /// Lets a test push links onto [VpnController]'s incoming-link stream.

@@ -4,6 +4,41 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:voidlex/core/routing_rule.dart';
 
 void main() {
+  group('port expression validation', () {
+    test('accepts single ports, lists, ranges, and surrounding spaces', () {
+      for (final value in <String>[
+        '',
+        '53',
+        '53,80,443',
+        '1000-2000',
+        '53, 1000-2000 ',
+        '53,\t443',
+      ]) {
+        expect(RoutingRule.isValidPortExpression(value), isTrue, reason: value);
+      }
+    });
+
+    test('rejects malformed and out-of-range values', () {
+      for (final value in <String>[
+        '0',
+        '65536',
+        'abc',
+        '80-',
+        '-90',
+        '100-90',
+        '80,,443',
+        '1-2-3',
+        '+80',
+      ]) {
+        expect(
+          RoutingRule.isValidPortExpression(value),
+          isFalse,
+          reason: value,
+        );
+      }
+    });
+  });
+
   test('imports wrapped Xray field rules in priority order', () {
     const raw = '''
 {

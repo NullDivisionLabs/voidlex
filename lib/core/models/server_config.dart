@@ -6,6 +6,8 @@ import '../app_routing.dart';
 import '../routing_rule.dart';
 import '../tun_engine_mode.dart';
 
+const Object _copyWithUnset = Object();
+
 enum VlessTransport {
   tcp,
   ws,
@@ -87,7 +89,19 @@ class ServerConfig {
     this.transportServiceName = '',
     this.transportHost = '',
     this.transportMode = '',
-    this.xhttpPadding = '',
+    this.xPaddingObfsMode,
+    this.xPaddingPlacement = '',
+    this.xPaddingKey = '',
+    this.xPaddingHeader = '',
+    this.xPaddingMethod = '',
+    String xPaddingBytes = '',
+    @Deprecated('Use xPaddingBytes') String? xhttpPadding,
+    this.sessionIDPlacement = '',
+    this.sessionIDKey = '',
+    this.seqPlacement = '',
+    this.seqKey = '',
+    this.xhttpRawSettings = const {},
+    this.xhttpRawExtra = const {},
     this.xhttpMaxPostBytes = '',
     this.xhttpMinPostInterval = '',
     this.sni = '',
@@ -104,6 +118,9 @@ class ServerConfig {
     this.hysteria2ObfsPassword = '',
     this.hysteria2ObfsMinPacketSize = 0,
     this.hysteria2ObfsMaxPacketSize = 0,
+    this.hysteria2RawOutbound = const {},
+    this.hysteria2RawObfs = const {},
+    this.hysteria2RawTls = const {},
     this.hysteria2HopPorts = '',
     this.hysteria2HopInterval = '',
     this.hysteria2HopIntervalMax = '',
@@ -121,7 +138,7 @@ class ServerConfig {
     this.naiveUdpOverTcpVersion = 0,
     this.isPinned = false,
     this.ping = '--',
-  });
+  }) : xPaddingBytes = xhttpPadding ?? xPaddingBytes;
 
   final String name;
   final String address;
@@ -135,10 +152,26 @@ class ServerConfig {
   final String transportHost;
   final String transportMode;
 
-  /// xhttp `extra.xPaddingBytes` override. Blank ⇒ Android runtime picks
-  /// the curated default ("100-1000"). Exposed so a share link / manual
-  /// edit can pin the padding to whatever the server expects.
-  final String xhttpPadding;
+  /// Null means the setting was absent; false preserves an explicitly
+  /// disabled value imported from an Xray config.
+  final bool? xPaddingObfsMode;
+  final String xPaddingPlacement;
+  final String xPaddingKey;
+  final String xPaddingHeader;
+  final String xPaddingMethod;
+  final String xPaddingBytes;
+  final String sessionIDPlacement;
+  final String sessionIDKey;
+  final String seqPlacement;
+  final String seqKey;
+
+  /// Unknown XHTTP fields are kept separately so form edits do not erase
+  /// settings introduced by newer Xray versions.
+  final Map<String, dynamic> xhttpRawSettings;
+  final Map<String, dynamic> xhttpRawExtra;
+
+  @Deprecated('Use xPaddingBytes')
+  String get xhttpPadding => xPaddingBytes;
 
   /// xhttp `extra.scMaxEachPostBytes` override. Caps per-POST payload size
   /// in packet-up mode; harmless under stream-up. Blank ⇒ runtime default.
@@ -162,6 +195,9 @@ class ServerConfig {
   final String hysteria2ObfsPassword;
   final int hysteria2ObfsMinPacketSize;
   final int hysteria2ObfsMaxPacketSize;
+  final Map<String, dynamic> hysteria2RawOutbound;
+  final Map<String, dynamic> hysteria2RawObfs;
+  final Map<String, dynamic> hysteria2RawTls;
   final String hysteria2HopPorts;
   final String hysteria2HopInterval;
   final String hysteria2HopIntervalMax;
@@ -210,7 +246,19 @@ class ServerConfig {
     String? transportServiceName,
     String? transportHost,
     String? transportMode,
-    String? xhttpPadding,
+    Object? xPaddingObfsMode = _copyWithUnset,
+    String? xPaddingPlacement,
+    String? xPaddingKey,
+    String? xPaddingHeader,
+    String? xPaddingMethod,
+    String? xPaddingBytes,
+    @Deprecated('Use xPaddingBytes') String? xhttpPadding,
+    String? sessionIDPlacement,
+    String? sessionIDKey,
+    String? seqPlacement,
+    String? seqKey,
+    Map<String, dynamic>? xhttpRawSettings,
+    Map<String, dynamic>? xhttpRawExtra,
     String? xhttpMaxPostBytes,
     String? xhttpMinPostInterval,
     String? sni,
@@ -227,6 +275,9 @@ class ServerConfig {
     String? hysteria2ObfsPassword,
     int? hysteria2ObfsMinPacketSize,
     int? hysteria2ObfsMaxPacketSize,
+    Map<String, dynamic>? hysteria2RawOutbound,
+    Map<String, dynamic>? hysteria2RawObfs,
+    Map<String, dynamic>? hysteria2RawTls,
     String? hysteria2HopPorts,
     String? hysteria2HopInterval,
     String? hysteria2HopIntervalMax,
@@ -257,7 +308,20 @@ class ServerConfig {
       transportServiceName: transportServiceName ?? this.transportServiceName,
       transportHost: transportHost ?? this.transportHost,
       transportMode: transportMode ?? this.transportMode,
-      xhttpPadding: xhttpPadding ?? this.xhttpPadding,
+      xPaddingObfsMode: identical(xPaddingObfsMode, _copyWithUnset)
+          ? this.xPaddingObfsMode
+          : xPaddingObfsMode as bool?,
+      xPaddingPlacement: xPaddingPlacement ?? this.xPaddingPlacement,
+      xPaddingKey: xPaddingKey ?? this.xPaddingKey,
+      xPaddingHeader: xPaddingHeader ?? this.xPaddingHeader,
+      xPaddingMethod: xPaddingMethod ?? this.xPaddingMethod,
+      xPaddingBytes: xhttpPadding ?? xPaddingBytes ?? this.xPaddingBytes,
+      sessionIDPlacement: sessionIDPlacement ?? this.sessionIDPlacement,
+      sessionIDKey: sessionIDKey ?? this.sessionIDKey,
+      seqPlacement: seqPlacement ?? this.seqPlacement,
+      seqKey: seqKey ?? this.seqKey,
+      xhttpRawSettings: xhttpRawSettings ?? this.xhttpRawSettings,
+      xhttpRawExtra: xhttpRawExtra ?? this.xhttpRawExtra,
       xhttpMaxPostBytes: xhttpMaxPostBytes ?? this.xhttpMaxPostBytes,
       xhttpMinPostInterval: xhttpMinPostInterval ?? this.xhttpMinPostInterval,
       sni: sni ?? this.sni,
@@ -277,6 +341,9 @@ class ServerConfig {
           hysteria2ObfsMinPacketSize ?? this.hysteria2ObfsMinPacketSize,
       hysteria2ObfsMaxPacketSize:
           hysteria2ObfsMaxPacketSize ?? this.hysteria2ObfsMaxPacketSize,
+      hysteria2RawOutbound: hysteria2RawOutbound ?? this.hysteria2RawOutbound,
+      hysteria2RawObfs: hysteria2RawObfs ?? this.hysteria2RawObfs,
+      hysteria2RawTls: hysteria2RawTls ?? this.hysteria2RawTls,
       hysteria2HopPorts: hysteria2HopPorts ?? this.hysteria2HopPorts,
       hysteria2HopInterval: hysteria2HopInterval ?? this.hysteria2HopInterval,
       hysteria2HopIntervalMax:
@@ -367,7 +434,18 @@ class ServerConfig {
       key('transportServiceName'): transportServiceName,
       key('transportHost'): transportHost,
       key('transportMode'): transportMode,
-      key('xhttpPadding'): xhttpPadding,
+      key('xPaddingObfsMode'): xPaddingObfsMode,
+      key('xPaddingPlacement'): xPaddingPlacement,
+      key('xPaddingKey'): xPaddingKey,
+      key('xPaddingHeader'): xPaddingHeader,
+      key('xPaddingMethod'): xPaddingMethod,
+      key('xPaddingBytes'): xPaddingBytes,
+      key('sessionIDPlacement'): sessionIDPlacement,
+      key('sessionIDKey'): sessionIDKey,
+      key('seqPlacement'): seqPlacement,
+      key('seqKey'): seqKey,
+      key('xhttpRawSettingsJson'): jsonEncode(xhttpRawSettings),
+      key('xhttpRawExtraJson'): jsonEncode(xhttpRawExtra),
       key('xhttpMaxPostBytes'): xhttpMaxPostBytes,
       key('xhttpMinPostInterval'): xhttpMinPostInterval,
       key('tlsEnabled'): security.tlsEnabled,
@@ -386,6 +464,9 @@ class ServerConfig {
       key('hysteria2ObfsPassword'): hysteria2ObfsPassword,
       key('hysteria2ObfsMinPacketSize'): hysteria2ObfsMinPacketSize,
       key('hysteria2ObfsMaxPacketSize'): hysteria2ObfsMaxPacketSize,
+      key('hysteria2RawOutboundJson'): jsonEncode(hysteria2RawOutbound),
+      key('hysteria2RawObfsJson'): jsonEncode(hysteria2RawObfs),
+      key('hysteria2RawTlsJson'): jsonEncode(hysteria2RawTls),
       key('hysteria2HopPorts'): hysteria2HopPorts,
       key('hysteria2HopInterval'): hysteria2HopInterval,
       key('hysteria2HopIntervalMax'): hysteria2HopIntervalMax,
@@ -416,7 +497,18 @@ class ServerConfig {
     'transportServiceName': transportServiceName,
     'transportHost': transportHost,
     'transportMode': transportMode,
-    'xhttpPadding': xhttpPadding,
+    if (xPaddingObfsMode != null) 'xPaddingObfsMode': xPaddingObfsMode,
+    'xPaddingPlacement': xPaddingPlacement,
+    'xPaddingKey': xPaddingKey,
+    'xPaddingHeader': xPaddingHeader,
+    'xPaddingMethod': xPaddingMethod,
+    'xPaddingBytes': xPaddingBytes,
+    'sessionIDPlacement': sessionIDPlacement,
+    'sessionIDKey': sessionIDKey,
+    'seqPlacement': seqPlacement,
+    'seqKey': seqKey,
+    if (xhttpRawSettings.isNotEmpty) 'xhttpRawSettings': xhttpRawSettings,
+    if (xhttpRawExtra.isNotEmpty) 'xhttpRawExtra': xhttpRawExtra,
     'xhttpMaxPostBytes': xhttpMaxPostBytes,
     'xhttpMinPostInterval': xhttpMinPostInterval,
     'sni': sni,
@@ -433,6 +525,10 @@ class ServerConfig {
     'hysteria2ObfsPassword': hysteria2ObfsPassword,
     'hysteria2ObfsMinPacketSize': hysteria2ObfsMinPacketSize,
     'hysteria2ObfsMaxPacketSize': hysteria2ObfsMaxPacketSize,
+    if (hysteria2RawOutbound.isNotEmpty)
+      'hysteria2RawOutbound': hysteria2RawOutbound,
+    if (hysteria2RawObfs.isNotEmpty) 'hysteria2RawObfs': hysteria2RawObfs,
+    if (hysteria2RawTls.isNotEmpty) 'hysteria2RawTls': hysteria2RawTls,
     'hysteria2HopPorts': hysteria2HopPorts,
     'hysteria2HopInterval': hysteria2HopInterval,
     'hysteria2HopIntervalMax': hysteria2HopIntervalMax,
@@ -485,7 +581,21 @@ class ServerConfig {
       transportServiceName: json['transportServiceName'] as String? ?? '',
       transportHost: json['transportHost'] as String? ?? '',
       transportMode: json['transportMode'] as String? ?? '',
-      xhttpPadding: json['xhttpPadding'] as String? ?? '',
+      xPaddingObfsMode: json['xPaddingObfsMode'] as bool?,
+      xPaddingPlacement: json['xPaddingPlacement'] as String? ?? '',
+      xPaddingKey: json['xPaddingKey'] as String? ?? '',
+      xPaddingHeader: json['xPaddingHeader'] as String? ?? '',
+      xPaddingMethod: json['xPaddingMethod'] as String? ?? '',
+      xPaddingBytes:
+          json['xPaddingBytes'] as String? ??
+          json['xhttpPadding'] as String? ??
+          '',
+      sessionIDPlacement: json['sessionIDPlacement'] as String? ?? '',
+      sessionIDKey: json['sessionIDKey'] as String? ?? '',
+      seqPlacement: json['seqPlacement'] as String? ?? '',
+      seqKey: json['seqKey'] as String? ?? '',
+      xhttpRawSettings: _dynamicMap(json['xhttpRawSettings']),
+      xhttpRawExtra: _dynamicMap(json['xhttpRawExtra']),
       xhttpMaxPostBytes: json['xhttpMaxPostBytes'] as String? ?? '',
       xhttpMinPostInterval: json['xhttpMinPostInterval'] as String? ?? '',
       sni: json['sni'] as String? ?? '',
@@ -510,6 +620,9 @@ class ServerConfig {
       hysteria2ObfsMaxPacketSize: _nonNegativeInt(
         json['hysteria2ObfsMaxPacketSize'],
       ),
+      hysteria2RawOutbound: _dynamicMap(json['hysteria2RawOutbound']),
+      hysteria2RawObfs: _dynamicMap(json['hysteria2RawObfs']),
+      hysteria2RawTls: _dynamicMap(json['hysteria2RawTls']),
       hysteria2HopPorts: json['hysteria2HopPorts'] as String? ?? '',
       hysteria2HopInterval: json['hysteria2HopInterval'] as String? ?? '',
       hysteria2HopIntervalMax: json['hysteria2HopIntervalMax'] as String? ?? '',
@@ -552,6 +665,14 @@ class ServerConfig {
       for (final entry in value.entries)
         if (entry.key is String && entry.value is String)
           entry.key as String: entry.value as String,
+    });
+  }
+
+  static Map<String, dynamic> _dynamicMap(Object? value) {
+    if (value is! Map) return const {};
+    return Map.unmodifiable({
+      for (final entry in value.entries)
+        if (entry.key is String) entry.key as String: entry.value,
     });
   }
 

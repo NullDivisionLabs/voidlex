@@ -28,6 +28,8 @@ class NodePingBadge extends StatelessWidget {
     this.style = NodePingBadgeStyle.row,
   });
 
+  static final _digitRegex = RegExp(r'\d');
+
   final VpnController controller;
   final String serverName;
   final NodePingBadgeStyle style;
@@ -45,7 +47,7 @@ class NodePingBadge extends StatelessWidget {
           NodePingBadgeStyle.row => _RowPing(
             label: label,
             color: color,
-            showMs: RegExp(r'\d').hasMatch(label),
+            showMs: _digitRegex.hasMatch(label),
           ),
           NodePingBadgeStyle.fav => Text(
             label,

@@ -8,6 +8,12 @@ import org.junit.Test
 
 class TunToSocksConfigBuilderTest {
     @Test
+    fun `missing or invalid native stack falls back to gvisor`() {
+        assertEquals(TunnelNetworkStack.GVISOR, TunnelNetworkStack.fromWire(null))
+        assertEquals(TunnelNetworkStack.GVISOR, TunnelNetworkStack.fromWire("unsupported"))
+    }
+
+    @Test
     fun `routes tun traffic to local xray socks inbound`() {
         val root = JSONObject(
             TunToSocksConfigBuilder.build(isGlobalProxy = true),
@@ -19,8 +25,10 @@ class TunToSocksConfigBuilderTest {
         assertEquals(TunAddressDefaults.IPV4_CIDR, inbound.getJSONArray("address").getString(0))
         assertEquals(1, inbound.getJSONArray("address").length())
         assertEquals(1500, inbound.getInt("mtu"))
-        assertEquals("system", inbound.getString("stack"))
+        assertEquals("gvisor", inbound.getString("stack"))
         assertTrue(inbound.getBoolean("auto_route"))
+        assertEquals("hijack", inbound.getString("dns_mode"))
+        assertFalse(inbound.getBoolean("strict_route"))
         assertFalse(inbound.has("include_package"))
         assertFalse(inbound.has("exclude_package"))
 
@@ -122,7 +130,28 @@ class TunToSocksConfigBuilderTest {
     }
 
     @Test
-    fun `block udp adds block outbound and udp route after dns hijack`() {
+    fun `rejects quic after dns hijack`() {
+        val root = JSONObject(
+            TunToSocksConfigBuilder.build(isGlobalProxy = true),
+        )
+
+        val rules = root.getJSONObject("route").getJSONArray("rules")
+        val ruleList = (0 until rules.length()).map { rules.getJSONObject(it) }
+        val dnsRuleIndex = ruleList.indexOfFirst { it.optString("action") == "hijack-dns" }
+        val quicRejectRuleIndex = ruleList.indexOfFirst {
+            it.optString("inbound") == "tun-in" &&
+                it.optString("network") == "udp" &&
+                it.optInt("port") == 443
+        }
+        assertTrue(dnsRuleIndex >= 0)
+        assertTrue(quicRejectRuleIndex > dnsRuleIndex)
+        val quicRejectRule = ruleList[quicRejectRuleIndex]
+        assertEquals("reject", quicRejectRule.getString("action"))
+        assertEquals("default", quicRejectRule.getString("method"))
+    }
+
+    @Test
+    fun `block udp adds catch-all reject after quic rule`() {
         val root = JSONObject(
             TunToSocksConfigBuilder.build(
                 isGlobalProxy = true,
@@ -130,23 +159,23 @@ class TunToSocksConfigBuilderTest {
             ),
         )
 
-        val blockOutbound = (0 until root.getJSONArray("outbounds").length())
-            .map { root.getJSONArray("outbounds").getJSONObject(it) }
-            .first { it.getString("tag") == "block" }
-        assertEquals("block", blockOutbound.getString("type"))
-
         val rules = root.getJSONObject("route").getJSONArray("rules")
         val ruleList = (0 until rules.length()).map { rules.getJSONObject(it) }
-        val dnsRuleIndex = ruleList.indexOfFirst { it.optString("action") == "hijack-dns" }
-        val udpBlockRuleIndex = ruleList.indexOfFirst {
+        val quicRejectRuleIndex = ruleList.indexOfFirst {
             it.optString("inbound") == "tun-in" &&
                 it.optString("network") == "udp" &&
-                it.optString("outbound") == "block"
+                it.optInt("port") == 443
         }
-        assertTrue(dnsRuleIndex >= 0)
-        assertTrue(udpBlockRuleIndex > dnsRuleIndex)
-        val udpBlockRule = ruleList[udpBlockRuleIndex]
-        assertEquals("route", udpBlockRule.getString("action"))
+        val udpRejectRuleIndex = ruleList.indexOfFirst {
+            it.optString("inbound") == "tun-in" &&
+                it.optString("network") == "udp" &&
+                !it.has("port")
+        }
+        assertTrue(quicRejectRuleIndex >= 0)
+        assertTrue(udpRejectRuleIndex > quicRejectRuleIndex)
+        val udpRejectRule = ruleList[udpRejectRuleIndex]
+        assertEquals("reject", udpRejectRule.getString("action"))
+        assertEquals("default", udpRejectRule.getString("method"))
     }
 
     @Test
@@ -164,7 +193,8 @@ class TunToSocksConfigBuilderTest {
         val udpBlockRuleIndex = ruleList.indexOfFirst {
             it.optString("inbound") == "tun-in" &&
                 it.optString("network") == "udp" &&
-                it.optString("outbound") == "block"
+                !it.has("port") &&
+                it.optString("action") == "reject"
         }
         assertTrue(privateIpRuleIndex >= 0)
         assertTrue(udpBlockRuleIndex >= 0)
@@ -198,7 +228,9 @@ class TunToSocksConfigBuilderTest {
 
         val portHijackIndex = ruleList.indexOf(portHijack)
         val udpBlockIndex = ruleList.indexOfFirst {
-            it.optString("network") == "udp" && it.optString("outbound") == "block"
+            it.optString("network") == "udp" &&
+                !it.has("port") &&
+                it.optString("action") == "reject"
         }
         assertTrue(portHijackIndex >= 0)
         assertTrue(udpBlockIndex > portHijackIndex)
@@ -399,6 +431,63 @@ class TunToSocksConfigBuilderTest {
     }
 
     @Test
+    fun `hysteria2 outbound omits obfs when disabled`() {
+        val root = JSONObject(
+            TunToSocksConfigBuilder.build(
+                isGlobalProxy = true,
+                proxyServer = hysteria2Server(),
+            ),
+        )
+
+        assertFalse(root.getJSONArray("outbounds").getJSONObject(0).has("obfs"))
+    }
+
+    @Test
+    fun `hysteria2 legacy obfs password remains salamander`() {
+        val root = JSONObject(
+            TunToSocksConfigBuilder.build(
+                isGlobalProxy = true,
+                proxyServer = hysteria2Server(obfsPassword = "legacy-mask"),
+            ),
+        )
+
+        val obfs = root.getJSONArray("outbounds").getJSONObject(0).getJSONObject("obfs")
+        assertEquals("salamander", obfs.getString("type"))
+        assertEquals("legacy-mask", obfs.getString("password"))
+    }
+
+    @Test
+    fun `hysteria2 raw json preserves nested values but typed fields win`() {
+        val root = JSONObject(
+            TunToSocksConfigBuilder.build(
+                isGlobalProxy = true,
+                proxyServer = hysteria2Server(
+                    obfsType = "gecko",
+                    obfsPassword = "typed-mask",
+                    rawOutbound = """{"type":"bad","server":"bad","detour":"unsafe","custom":{"modes":[1,true,"x"]}}""",
+                    rawObfs = """{"type":"bad","password":"bad","custom_obfs":{"enabled":true}}""",
+                    rawTls = """{"server_name":"bad","custom_tls":["a",2]}""",
+                ),
+            ),
+        )
+
+        val proxy = root.getJSONArray("outbounds").getJSONObject(0)
+        assertEquals("hysteria2", proxy.getString("type"))
+        assertEquals("hy2.example.com", proxy.getString("server"))
+        assertFalse(proxy.has("detour"))
+        val modes = proxy.getJSONObject("custom").getJSONArray("modes")
+        assertEquals(1, modes.getInt(0))
+        assertTrue(modes.getBoolean(1))
+        val obfs = proxy.getJSONObject("obfs")
+        assertEquals("gecko", obfs.getString("type"))
+        assertEquals("typed-mask", obfs.getString("password"))
+        assertTrue(obfs.getJSONObject("custom_obfs").getBoolean("enabled"))
+        val tls = proxy.getJSONObject("tls")
+        assertEquals("hy2.example.com", tls.getString("server_name"))
+        assertEquals(2, tls.getJSONArray("custom_tls").getInt(1))
+    }
+
+    @Test
     fun `naive outbound emits headers concurrency and udp over tcp`() {
         val root = JSONObject(
             TunToSocksConfigBuilder.build(
@@ -462,6 +551,40 @@ class TunToSocksConfigBuilderTest {
             naiveExtraHeadersJson = extraHeadersJson,
             naiveUdpOverTcp = udpOverTcp,
             naiveUdpOverTcpVersion = udpOverTcpVersion,
+        )
+    }
+
+    private fun hysteria2Server(
+        obfsType: String = "",
+        obfsPassword: String = "",
+        rawOutbound: String = "{}",
+        rawObfs: String = "{}",
+        rawTls: String = "{}",
+    ): ServerConfig {
+        return ServerConfig(
+            isGlobalProxy = true,
+            server = "hy2.example.com",
+            serverPort = 443,
+            protocol = "hysteria2",
+            uuid = "secret",
+            transport = "tcp",
+            transportPath = "/",
+            transportServiceName = "",
+            transportHost = "",
+            tlsEnabled = true,
+            tlsSni = "hy2.example.com",
+            tlsInsecure = false,
+            flow = "",
+            security = "tls",
+            realityPbk = "",
+            realitySid = "",
+            fingerprint = "",
+            alpn = "h3",
+            hysteria2ObfsType = obfsType,
+            hysteria2ObfsPassword = obfsPassword,
+            hysteria2RawOutboundJson = rawOutbound,
+            hysteria2RawObfsJson = rawObfs,
+            hysteria2RawTlsJson = rawTls,
         )
     }
 }

@@ -4,10 +4,11 @@ The native Xray binary, packaged as a `.so` so the Android package manager
 extracts it into `nativeLibraryDir` (where executables are runnable even on
 no-exec data partitions). `XrayRuntime.resolveBinary()` finds it there.
 
-The checked-in binaries are built from Xray-core `v26.5.9` (unmodified
-upstream sources, `-ldflags="-s -w"` applied so #40 below is already in
-effect). Exact build commands, NDK version, and SHA-256 hashes are recorded
-in `THIRD_PARTY_NOTICES.md`.
+The checked-in binaries are built from Xray-core `v26.7.28` at commit
+`5ca6f4b7d4dc20a881d4330e498892697627ec0c` (unmodified upstream sources).
+The upstream Go 1.26 Android linker flag `-checklinkname=0` and stripping
+flags are applied. Exact build commands, NDK version, and SHA-256 hashes are
+recorded in `THIRD_PARTY_NOTICES.md`.
 
 ## Build optimisations (deferred Group-3 items #39 / #40)
 

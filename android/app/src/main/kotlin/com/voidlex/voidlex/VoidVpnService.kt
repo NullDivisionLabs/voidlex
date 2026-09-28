@@ -3,6 +3,7 @@ package com.voidlex.voidlex
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
@@ -52,7 +53,19 @@ class VoidVpnService : VpnService() {
         const val EXTRA_TRANSPORT_SERVICE_NAME = "transportServiceName"
         const val EXTRA_TRANSPORT_HOST = "transportHost"
         const val EXTRA_TRANSPORT_MODE = "transportMode"
-        const val EXTRA_XHTTP_PADDING = "xhttpPadding"
+        const val EXTRA_X_PADDING_OBFS_MODE = "xPaddingObfsMode"
+        const val EXTRA_X_PADDING_OBFS_MODE_PRESENT = "xPaddingObfsModePresent"
+        const val EXTRA_X_PADDING_PLACEMENT = "xPaddingPlacement"
+        const val EXTRA_X_PADDING_KEY = "xPaddingKey"
+        const val EXTRA_X_PADDING_HEADER = "xPaddingHeader"
+        const val EXTRA_X_PADDING_METHOD = "xPaddingMethod"
+        const val EXTRA_X_PADDING_BYTES = "xPaddingBytes"
+        const val EXTRA_SESSION_ID_PLACEMENT = "sessionIDPlacement"
+        const val EXTRA_SESSION_ID_KEY = "sessionIDKey"
+        const val EXTRA_SEQ_PLACEMENT = "seqPlacement"
+        const val EXTRA_SEQ_KEY = "seqKey"
+        const val EXTRA_XHTTP_RAW_SETTINGS_JSON = "xhttpRawSettingsJson"
+        const val EXTRA_XHTTP_RAW_EXTRA_JSON = "xhttpRawExtraJson"
         const val EXTRA_XHTTP_MAX_POST_BYTES = "xhttpMaxPostBytes"
         const val EXTRA_XHTTP_MIN_POST_INTERVAL = "xhttpMinPostInterval"
         const val EXTRA_TLS_ENABLED = "tlsEnabled"
@@ -71,6 +84,9 @@ class VoidVpnService : VpnService() {
         const val EXTRA_HYSTERIA2_OBFS_PASSWORD = "hysteria2ObfsPassword"
         const val EXTRA_HYSTERIA2_OBFS_MIN_PACKET_SIZE = "hysteria2ObfsMinPacketSize"
         const val EXTRA_HYSTERIA2_OBFS_MAX_PACKET_SIZE = "hysteria2ObfsMaxPacketSize"
+        const val EXTRA_HYSTERIA2_RAW_OUTBOUND_JSON = "hysteria2RawOutboundJson"
+        const val EXTRA_HYSTERIA2_RAW_OBFS_JSON = "hysteria2RawObfsJson"
+        const val EXTRA_HYSTERIA2_RAW_TLS_JSON = "hysteria2RawTlsJson"
         const val EXTRA_HYSTERIA2_HOP_PORTS = "hysteria2HopPorts"
         const val EXTRA_HYSTERIA2_HOP_INTERVAL = "hysteria2HopInterval"
         const val EXTRA_HYSTERIA2_HOP_INTERVAL_MAX = "hysteria2HopIntervalMax"
@@ -169,17 +185,18 @@ class VoidVpnService : VpnService() {
         // startOrReloadService as soon as the TUN inbound is up, but its
         // route engine and platform NetworkCallback take a tick longer to
         // be fully wired against the freshly-established VPN. Without this
-        // grace period the user can see "connected" while the first
-        // outbound packets are still being dropped, which feels like the
-        // pre-fix bug even though it usually resolves itself shortly.
+        // readiness gate the user can see "connected" while outbound packets
+        // are still being dropped.
         // In practice tunRuntime.awaitReady fires within ~50–200 ms and
         // we never reach this timeout on a healthy device; the bound exists
         // only as a safety net. Engine-specific because xray TUN doesn't
         // share libbox's wiring.
-        private const val LIBBOX_WARMUP_TIMEOUT_MS = 1_000L
+        private const val LIBBOX_WARMUP_TIMEOUT_MS = 3_000L
         private const val UNDERLYING_NETWORK_REFRESH_INTERVAL_MS = 5_000L
-        private const val UNDERLYING_NETWORK_XRAY_RESTART_COOLDOWN_MS = 10_000L
         private const val XRAY_PROCESS_REBIND_SETTLE_MS = 250L
+        private const val KILL_SWITCH_ESTABLISH_ATTEMPTS = 3
+        private const val KILL_SWITCH_RETRY_MS = 200L
+        private const val TUNNEL_CONNECT_WATCHDOG_MS = 60_000L
 
         @Volatile
         private var lastRuntimeCleanupElapsedMillis = 0L
@@ -222,7 +239,8 @@ class VoidVpnService : VpnService() {
     private var lastUnderlyingSelection: UnderlyingNetworkResolver.Selection? = null
     private var lastAppliedXrayUnderlyingNetwork: Network? = null
     private var lastUnderlyingRefreshAtElapsed: Long = 0L
-    private var lastNetworkTriggeredXrayRestartAtElapsed: Long = 0L
+    private var networkRecovery: UnderlyingNetworkRecovery<UnderlyingNetworkResolver.Selection>? = null
+    private var networkRecoveryJob: Job? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private var keepAwake = false
 
@@ -266,7 +284,15 @@ class VoidVpnService : VpnService() {
             return START_STICKY
         }
 
-        serverConfig = VpnServiceConfigParser.parse(intent)
+        val startIntent = intent ?: QuickSettingsVpnConfigStore
+            .buildStartConfig(applicationContext)
+            ?.intent
+            ?.takeIf { it.component?.className == VoidVpnService::class.java.name }
+            ?.also {
+                AppLogger.i(TAG, "Recovering VPN after process death from persisted configuration")
+            }
+
+        serverConfig = VpnServiceConfigParser.parse(startIntent)
         val config = serverConfig
         if (config == null) {
             AppLogger.e(TAG, "No server config received — cannot start")
@@ -278,7 +304,7 @@ class VoidVpnService : VpnService() {
             return START_NOT_STICKY
         }
 
-        showSpeedInNotification = intent?.getBooleanExtra(
+        showSpeedInNotification = startIntent?.getBooleanExtra(
             EXTRA_SHOW_SPEED_IN_NOTIFICATION,
             false,
         ) ?: false
@@ -292,18 +318,37 @@ class VoidVpnService : VpnService() {
         // call inside the runtime supersedes our placeholder PFD.
         closeKillSwitchInterfaceLocked()
         startTunnel(config, generation)
-        return START_NOT_STICKY
+        // Android redelivers a null intent after the process hosting a sticky
+        // foreground service is killed. The null-intent path above rebuilds
+        // the exact selected profile and routing settings from the same
+        // persisted source used by Quick Settings, so TUN can be established
+        // again without retaining credential-bearing Intent extras in a new
+        // plaintext store.
+        return START_STICKY
     }
 
     /// Installs a VpnService that routes 0.0.0.0/0 + ::/0 into a dead-end
     /// (no outbounds), effectively blocking all internet traffic until
     /// either the user reconnects (a fresh Builder() replaces this PFD)
     /// or explicitly disconnects (ACTION_DISCONNECT closes it).
-    private fun installKillSwitchInterfaceLocked(): Boolean {
+    private suspend fun installKillSwitchInterfaceLocked(): Boolean {
         if (prepare(this) != null) {
             AppLogger.w(TAG, "Cannot install kill switch: VPN permission missing")
+            postKillSwitchRecoveryNotification(vpnPermissionMissing = true)
             return false
         }
+        repeat(KILL_SWITCH_ESTABLISH_ATTEMPTS) { attempt ->
+            if (tryInstallKillSwitchInterfaceOnce()) return true
+            if (attempt < KILL_SWITCH_ESTABLISH_ATTEMPTS - 1) {
+                delay(KILL_SWITCH_RETRY_MS * (attempt + 1))
+            }
+        }
+        AppLogger.e(TAG, "Kill switch establish failed after $KILL_SWITCH_ESTABLISH_ATTEMPTS attempts")
+        postKillSwitchRecoveryNotification(vpnPermissionMissing = false)
+        return false
+    }
+
+    private fun tryInstallKillSwitchInterfaceOnce(): Boolean {
         return runCatching {
             val builder = Builder()
                 .setSession("Void//Lex Kill Switch")
@@ -326,14 +371,46 @@ class VoidVpnService : VpnService() {
         }.getOrDefault(false)
     }
 
+    private fun postKillSwitchRecoveryNotification(vpnPermissionMissing: Boolean) {
+        val text = if (vpnPermissionMissing) {
+            "VPN permission required • tap to restore kill switch"
+        } else {
+            "Kill switch blocked traffic • tap app to reconnect safely"
+        }
+        postForegroundNotificationText(text)
+    }
+
     private fun closeKillSwitchInterfaceLocked() {
         killSwitchInterface?.runCatching { close() }
         killSwitchInterface = null
     }
 
     private fun startTunnel(config: ServerConfig, generation: Int) {
-        serviceScope.launch {
-            lifecycleMutex.withLock {
+        lateinit var startupJob: Job
+        val watchdogJob = serviceScope.launch {
+            delay(TUNNEL_CONNECT_WATCHDOG_MS)
+            if (!invalidatePendingTunnelGeneration(generation)) return@launch
+            AppLogger.e(
+                TAG,
+                "Tunnel connect watchdog timed out (generation=$generation)",
+            )
+            terminalErrorEmitted = true
+            VpnRuntimeState.markError("Connection timed out")
+            VpnEventBridge.emit("error", "Connection timed out")
+            requestControlSurfacesUpdate()
+            serviceScope.launch {
+                lifecycleMutex.withLock {
+                    if (!isCurrentGeneration(generation + 1)) {
+                        return@withLock
+                    }
+                    stopTunnelLocked(emitDisconnected = false)
+                }
+            }
+            startupJob.cancel()
+        }
+        startupJob = serviceScope.launch {
+            try {
+                lifecycleMutex.withLock {
                 if (!isCurrentGeneration(generation)) {
                     return@withLock
                 }
@@ -361,15 +438,15 @@ class VoidVpnService : VpnService() {
                 }
 
                 val usesDirectLibbox = XrayConfigBuilder.usesDirectLibbox(config)
-                val naiveRestriction = NaiveRuntimeConstraints.validationError(
+                val directLibboxRestriction = DirectLibboxRuntimeConstraints.validationError(
                     protocol = config.protocol,
                     detourProtocol = config.detourServer?.protocol,
                     tunEngineMode = config.tunEngineMode,
                     runMode = config.runMode,
                     isBridge = config.detourServer != null,
                 )
-                if (naiveRestriction != null) {
-                    emitStartupErrorLocked(naiveRestriction)
+                if (directLibboxRestriction != null) {
+                    emitStartupErrorLocked(directLibboxRestriction)
                     return@withLock
                 }
                 if (usesDirectLibbox && config.tunEngineMode == TunEngineMode.XRAY) {
@@ -398,6 +475,7 @@ class VoidVpnService : VpnService() {
                             TunEngineMode.XRAY -> XrayRuntimeMode.TUN
                         },
                         tunFd = xrayTunFd,
+                        shouldContinue = { isCurrentGeneration(generation) },
                     )
                     if (!isCurrentGeneration(generation)) {
                         stopRuntimesLocked(removeForeground = false)
@@ -443,6 +521,17 @@ class VoidVpnService : VpnService() {
                         stopRuntimesLocked(removeForeground = false)
                         return@withLock
                     }
+                    val readinessDecision = LibboxStartupPolicy.decide(warmupReady)
+                    if (!readinessDecision.publishConnected) {
+                        AppLogger.e(
+                            TAG,
+                            "libbox did not receive a usable underlying interface before timeout",
+                        )
+                        emitStartupErrorLocked(
+                            checkNotNull(readinessDecision.errorCode),
+                        )
+                        return@withLock
+                    }
                 } else {
                     AppLogger.i(TAG, "Using experimental Xray TUN engine")
                 }
@@ -451,12 +540,17 @@ class VoidVpnService : VpnService() {
                 startUnderlyingNetworkMonitorLocked(config, generation)
                 updateWakeLockLocked(config.keepAwake)
 
-                if (connectedEventEmitted.compareAndSet(false, true)) {
-                    VpnRuntimeState.markConnected(config)
-                    AppLogger.i(TAG, "VPN confirmed connected by ${config.tunEngineMode.wireName} engine")
-                    VpnEventBridge.emit("connected")
-                    requestControlSurfacesUpdate()
+                if (!markConnectedIfCurrent(generation)) {
+                    stopRuntimesLocked(removeForeground = false)
+                    return@withLock
                 }
+                VpnRuntimeState.markConnected(config)
+                AppLogger.i(TAG, "VPN confirmed connected by ${config.tunEngineMode.wireName} engine")
+                VpnEventBridge.emit("connected")
+                requestControlSurfacesUpdate()
+                }
+            } finally {
+                watchdogJob.cancel()
             }
         }
     }
@@ -573,6 +667,7 @@ class VoidVpnService : VpnService() {
         stopUnderlyingNetworkMonitorLocked()
         val initialSelection = findUnderlyingNetworkSelection()
         lastUnderlyingSelection = initialSelection
+        networkRecovery = UnderlyingNetworkRecovery(initialSelection)
         refreshXrayUnderlyingNetworkLocked(config, initialSelection, force = true)
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP) {
             return
@@ -625,7 +720,9 @@ class VoidVpnService : VpnService() {
         lastUnderlyingSelection = null
         lastAppliedXrayUnderlyingNetwork = null
         lastUnderlyingRefreshAtElapsed = 0L
-        lastNetworkTriggeredXrayRestartAtElapsed = 0L
+        networkRecoveryJob?.cancel()
+        networkRecoveryJob = null
+        networkRecovery = null
     }
 
     private fun scheduleUnderlyingNetworkEvaluation(generation: Int, reason: String) {
@@ -645,86 +742,74 @@ class VoidVpnService : VpnService() {
         if (!connectedEventEmitted.get()) return
         val previous = lastUnderlyingSelection
         val current = findUnderlyingNetworkSelection()
+        val recovery = networkRecovery ?: return
+        val changed = recovery.observe(current, SystemClock.elapsedRealtime())
+        refreshXrayUnderlyingNetworkLocked(config, current, force = changed)
+        if (!changed) return
 
-        if (current == null) {
-            if (previous != null) {
-                AppLogger.w(TAG, "Underlying network lost after $reason")
-            }
-            lastUnderlyingSelection = null
-            refreshXrayUnderlyingNetworkLocked(config, null, force = false)
-            return
-        }
+        AppLogger.i(TAG, "Underlying network changed after $reason: " +
+            "${selectionLabel(previous)} -> ${selectionLabel(current)}")
+        // Keep the last usable selection across a gap with no network.
+        if (current != null) lastUnderlyingSelection = current
+        if (config.tunEngineMode != TunEngineMode.LIBBOX ||
+            XrayConfigBuilder.usesDirectLibbox(config)) return
 
-        val networkChanged = previous?.network != current.network
-        val transportChanged = previous != null && previous.transport != current.transport
-        if (networkChanged || transportChanged) {
-            AppLogger.i(
-                TAG,
-                "Underlying network changed after $reason: " +
-                    "${selectionLabel(previous)} -> ${selectionLabel(current)}",
-            )
-        }
-        lastUnderlyingSelection = current
-        refreshXrayUnderlyingNetworkLocked(config, current, force = networkChanged)
-
-        if (transportChanged) {
-            restartXrayForTransportChangeLocked(
-                config = config,
-                generation = generation,
-                previous = previous,
-                current = current,
-            )
-        }
+        VpnRuntimeState.markRecovering(config)
+        VpnEventBridge.emit("connecting", extras = mapOf("recovering" to true))
+        requestControlSurfacesUpdate()
+        scheduleNetworkRecoveryLocked(generation)
     }
 
-    private suspend fun restartXrayForTransportChangeLocked(
-        config: ServerConfig,
-        generation: Int,
-        previous: UnderlyingNetworkResolver.Selection?,
-        current: UnderlyingNetworkResolver.Selection,
-    ) {
-        if (config.tunEngineMode != TunEngineMode.LIBBOX) return
-        if (XrayConfigBuilder.usesDirectLibbox(config)) return
-
-        val now = SystemClock.elapsedRealtime()
-        val sinceLastRestart = now - lastNetworkTriggeredXrayRestartAtElapsed
-        if (
-            lastNetworkTriggeredXrayRestartAtElapsed > 0L &&
-            sinceLastRestart < UNDERLYING_NETWORK_XRAY_RESTART_COOLDOWN_MS
-        ) {
-            AppLogger.i(
-                TAG,
-                "Skipping Xray network-change restart: cooldown ${sinceLastRestart}ms, " +
-                    "${selectionLabel(previous)} -> ${selectionLabel(current)}",
-            )
-            return
-        }
-        lastNetworkTriggeredXrayRestartAtElapsed = now
-
-        AppLogger.i(
-            TAG,
-            "Restarting Xray SOCKS runtime after underlying transport change: " +
-                "${selectionLabel(previous)} -> ${selectionLabel(current)}",
-        )
-        val stopped = xrayRuntime.stop(waitForExit = true)
-        if (stopped) {
-            delay(XRAY_PROCESS_REBIND_SETTLE_MS)
-        }
-        if (!isCurrentGeneration(generation)) return
-
-        val started = xrayRuntime.start(
-            config = config,
-            mode = XrayRuntimeMode.SOCKS,
-        )
-        if (!isCurrentGeneration(generation)) {
-            xrayRuntime.stop(waitForExit = true)
-            return
-        }
-        if (!started) {
-            emitStartupErrorLocked(
-                xrayRuntime.failureReason()
-                    ?: "Xray runtime failed after network change",
-            )
+    private fun scheduleNetworkRecoveryLocked(generation: Int) {
+        networkRecoveryJob?.cancel()
+        networkRecoveryJob = null
+        val waitMs = networkRecovery?.delayMillis(SystemClock.elapsedRealtime()) ?: return
+        networkRecoveryJob = serviceScope.launch {
+            delay(waitMs)
+            lifecycleMutex.withLock {
+                if (!isCurrentGeneration(generation)) return@withLock
+                // Teardown must not cancel the currently executing recovery itself.
+                networkRecoveryJob = null
+                val recovery = networkRecovery ?: return@withLock
+                val config = serverConfig ?: return@withLock
+                val current = findUnderlyingNetworkSelection()
+                if (current != recovery.network) {
+                    handleUnderlyingNetworkChangedLocked(generation, "recovery check")
+                    return@withLock
+                }
+                if (current == null) return@withLock
+                recovery.attempted(SystemClock.elapsedRealtime())
+                AppLogger.i(TAG, "Recovering Xray on ${selectionLabel(current)}, attempt=${recovery.attempts}")
+                val stopped = xrayRuntime.stop(waitForExit = true)
+                if (stopped) delay(XRAY_PROCESS_REBIND_SETTLE_MS)
+                if (!isCurrentGeneration(generation)) return@withLock
+                val started = xrayRuntime.start(
+                    config = config,
+                    mode = XrayRuntimeMode.SOCKS,
+                    shouldContinue = { isCurrentGeneration(generation) },
+                )
+                if (!isCurrentGeneration(generation)) {
+                    xrayRuntime.stop(waitForExit = true)
+                    return@withLock
+                }
+                // Do not report success on a network that disappeared during startup.
+                if (findUnderlyingNetworkSelection() != current) {
+                    handleUnderlyingNetworkChangedLocked(generation, "recovery completed")
+                    return@withLock
+                }
+                if (started) {
+                    recovery.recovered()
+                    VpnRuntimeState.markConnected(config)
+                    VpnEventBridge.emit("connected")
+                    requestControlSurfacesUpdate()
+                    AppLogger.i(TAG, "Xray network recovery completed")
+                } else if (recovery.attempts < UnderlyingNetworkRecovery.MAX_ATTEMPTS) {
+                    AppLogger.w(TAG, "Xray network recovery failed: ${xrayRuntime.failureReason()}")
+                    scheduleNetworkRecoveryLocked(generation)
+                } else {
+                    emitStartupErrorLocked(xrayRuntime.failureReason() ?: "Xray network recovery failed")
+                }
+            }
         }
     }
 
@@ -1007,6 +1092,19 @@ class VoidVpnService : VpnService() {
         tunnelGeneration
     }
 
+    private fun invalidatePendingTunnelGeneration(generation: Int): Boolean = synchronized(this) {
+        if (tunnelGeneration != generation || connectedEventEmitted.get()) {
+            false
+        } else {
+            tunnelGeneration += 1
+            true
+        }
+    }
+
+    private fun markConnectedIfCurrent(generation: Int): Boolean = synchronized(this) {
+        tunnelGeneration == generation && connectedEventEmitted.compareAndSet(false, true)
+    }
+
     private fun isCurrentGeneration(generation: Int): Boolean = tunnelGeneration == generation
 
     private fun prepareStartState(config: ServerConfig) {
@@ -1080,6 +1178,16 @@ class VoidVpnService : VpnService() {
         }
 
         cachedLargeIcon?.let { builder.setLargeIcon(it) }
+
+        packageManager.getLaunchIntentForPackage(packageName)?.let { launchIntent ->
+            val pending = PendingIntent.getActivity(
+                this,
+                0,
+                launchIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+            builder.setContentIntent(pending)
+        }
 
         return builder
             .setContentTitle("Void//Lex")

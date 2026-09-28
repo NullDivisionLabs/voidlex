@@ -81,9 +81,8 @@ class WidgetActionActivity : Activity() {
         }
         // Finish synchronously. The coroutine continues on the IO
         // dispatcher and the service it kicked off survives independently.
-        // The Theme.NoDisplay theme already suppresses any window
-        // transition, so we don't need overridePendingTransition (which
-        // has also been deprecated since API 34).
+        // The Theme.NoDisplay theme requires finishing prior to onResume()
+        // completing to avoid IllegalStateException.
         finish()
     }
 

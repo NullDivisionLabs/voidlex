@@ -33,6 +33,12 @@ class JsonPayloadTooLargeException implements Exception {
 int jsonUtf8ByteLength(String raw) => utf8.encode(raw).length;
 
 Object? decodeJson(String raw, {required int maxBytes}) {
+  if (raw.length > maxBytes) {
+    throw JsonPayloadTooLargeException(
+      limitBytes: maxBytes,
+      actualBytes: raw.length,
+    );
+  }
   final actualBytes = jsonUtf8ByteLength(raw);
   if (actualBytes > maxBytes) {
     throw JsonPayloadTooLargeException(

@@ -727,6 +727,7 @@ class _TunnelSettingsScreenState extends State<_TunnelSettingsScreen> {
       _CompactValueRow(
         icon: Icons.layers_outlined,
         title: l.tunnelNetworkStack,
+        description: l.tunnelNetworkStackDescription,
         child: SizedBox(
           width: 140,
           child: DropdownButtonFormField<TunnelNetworkStack>(
@@ -758,6 +759,7 @@ class _TunnelSettingsScreenState extends State<_TunnelSettingsScreen> {
       _CompactValueRow(
         icon: Icons.public_rounded,
         title: l.tunnelIpMode,
+        description: l.tunnelIpModeDescription,
         child: SizedBox(
           width: 120,
           child: DropdownButtonFormField<TunnelIpMode>(
@@ -826,6 +828,7 @@ class _TunnelSettingsScreenState extends State<_TunnelSettingsScreen> {
       _CompactToggleRow(
         icon: Icons.dns_outlined,
         title: l.tunnelUseLocalDns,
+        description: l.tunnelUseLocalDnsDescription,
         value: _tunnelNetworkSettings.useLocalDns,
         onChanged: _setUseLocalDns,
         tvFocusable: useTvChrome,
@@ -834,6 +837,7 @@ class _TunnelSettingsScreenState extends State<_TunnelSettingsScreen> {
       _CompactToggleRow(
         icon: Icons.travel_explore_rounded,
         title: l.tunnelEnableServerResolving,
+        description: l.tunnelEnableServerResolvingDescription,
         value: _tunnelNetworkSettings.serverResolvingEnabled,
         onChanged: _setServerResolvingEnabled,
         tvFocusable: useTvChrome,
@@ -842,6 +846,7 @@ class _TunnelSettingsScreenState extends State<_TunnelSettingsScreen> {
       _CompactToggleRow(
         icon: Icons.analytics_outlined,
         title: l.tunnelPacketAnalysis,
+        description: l.tunnelPacketAnalysisDescription,
         value: _tunnelNetworkSettings.packetAnalysisEnabled,
         onChanged: _setPacketAnalysisEnabled,
         tvFocusable: useTvChrome,
@@ -861,6 +866,7 @@ class _TunnelSettingsScreenState extends State<_TunnelSettingsScreen> {
       _CompactToggleRow(
         icon: Icons.dns_outlined,
         title: l.tunnelEnableDnsForTun,
+        description: l.tunnelEnableDnsForTunDescription,
         value: _tunnelNetworkSettings.xrayTunDnsEnabled,
         enabled: xrayTunEnabled,
         onChanged: _setXrayTunDnsEnabled,
@@ -905,6 +911,7 @@ class _TunnelSettingsScreenState extends State<_TunnelSettingsScreen> {
       _CompactValueRow(
         icon: Icons.settings_ethernet_rounded,
         title: l.tunnelMtu,
+        description: l.tunnelMtuDescription,
         child: SizedBox(
           width: 96,
           child: useTvChrome ? tvDpadEscapeTextField(field) : field,
@@ -1418,6 +1425,7 @@ class _TunnelFragmentSettingsCard extends StatelessWidget {
             Divider(height: 1, color: theme.dividerColor),
             _FragmentSettingRow(
               label: l.tunnelFragmentPackets,
+              description: l.tunnelFragmentPacketsDescription,
               child: _FragmentDropdown(
                 value: settings.packets,
                 options: _packetOptions,
@@ -1426,6 +1434,7 @@ class _TunnelFragmentSettingsCard extends StatelessWidget {
             ),
             _FragmentSettingRow(
               label: l.tunnelFragmentLength,
+              description: l.tunnelFragmentLengthDescription,
               child: _FragmentTextField(
                 controller: lengthController,
                 inputFormatters: rangeInputFormatters,
@@ -1434,6 +1443,7 @@ class _TunnelFragmentSettingsCard extends StatelessWidget {
             ),
             _FragmentSettingRow(
               label: l.tunnelFragmentInterval,
+              description: l.tunnelFragmentIntervalDescription,
               child: _FragmentTextField(
                 controller: intervalController,
                 inputFormatters: rangeInputFormatters,
@@ -1442,6 +1452,7 @@ class _TunnelFragmentSettingsCard extends StatelessWidget {
             ),
             _FragmentSettingRow(
               label: l.tunnelFragmentMaxSplit,
+              description: l.tunnelFragmentMaxSplitDescription,
               child: _FragmentTextField(
                 controller: maxSplitController,
                 inputFormatters: rangeInputFormatters,
@@ -1458,11 +1469,21 @@ class _TunnelFragmentSettingsCard extends StatelessWidget {
                 child: Row(
                   children: [
                     Expanded(
-                      child: Text(
-                        l.tunnelNoiseSettings,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            l.tunnelNoiseSettings,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            l.tunnelNoiseSettingsDescription,
+                            style: theme.textTheme.bodySmall,
+                          ),
+                        ],
                       ),
                     ),
                     Icon(
@@ -1486,6 +1507,7 @@ class _TunnelFragmentSettingsCard extends StatelessWidget {
               Divider(height: 1, color: theme.dividerColor),
               _FragmentSettingRow(
                 label: l.tunnelNoiseType,
+                description: l.tunnelNoiseTypeDescription,
                 child: _FragmentDropdown(
                   value: settings.noiseType,
                   options: noiseTypeOptions,
@@ -1496,6 +1518,9 @@ class _TunnelFragmentSettingsCard extends StatelessWidget {
                 label: settings.noiseType == 'rand'
                     ? l.tunnelNoisePacketLengthRange
                     : l.tunnelNoisePacket,
+                description: settings.noiseType == 'rand'
+                    ? l.tunnelNoisePacketLengthRangeDescription
+                    : l.tunnelNoisePacketDescription,
                 child: _FragmentTextField(
                   controller: noisePacketController,
                   inputFormatters: settings.noiseType == 'rand'
@@ -1506,6 +1531,7 @@ class _TunnelFragmentSettingsCard extends StatelessWidget {
               ),
               _FragmentSettingRow(
                 label: l.tunnelNoiseDelay,
+                description: l.tunnelNoiseDelayDescription,
                 child: _FragmentTextField(
                   controller: noiseDelayController,
                   inputFormatters: rangeInputFormatters,
@@ -1514,6 +1540,7 @@ class _TunnelFragmentSettingsCard extends StatelessWidget {
               ),
               _FragmentSettingRow(
                 label: l.tunnelNoiseApplyTo,
+                description: l.tunnelNoiseApplyToDescription,
                 showDivider: false,
                 child: _FragmentDropdown(
                   value: settings.noiseApplyTo,
@@ -1532,11 +1559,13 @@ class _TunnelFragmentSettingsCard extends StatelessWidget {
 class _FragmentSettingRow extends StatelessWidget {
   const _FragmentSettingRow({
     required this.label,
+    required this.description,
     required this.child,
     this.showDivider = true,
   });
 
   final String label;
+  final String description;
   final Widget child;
   final bool showDivider;
 
@@ -1552,11 +1581,18 @@ class _FragmentSettingRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final labelWidget = Text(
-            label,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
+          final labelWidget = Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(description, style: theme.textTheme.bodySmall),
+            ],
           );
           if (constraints.maxWidth < 430) {
             return Column(
@@ -1641,6 +1677,7 @@ class _MultiplexSettingsCard extends StatelessWidget {
             Divider(height: 1, color: theme.dividerColor),
             _FragmentSettingRow(
               label: l.tunnelMuxTcpConnections,
+              description: l.tunnelMuxTcpConnectionsDescription,
               child: _MultiplexConnectionsStepper(
                 value: settings.tcpConnections,
                 min: MultiplexSettings.minConnections,
@@ -1650,6 +1687,7 @@ class _MultiplexSettingsCard extends StatelessWidget {
             ),
             _FragmentSettingRow(
               label: l.tunnelMuxXudpConnections,
+              description: l.tunnelMuxXudpConnectionsDescription,
               child: _MultiplexConnectionsStepper(
                 value: settings.xudpConnections,
                 min: MultiplexSettings.minConnections,
@@ -1659,6 +1697,7 @@ class _MultiplexSettingsCard extends StatelessWidget {
             ),
             _FragmentSettingRow(
               label: l.tunnelMuxQuicBehavior,
+              description: l.tunnelMuxQuicBehaviorDescription,
               showDivider: false,
               child: DropdownButtonFormField<MultiplexQuicBehavior>(
                 key: ValueKey(settings.quicBehavior),
@@ -1805,11 +1844,13 @@ class _CompactValueRow extends StatelessWidget {
   const _CompactValueRow({
     required this.icon,
     required this.title,
+    required this.description,
     required this.child,
   });
 
   final IconData icon;
   final String title;
+  final String description;
   final Widget child;
 
   @override
@@ -1822,11 +1863,18 @@ class _CompactValueRow extends StatelessWidget {
           Icon(icon, color: theme.colorScheme.primary),
           const SizedBox(width: 12),
           Expanded(
-            child: Text(
-              title,
-              style: theme.textTheme.bodyLarge?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(description, style: theme.textTheme.bodySmall),
+              ],
             ),
           ),
           child,

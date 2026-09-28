@@ -20,10 +20,12 @@ class OrientationGate extends StatefulWidget {
     super.key,
     required this.controller,
     required this.child,
+    this.onExitRequested,
   });
 
   final VpnController controller;
   final Widget child;
+  final Future<bool> Function()? onExitRequested;
 
   @override
   State<OrientationGate> createState() => _OrientationGateState();
@@ -39,16 +41,23 @@ class _OrientationGateState extends State<OrientationGate> {
     final previous = _lastObserved;
     _lastObserved = orientation;
 
-    final shouldPop = previous != null &&
+    final shouldPop =
+        previous != null &&
         previous != orientation &&
         orientation == Orientation.landscape &&
         widget.controller.repository.loadTvLayoutPreference() ==
             TvLayoutPreference.autoRotate;
     if (shouldPop && !_popScheduled) {
       _popScheduled = true;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
         if (!mounted) return;
         final navigator = Navigator.of(context);
+        final allowed = await widget.onExitRequested?.call() ?? true;
+        if (!mounted || !navigator.mounted) return;
+        if (!allowed) {
+          _popScheduled = false;
+          return;
+        }
         navigator.popUntil((route) => route.isFirst);
       });
     }

@@ -14,6 +14,7 @@ enum ServerImportError {
   invalidJson,
   unsupportedFormat,
   invalidSubscription,
+  insecureSubscription,
   subscriptionNetwork,
 }
 
@@ -200,6 +201,7 @@ class ServerImporter {
       // VLESS and Hysteria2 require their UUID/auth value. NaiveProxy
       // authentication is optional and stored in dedicated fields.
       if (!config.isNaive && config.uuid.isEmpty) return;
+      if (config.isHysteria2 && !_validHysteria2Obfs(config)) return;
       final fallback = config.isHysteria2
           ? 'Imported Hysteria2'
           : config.isNaive
@@ -449,7 +451,18 @@ class ServerImporter {
             transportServiceName: streamConfig.transportServiceName,
             transportHost: streamConfig.transportHost,
             transportMode: streamConfig.transportMode,
-            xhttpPadding: streamConfig.xhttpPadding,
+            xPaddingObfsMode: streamConfig.xPaddingObfsMode,
+            xPaddingPlacement: streamConfig.xPaddingPlacement,
+            xPaddingKey: streamConfig.xPaddingKey,
+            xPaddingHeader: streamConfig.xPaddingHeader,
+            xPaddingMethod: streamConfig.xPaddingMethod,
+            xPaddingBytes: streamConfig.xPaddingBytes,
+            sessionIDPlacement: streamConfig.sessionIDPlacement,
+            sessionIDKey: streamConfig.sessionIDKey,
+            seqPlacement: streamConfig.seqPlacement,
+            seqKey: streamConfig.seqKey,
+            xhttpRawSettings: streamConfig.xhttpRawSettings,
+            xhttpRawExtra: streamConfig.xhttpRawExtra,
             xhttpMaxPostBytes: streamConfig.xhttpMaxPostBytes,
             xhttpMinPostInterval: streamConfig.xhttpMinPostInterval,
             sni: streamConfig.sni,
@@ -583,6 +596,49 @@ class ServerImporter {
       hysteria2ObfsType: obfsType ?? '',
       hysteria2ObfsMinPacketSize: _int(obfs?['min_packet_size']) ?? 0,
       hysteria2ObfsMaxPacketSize: _int(obfs?['max_packet_size']) ?? 0,
+      hysteria2RawOutbound: _unknownFields(outbound, const {
+        'type',
+        'tag',
+        'name',
+        'server',
+        'server_port',
+        'serverPort',
+        'port',
+        'password',
+        'auth',
+        'uuid',
+        'server_ports',
+        'ports',
+        'tls',
+        'sni',
+        'alpn',
+        'skip-cert-verify',
+        'obfs',
+        'obfs-password',
+        'obfsPassword',
+        'hop_interval',
+        'hop_interval_max',
+        'up_mbps',
+        'down_mbps',
+        'network',
+        'bbr_profile',
+        'detour',
+      }),
+      hysteria2RawObfs: _unknownFields(obfs, const {
+        'type',
+        'password',
+        'min_packet_size',
+        'max_packet_size',
+      }),
+      hysteria2RawTls: _unknownFields(tls, const {
+        'enabled',
+        'server_name',
+        'serverName',
+        'insecure',
+        'skip_cert_verify',
+        'skip-cert-verify',
+        'alpn',
+      }),
       hysteria2HopPorts:
           _hopPortsFromSingBox(outbound['server_ports']) ??
           _string(outbound['ports']) ??
@@ -699,7 +755,32 @@ class ServerImporter {
       transportHost:
           _string(grpc?['authority']) ?? _transportHostFromXray(transportMap),
       transportMode: _string(xhttp?['mode']) ?? '',
-      xhttpPadding: _string(xhttpExtra?['xPaddingBytes']) ?? '',
+      xPaddingObfsMode: _bool(
+        _xhttpValue(xhttpExtra, xhttp, 'xPaddingObfsMode'),
+      ),
+      xPaddingPlacement: _normalizePaddingPlacement(
+        _string(_xhttpValue(xhttpExtra, xhttp, 'xPaddingPlacement')) ?? '',
+      ),
+      xPaddingKey: _string(_xhttpValue(xhttpExtra, xhttp, 'xPaddingKey')) ?? '',
+      xPaddingHeader:
+          _string(_xhttpValue(xhttpExtra, xhttp, 'xPaddingHeader')) ?? '',
+      xPaddingMethod:
+          _string(_xhttpValue(xhttpExtra, xhttp, 'xPaddingMethod')) ?? '',
+      xPaddingBytes:
+          _string(_xhttpValue(xhttpExtra, xhttp, 'xPaddingBytes')) ?? '',
+      sessionIDPlacement:
+          _string(_xhttpValue(xhttpExtra, xhttp, 'sessionIDPlacement')) ??
+          _string(_xhttpValue(xhttpExtra, xhttp, 'sessionPlacement')) ??
+          '',
+      sessionIDKey:
+          _string(_xhttpValue(xhttpExtra, xhttp, 'sessionIDKey')) ??
+          _string(_xhttpValue(xhttpExtra, xhttp, 'sessionKey')) ??
+          '',
+      seqPlacement:
+          _string(_xhttpValue(xhttpExtra, xhttp, 'seqPlacement')) ?? '',
+      seqKey: _string(_xhttpValue(xhttpExtra, xhttp, 'seqKey')) ?? '',
+      xhttpRawSettings: _unknownXhttpSettings(xhttp),
+      xhttpRawExtra: _unknownXhttpExtra(xhttpExtra),
       xhttpMaxPostBytes: _string(xhttpExtra?['scMaxEachPostBytes']) ?? '',
       xhttpMinPostInterval: _string(xhttpExtra?['scMinPostsIntervalMs']) ?? '',
       sni: _string(reality?['serverName']) ?? _string(tls?['serverName']) ?? '',
@@ -736,6 +817,96 @@ class ServerImporter {
   Map<String, dynamic>? _stringMap(Object? value) {
     if (value is! Map) return null;
     return value.map((key, value) => MapEntry(key.toString(), value));
+  }
+
+  Object? _xhttpValue(
+    Map<String, dynamic>? extra,
+    Map<String, dynamic>? settings,
+    String key,
+  ) => extra?[key] ?? settings?[key];
+
+  String _normalizePaddingPlacement(String value) =>
+      value.trim() == 'queryInHeader'
+      ? 'query-in-header'
+      : value.trim().toLowerCase();
+
+  Map<String, dynamic> _unknownXhttpSettings(Map<String, dynamic>? source) {
+    if (source == null) return const {};
+    final result = Map<String, dynamic>.of(source);
+    for (final key in const <String>{
+      'path',
+      'host',
+      'mode',
+      'extra',
+      'xPaddingObfsMode',
+      'xPaddingPlacement',
+      'xPaddingKey',
+      'xPaddingHeader',
+      'xPaddingMethod',
+      'xPaddingBytes',
+      'sessionIDPlacement',
+      'sessionPlacement',
+      'sessionIDKey',
+      'sessionKey',
+      'seqPlacement',
+      'seqKey',
+      'scMaxEachPostBytes',
+      'scMinPostsIntervalMs',
+    }) {
+      result.remove(key);
+    }
+    return Map.unmodifiable(result);
+  }
+
+  Map<String, dynamic> _unknownXhttpExtra(Map<String, dynamic>? source) {
+    if (source == null) return const {};
+    final result = Map<String, dynamic>.of(source);
+    for (final key in const <String>{
+      'xPaddingObfsMode',
+      'xPaddingPlacement',
+      'xPaddingKey',
+      'xPaddingHeader',
+      'xPaddingMethod',
+      'xPaddingBytes',
+      'sessionIDPlacement',
+      'sessionPlacement',
+      'sessionIDKey',
+      'sessionKey',
+      'seqPlacement',
+      'seqKey',
+      'scMaxEachPostBytes',
+      'scMinPostsIntervalMs',
+    }) {
+      result.remove(key);
+    }
+    return Map.unmodifiable(result);
+  }
+
+  bool _validHysteria2Obfs(ServerConfig config) {
+    final type = config.effectiveHysteria2ObfsType;
+    if (type.isNotEmpty && type != 'salamander' && type != 'gecko') {
+      return false;
+    }
+    if (type.isNotEmpty && config.hysteria2ObfsPassword.trim().isEmpty) {
+      return false;
+    }
+    final min = config.hysteria2ObfsMinPacketSize;
+    final max = config.hysteria2ObfsMaxPacketSize;
+    if ((min != 0 && (min < 1 || min > 2048)) ||
+        (max != 0 && (max < 1 || max > 2048))) {
+      return false;
+    }
+    return min == 0 || max == 0 || min <= max;
+  }
+
+  Map<String, dynamic> _unknownFields(
+    Map<String, dynamic>? source,
+    Set<String> knownKeys,
+  ) {
+    if (source == null) return const {};
+    final result = Map<String, dynamic>.of(source)
+      ..removeWhere((key, _) => knownKeys.contains(key));
+    return Map.unmodifiable(result);
   }
 
   String? _string(Object? value) {
@@ -804,7 +975,18 @@ class _StreamImportConfig {
     this.transportServiceName = '',
     this.transportHost = '',
     this.transportMode = '',
-    this.xhttpPadding = '',
+    this.xPaddingObfsMode,
+    this.xPaddingPlacement = '',
+    this.xPaddingKey = '',
+    this.xPaddingHeader = '',
+    this.xPaddingMethod = '',
+    this.xPaddingBytes = '',
+    this.sessionIDPlacement = '',
+    this.sessionIDKey = '',
+    this.seqPlacement = '',
+    this.seqKey = '',
+    this.xhttpRawSettings = const {},
+    this.xhttpRawExtra = const {},
     this.xhttpMaxPostBytes = '',
     this.xhttpMinPostInterval = '',
     this.sni = '',
@@ -823,7 +1005,18 @@ class _StreamImportConfig {
   final String transportServiceName;
   final String transportHost;
   final String transportMode;
-  final String xhttpPadding;
+  final bool? xPaddingObfsMode;
+  final String xPaddingPlacement;
+  final String xPaddingKey;
+  final String xPaddingHeader;
+  final String xPaddingMethod;
+  final String xPaddingBytes;
+  final String sessionIDPlacement;
+  final String sessionIDKey;
+  final String seqPlacement;
+  final String seqKey;
+  final Map<String, dynamic> xhttpRawSettings;
+  final Map<String, dynamic> xhttpRawExtra;
   final String xhttpMaxPostBytes;
   final String xhttpMinPostInterval;
   final String sni;

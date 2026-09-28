@@ -71,6 +71,7 @@ class _ApplicationSettingsScreenState
   late AppLocalePreference _language;
   TvLayoutPreference _tvLayoutPreference = TvLayoutPreference.vertical;
   bool _autoConnectOnLaunch = false;
+  bool _allowDeepLinkVpnAutomation = false;
   bool _killSwitchEnabled = false;
   bool _restartOnSettingsChange = false;
   bool _showSpeedInNotification = false;
@@ -78,6 +79,7 @@ class _ApplicationSettingsScreenState
   bool _verboseXrayLogs = false;
   bool _showGlobalProxyButton = false;
   bool _showExitNodeInfoBar = true;
+  bool _startHomeWidgetsCollapsed = false;
   bool _autoSortServersByPing = false;
   GeoDataAutoUpdateInterval _geoDataAutoUpdateInterval =
       GeoDataAutoUpdateInterval.disabled;
@@ -95,11 +97,13 @@ class _ApplicationSettingsScreenState
     _language = widget.localePreference;
     _tvLayoutPreference = widget.repository.loadTvLayoutPreference();
     _autoConnectOnLaunch = widget.controller.autoConnectOnLaunch;
+    _allowDeepLinkVpnAutomation = widget.controller.allowDeepLinkVpnAutomation;
     _killSwitchEnabled = widget.controller.killSwitchEnabled;
     _restartOnSettingsChange =
         widget.controller.restartConnectionOnSettingsChanges;
     _showGlobalProxyButton = widget.controller.showGlobalProxyButton;
     _showExitNodeInfoBar = widget.controller.showExitNodeInfoBar;
+    _startHomeWidgetsCollapsed = widget.controller.startHomeWidgetsCollapsed;
     _autoSortServersByPing = widget.controller.autoSortServersByPing;
     _geoDataAutoUpdateInterval = widget.controller.geoDataAutoUpdateInterval;
     _latencyProbeTarget = widget.controller.latencyProbeTarget;
@@ -146,6 +150,17 @@ class _ApplicationSettingsScreenState
     if (!mounted) return;
     setState(() {
       _autoConnectOnLaunch = widget.controller.autoConnectOnLaunch;
+    });
+  }
+
+  Future<void> _setAllowDeepLinkVpnAutomation(bool value) async {
+    if (_allowDeepLinkVpnAutomation == value) return;
+    setState(() => _allowDeepLinkVpnAutomation = value);
+    await widget.controller.setAllowDeepLinkVpnAutomation(value);
+    if (!mounted) return;
+    setState(() {
+      _allowDeepLinkVpnAutomation =
+          widget.controller.allowDeepLinkVpnAutomation;
     });
   }
 
@@ -239,6 +254,16 @@ class _ApplicationSettingsScreenState
     if (!mounted) return;
     setState(() {
       _showExitNodeInfoBar = widget.controller.showExitNodeInfoBar;
+    });
+  }
+
+  Future<void> _setStartHomeWidgetsCollapsed(bool value) async {
+    if (_startHomeWidgetsCollapsed == value) return;
+    setState(() => _startHomeWidgetsCollapsed = value);
+    await widget.controller.setStartHomeWidgetsCollapsed(value);
+    if (!mounted) return;
+    setState(() {
+      _startHomeWidgetsCollapsed = widget.controller.startHomeWidgetsCollapsed;
     });
   }
 
@@ -800,7 +825,9 @@ class _ApplicationSettingsScreenState
   }) {
     final rowGap = useTvChrome ? 14.0 : 10.0;
     return [
-      SizedBox(height: first ? (useTvChrome ? 24 : 20) : (useTvChrome ? 28 : 24)),
+      SizedBox(
+        height: first ? (useTvChrome ? 24 : 20) : (useTvChrome ? 28 : 24),
+      ),
       if (useTvChrome)
         TvSettingsSectionLabel(label)
       else
@@ -954,6 +981,19 @@ class _ApplicationSettingsScreenState
       if (!useTvChrome)
         _row(
           useTvChrome: false,
+          icon: Icons.keyboard_arrow_up_rounded,
+          title: l.startHomeWidgetsCollapsedTitle,
+          subtitle: l.startHomeWidgetsCollapsedSubtitle,
+          onTap: () =>
+              _setStartHomeWidgetsCollapsed(!_startHomeWidgetsCollapsed),
+          trailing: Switch(
+            value: _startHomeWidgetsCollapsed,
+            onChanged: _setStartHomeWidgetsCollapsed,
+          ),
+        ),
+      if (!useTvChrome)
+        _row(
+          useTvChrome: false,
           icon: Icons.route_rounded,
           title: l.applicationSettingsShowExitNodeTitle,
           subtitle: l.applicationSettingsShowExitNodeSubtitle,
@@ -974,6 +1014,17 @@ class _ApplicationSettingsScreenState
         trailing: Switch(
           value: _autoConnectOnLaunch,
           onChanged: _setAutoConnectOnLaunch,
+        ),
+      ),
+      _row(
+        useTvChrome: useTvChrome,
+        icon: Icons.link_outlined,
+        title: l.allowDeepLinkVpnAutomationTitle,
+        subtitle: l.allowDeepLinkVpnAutomationSubtitle,
+        onTap: () => _setAllowDeepLinkVpnAutomation(!_allowDeepLinkVpnAutomation),
+        trailing: Switch(
+          value: _allowDeepLinkVpnAutomation,
+          onChanged: _setAllowDeepLinkVpnAutomation,
         ),
       ),
       if (Platform.isAndroid)

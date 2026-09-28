@@ -56,6 +56,38 @@ void main() {
     expect(find.text('Upload bandwidth (Mbps)'), findsOneWidget);
   });
 
+  testWidgets('Gecko UI requires password and validates packet size order', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _testApp(
+        ServerAdvancedFields(
+          protocol: ServerProtocol.hysteria2,
+          security: VlessSecurity.tls,
+          enabled: true,
+          initial: const ServerAdvancedSettings(
+            hysteria2ObfsType: 'gecko',
+            hysteria2ObfsMinPacketSize: 1200,
+            hysteria2ObfsMaxPacketSize: 512,
+          ),
+          onChanged: (_) {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Gecko'), findsOneWidget);
+    expect(find.text('Gecko minimum packet size'), findsOneWidget);
+    expect(find.text('Gecko maximum packet size'), findsOneWidget);
+    expect(tester.state<FormState>(find.byType(Form)).validate(), isFalse);
+    await tester.pump();
+    expect(find.text('Obfs password is required'), findsOneWidget);
+    expect(
+      find.text('Maximum must be greater than or equal to minimum'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('Naive advanced section renders structured header rows', (
     tester,
   ) async {

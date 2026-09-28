@@ -36,8 +36,8 @@ class FavCard extends StatelessWidget {
           onTap: onTap,
           child: Container(
             width: 120,
-            height: 64,
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            height: 54,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             decoration: BoxDecoration(
               border: Border.all(
                 color: selected ? t.fg1 : t.border,
@@ -109,7 +109,7 @@ class FavPlaceholder extends StatelessWidget {
         radius: 10,
         child: Container(
           width: 96,
-          height: 64,
+          height: 54,
           alignment: Alignment.center,
           child: Icon(Icons.add_rounded, color: t.fg3, size: 18),
         ),

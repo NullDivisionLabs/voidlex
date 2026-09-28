@@ -73,7 +73,7 @@ internal object VpnServiceConfigParser {
 
         val xhttpExtras = if (server.transport.equals("xhttp", ignoreCase = true)) {
             ", xhttpMode=${server.transportMode.ifBlank { "auto" }}" +
-                ", xhttpPad=${server.xhttpPadding.ifBlank { "default" }}" +
+                ", xhttpPad=${server.xPaddingBytes.ifBlank { "stock" }}" +
                 ", xhttpMaxPost=${server.xhttpMaxPostBytes.ifBlank { "default" }}" +
                 ", xhttpMinInt=${server.xhttpMinPostInterval.ifBlank { "default" }}"
         } else {
@@ -295,8 +295,36 @@ internal object VpnServiceConfigParser {
                 intent.getStringExtra(key(VoidVpnService.EXTRA_TRANSPORT_SERVICE_NAME)) ?: "",
             transportHost = intent.getStringExtra(key(VoidVpnService.EXTRA_TRANSPORT_HOST)) ?: "",
             transportMode = intent.getStringExtra(key(VoidVpnService.EXTRA_TRANSPORT_MODE)) ?: "",
-            xhttpPadding =
-                intent.getStringExtra(key(VoidVpnService.EXTRA_XHTTP_PADDING)) ?: "",
+            xPaddingObfsMode = if (
+                intent.getBooleanExtra(
+                    key(VoidVpnService.EXTRA_X_PADDING_OBFS_MODE_PRESENT),
+                    false,
+                )
+            ) {
+                intent.getBooleanExtra(key(VoidVpnService.EXTRA_X_PADDING_OBFS_MODE), false)
+            } else {
+                null
+            },
+            xPaddingPlacement =
+                intent.getStringExtra(key(VoidVpnService.EXTRA_X_PADDING_PLACEMENT)) ?: "",
+            xPaddingKey = intent.getStringExtra(key(VoidVpnService.EXTRA_X_PADDING_KEY)) ?: "",
+            xPaddingHeader =
+                intent.getStringExtra(key(VoidVpnService.EXTRA_X_PADDING_HEADER)) ?: "",
+            xPaddingMethod =
+                intent.getStringExtra(key(VoidVpnService.EXTRA_X_PADDING_METHOD)) ?: "",
+            xPaddingBytes =
+                intent.getStringExtra(key(VoidVpnService.EXTRA_X_PADDING_BYTES)) ?: "",
+            sessionIDPlacement =
+                intent.getStringExtra(key(VoidVpnService.EXTRA_SESSION_ID_PLACEMENT)) ?: "",
+            sessionIDKey =
+                intent.getStringExtra(key(VoidVpnService.EXTRA_SESSION_ID_KEY)) ?: "",
+            seqPlacement =
+                intent.getStringExtra(key(VoidVpnService.EXTRA_SEQ_PLACEMENT)) ?: "",
+            seqKey = intent.getStringExtra(key(VoidVpnService.EXTRA_SEQ_KEY)) ?: "",
+            xhttpRawSettingsJson =
+                intent.getStringExtra(key(VoidVpnService.EXTRA_XHTTP_RAW_SETTINGS_JSON)) ?: "{}",
+            xhttpRawExtraJson =
+                intent.getStringExtra(key(VoidVpnService.EXTRA_XHTTP_RAW_EXTRA_JSON)) ?: "{}",
             xhttpMaxPostBytes =
                 intent.getStringExtra(key(VoidVpnService.EXTRA_XHTTP_MAX_POST_BYTES)) ?: "",
             xhttpMinPostInterval =
@@ -324,6 +352,12 @@ internal object VpnServiceConfigParser {
                 intent.getIntExtra(key(VoidVpnService.EXTRA_HYSTERIA2_OBFS_MIN_PACKET_SIZE), 0),
             hysteria2ObfsMaxPacketSize =
                 intent.getIntExtra(key(VoidVpnService.EXTRA_HYSTERIA2_OBFS_MAX_PACKET_SIZE), 0),
+            hysteria2RawOutboundJson =
+                intent.getStringExtra(key(VoidVpnService.EXTRA_HYSTERIA2_RAW_OUTBOUND_JSON)) ?: "{}",
+            hysteria2RawObfsJson =
+                intent.getStringExtra(key(VoidVpnService.EXTRA_HYSTERIA2_RAW_OBFS_JSON)) ?: "{}",
+            hysteria2RawTlsJson =
+                intent.getStringExtra(key(VoidVpnService.EXTRA_HYSTERIA2_RAW_TLS_JSON)) ?: "{}",
             hysteria2HopPorts =
                 intent.getStringExtra(key(VoidVpnService.EXTRA_HYSTERIA2_HOP_PORTS)) ?: "",
             hysteria2HopInterval =

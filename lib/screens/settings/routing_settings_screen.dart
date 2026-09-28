@@ -300,10 +300,7 @@ class _RoutingSettingsScreenState extends State<RoutingSettingsScreen> {
     if (selected != null) await _onPresetMenuAction(selected, preset);
   }
 
-  Widget _presetPickerFace(
-    ThemeData theme,
-    RoutingPreset preset,
-  ) {
+  Widget _presetPickerFace(ThemeData theme, RoutingPreset preset) {
     return Container(
       height: 44,
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -564,10 +561,7 @@ class _RoutingSettingsScreenState extends State<RoutingSettingsScreen> {
     final preset = widget.controller.selectedRoutingPreset;
     final presets = widget.controller.routingPresets;
     final presetsToggle = TvSettingsNonFocusTrailing(
-      child: Switch(
-        value: _presetsExpanded,
-        onChanged: _setPresetsExpanded,
-      ),
+      child: Switch(value: _presetsExpanded, onChanged: _setPresetsExpanded),
     );
     final presetsHeader = Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -863,130 +857,120 @@ class _RoutingSettingsScreenState extends State<RoutingSettingsScreen> {
     required bool useTvChrome,
   }) {
     return [
-                    _buildPresetsBlock(theme, l, useTvChrome: useTvChrome),
-                    SizedBox(height: useTvChrome ? 16 : 12),
-                    if (useTvChrome)
-                      TvSettingsCard(
-                        icon: Icons.apps_rounded,
-                        title: l.routingTileAppRouting,
-                        autofocus: true,
-                        onTap: () async {
-                          final shouldShowRestartNotice =
-                              await Navigator.of(context).push<bool>(
-                                MaterialPageRoute<bool>(
-                                  builder: (_) => _AppRoutingScreen(
-                                    controller: widget.controller,
-                                    useTvChrome: useTvChrome,
-                                    allowTvChromeInAutoRotate:
-                                        widget.allowTvChromeInAutoRotate,
-                                  ),
-                                ),
-                              );
-                          _showEditorPresetRestartNoticeIf(
-                            shouldShowRestartNotice == true,
-                          );
-                        },
-                      )
-                    else
-                      _RoutingActionTile(
-                        title: l.routingTileAppRouting,
-                        onTap: () async {
-                          final shouldShowRestartNotice =
-                              await Navigator.of(context).push<bool>(
-                                MaterialPageRoute<bool>(
-                                  builder: (_) => _AppRoutingScreen(
-                                    controller: widget.controller,
-                                    useTvChrome: useTvChrome,
-                                    allowTvChromeInAutoRotate:
-                                        widget.allowTvChromeInAutoRotate,
-                                  ),
-                                ),
-                              );
-                          _showEditorPresetRestartNoticeIf(
-                            shouldShowRestartNotice == true,
-                          );
-                        },
-                      ),
-                    const SizedBox(height: 12),
-                    Text(
-                      l.routingCustomRulesHeading,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: theme.textTheme.bodySmall?.color,
-                      ),
+      _buildPresetsBlock(theme, l, useTvChrome: useTvChrome),
+      SizedBox(height: useTvChrome ? 16 : 12),
+      if (useTvChrome)
+        TvSettingsCard(
+          icon: Icons.apps_rounded,
+          title: l.routingTileAppRouting,
+          autofocus: true,
+          onTap: () async {
+            final shouldShowRestartNotice = await Navigator.of(context)
+                .push<bool>(
+                  MaterialPageRoute<bool>(
+                    builder: (_) => _AppRoutingScreen(
+                      controller: widget.controller,
+                      useTvChrome: useTvChrome,
+                      allowTvChromeInAutoRotate:
+                          widget.allowTvChromeInAutoRotate,
                     ),
-                    const SizedBox(height: 10),
-                    if (rules.isEmpty)
-                      Container(
-                        clipBehavior: Clip.none,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 16,
-                        ),
-                        decoration: BoxDecoration(
-                          color: theme.cardColor,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: theme.dividerColor),
-                        ),
-                        child: Text(
-                          l.routingNoCustomRulesYet,
-                          style: theme.textTheme.bodyMedium,
-                        ),
-                      )
-                    else if (useTvChrome)
-                      ListView.separated(
-                        shrinkWrap: true,
-                        primary: false,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: rules.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 12),
-                        itemBuilder: (context, index) {
-                          final rule = rules[index];
-                          return _RoutingRuleTile(
-                            rule: rule,
-                            index: index,
-                            useTvChrome: true,
-                            onTap: () => _openEditor(initial: rule),
-                            onToggle: (value) => _toggleRule(rule, value),
-                            onDelete: () => _confirmDelete(rule),
-                          );
-                        },
-                      )
-                    else
-                      ReorderableListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        buildDefaultDragHandles: false,
-                        itemCount: rules.length,
-                        onReorder: (oldIndex, newIndex) async {
-                          final wasConnected = widget.controller.isConnected;
-                          await widget.controller.reorderRoutingRule(
-                            oldIndex,
-                            newIndex,
-                          );
-                          _showEditorPresetRestartNoticeIf(wasConnected);
-                        },
-                        proxyDecorator: (child, _, _) => Material(
-                          color: Colors.transparent,
-                          elevation: 6,
-                          borderRadius: BorderRadius.circular(14),
-                          child: child,
-                        ),
-                        itemBuilder: (context, index) {
-                          final rule = rules[index];
-                          return Padding(
-                            key: ValueKey(rule.id),
-                            padding: const EdgeInsets.symmetric(vertical: 4),
-                            child: _RoutingRuleTile(
-                              rule: rule,
-                              index: index,
-                              onTap: () => _openEditor(initial: rule),
-                              onToggle: (value) => _toggleRule(rule, value),
-                              onDelete: () => _confirmDelete(rule),
-                            ),
-                          );
-                        },
-                      ),
+                  ),
+                );
+            _showEditorPresetRestartNoticeIf(shouldShowRestartNotice == true);
+          },
+        )
+      else
+        _RoutingActionTile(
+          title: l.routingTileAppRouting,
+          onTap: () async {
+            final shouldShowRestartNotice = await Navigator.of(context)
+                .push<bool>(
+                  MaterialPageRoute<bool>(
+                    builder: (_) => _AppRoutingScreen(
+                      controller: widget.controller,
+                      useTvChrome: useTvChrome,
+                      allowTvChromeInAutoRotate:
+                          widget.allowTvChromeInAutoRotate,
+                    ),
+                  ),
+                );
+            _showEditorPresetRestartNoticeIf(shouldShowRestartNotice == true);
+          },
+        ),
+      const SizedBox(height: 12),
+      Text(
+        l.routingCustomRulesHeading,
+        style: theme.textTheme.titleMedium?.copyWith(
+          fontWeight: FontWeight.w600,
+          color: theme.textTheme.bodySmall?.color,
+        ),
+      ),
+      const SizedBox(height: 10),
+      if (rules.isEmpty)
+        Container(
+          clipBehavior: Clip.none,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 16),
+          decoration: BoxDecoration(
+            color: theme.cardColor,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: theme.dividerColor),
+          ),
+          child: Text(
+            l.routingNoCustomRulesYet,
+            style: theme.textTheme.bodyMedium,
+          ),
+        )
+      else if (useTvChrome)
+        ListView.separated(
+          shrinkWrap: true,
+          primary: false,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: rules.length,
+          separatorBuilder: (_, _) => const SizedBox(height: 12),
+          itemBuilder: (context, index) {
+            final rule = rules[index];
+            return _RoutingRuleTile(
+              rule: rule,
+              index: index,
+              useTvChrome: true,
+              onTap: () => _openEditor(initial: rule),
+              onToggle: (value) => _toggleRule(rule, value),
+              onDelete: () => _confirmDelete(rule),
+            );
+          },
+        )
+      else
+        ReorderableListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          buildDefaultDragHandles: false,
+          itemCount: rules.length,
+          onReorderItem: (oldIndex, newIndex) async {
+            final wasConnected = widget.controller.isConnected;
+            await widget.controller.reorderRoutingRule(oldIndex, newIndex);
+            _showEditorPresetRestartNoticeIf(wasConnected);
+          },
+          proxyDecorator: (child, _, _) => Material(
+            color: Colors.transparent,
+            elevation: 6,
+            borderRadius: BorderRadius.circular(14),
+            child: child,
+          ),
+          itemBuilder: (context, index) {
+            final rule = rules[index];
+            return Padding(
+              key: ValueKey(rule.id),
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: _RoutingRuleTile(
+                rule: rule,
+                index: index,
+                onTap: () => _openEditor(initial: rule),
+                onToggle: (value) => _toggleRule(rule, value),
+                onDelete: () => _confirmDelete(rule),
+              ),
+            );
+          },
+        ),
     ];
   }
 }

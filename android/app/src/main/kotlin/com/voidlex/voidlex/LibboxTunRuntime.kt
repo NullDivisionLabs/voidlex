@@ -17,6 +17,8 @@ import android.os.Process
 import android.system.OsConstants
 import io.nekohasekai.libbox.CommandServer
 import io.nekohasekai.libbox.CommandServerHandler
+import io.nekohasekai.libbox.BridgeOptions
+import io.nekohasekai.libbox.BridgeSession
 import io.nekohasekai.libbox.ConnectionOwner
 import io.nekohasekai.libbox.InterfaceUpdateListener
 import io.nekohasekai.libbox.Libbox
@@ -26,12 +28,13 @@ import io.nekohasekai.libbox.NetworkInterfaceIterator
 import io.nekohasekai.libbox.Notification
 import io.nekohasekai.libbox.OverrideOptions
 import io.nekohasekai.libbox.PlatformInterface
+import io.nekohasekai.libbox.PlatformUser
 import io.nekohasekai.libbox.SetupOptions
+import io.nekohasekai.libbox.ShellSession
 import io.nekohasekai.libbox.StringIterator
 import io.nekohasekai.libbox.SystemProxyStatus
 import io.nekohasekai.libbox.TunOptions
 import io.nekohasekai.libbox.WIFIState
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -41,8 +44,6 @@ import kotlinx.coroutines.withTimeoutOrNull
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.NetworkInterface
-import java.security.KeyStore
-import java.util.Base64
 
 internal class LibboxTunRuntime(
     private val service: VpnService,
@@ -90,8 +91,7 @@ internal class LibboxTunRuntime(
     // That's the moment libbox's route engine actually knows which underlying
     // interface to use for outbound traffic, i.e. when packets start flowing
     // instead of being dropped. See awaitReady() and VoidVpnService.
-    @Volatile
-    private var readySignal: CompletableDeferred<Unit>? = null
+    private val readinessGate = LibboxReadinessGate()
 
     private val commandHandler = object : CommandServerHandler {
         override fun writeDebugMessage(message: String?) {
@@ -121,6 +121,8 @@ internal class LibboxTunRuntime(
         override fun triggerNativeCrash() {
             AppLogger.w(TAG, "Ignoring libbox native crash request")
         }
+
+        override fun connectSSHAgent(): Int = -1
     }
 
     private val localResolver = LibboxLocalDnsTransport(::requireUnderlyingNetwork)
@@ -133,17 +135,7 @@ internal class LibboxTunRuntime(
     // Parent-coroutine cancellation propagates normally. Used in place of
     // a blind sleep after tunRuntime.start so we flip the UI to "connected"
     // only once traffic will really go through.
-    suspend fun awaitReady(timeoutMs: Long): Boolean {
-        val signal = readySignal ?: return false
-        return withTimeoutOrNull(timeoutMs) {
-            try {
-                signal.await()
-                true
-            } catch (e: kotlinx.coroutines.CancellationException) {
-                if (signal.isCancelled) false else throw e
-            }
-        } ?: false
-    }
+    suspend fun awaitReady(timeoutMs: Long): Boolean = readinessGate.await(timeoutMs)
 
     fun start(
         isGlobalProxy: Boolean,
@@ -157,9 +149,10 @@ internal class LibboxTunRuntime(
     ): Boolean {
         stop()
         activeGeneration = generation
-        readySignal = CompletableDeferred()
+        readinessGate.reset()
 
         return runCatching {
+            AppLogger.i(TAG, "Starting libbox ${Libbox.version().trim()}")
             val options = SetupOptions()
             options.basePath = service.filesDir.absolutePath
             options.workingPath = service.filesDir.absolutePath
@@ -202,8 +195,7 @@ internal class LibboxTunRuntime(
         val hadRuntime = server != null || pfd != null || defaultNetworkCallback != null
 
         activeGeneration = 0
-        readySignal?.cancel()
-        readySignal = null
+        readinessGate.cancel()
         closeDefaultInterfaceMonitor(null)
         commandServer = null
         fileDescriptor = null
@@ -261,8 +253,16 @@ internal class LibboxTunRuntime(
             null
         }
         if (underlyingNetwork != null) {
-            builder.setUnderlyingNetworks(arrayOf(underlyingNetwork))
-            AppLogger.i(TAG, "openTun setUnderlyingNetworks: net=$underlyingNetwork")
+            // Let Android select the VPN's underlying network. Xray runs as a
+            // child process and uses the system default route; pinning the
+            // VpnService to a Network breaks that excluded process's egress
+            // with libbox 1.14.0 on affected devices. The detected physical
+            // interface is still reported to libbox through its monitor.
+            builder.setUnderlyingNetworks(null)
+            AppLogger.i(
+                TAG,
+                "openTun setUnderlyingNetworks: automatic (null), detected=$underlyingNetwork",
+            )
         } else {
             AppLogger.w(
                 TAG,
@@ -589,6 +589,12 @@ internal class LibboxTunRuntime(
             if (addresses.isEmpty()) {
                 continue
             }
+            val gateways = linkProperties.routes.asSequence()
+                .filter { it.isDefaultRoute }
+                .mapNotNull { it.gateway?.hostAddress }
+                .filter { it.isNotBlank() }
+                .distinct()
+                .toList()
 
             val boxInterface = io.nekohasekai.libbox.NetworkInterface().apply {
                 name = linkProperties.interfaceName
@@ -606,6 +612,7 @@ internal class LibboxTunRuntime(
                 metered = !networkCapabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
                 setDNSServer(StringArray(linkProperties.dnsServers.mapNotNull { it.hostAddress }.iterator()))
                 setAddresses(StringArray(addresses.iterator()))
+                setGateway(StringArray(gateways.iterator()))
                 mtu = linkProperties.mtu.takeIf { it > 0 }
                     ?: runCatching { javaInterface.mtu }.getOrDefault(0)
                 flags = computeInterfaceFlags(javaInterface, networkCapabilities)
@@ -641,28 +648,40 @@ internal class LibboxTunRuntime(
 
     override fun localDNSTransport(): LocalDNSTransport = localResolver
 
-    override fun systemCertificates(): StringIterator {
-        val certificates = mutableListOf<String>()
-        runCatching {
-            val keyStore = KeyStore.getInstance("AndroidCAStore")
-            keyStore.load(null, null)
-            val aliases = keyStore.aliases()
-            while (aliases.hasMoreElements()) {
-                val cert = keyStore.getCertificate(aliases.nextElement()) ?: continue
-                certificates.add(
-                    "-----BEGIN CERTIFICATE-----\n" +
-                        Base64.getMimeEncoder(64, "\n".toByteArray()).encodeToString(cert.encoded) +
-                        "\n-----END CERTIFICATE-----",
-                )
-            }
-        }.onFailure {
-            AppLogger.e(TAG, "Failed to load Android system certificates", it)
-        }
-        AppLogger.i(TAG, "Loaded ${certificates.size} Android system certificates")
-        return StringArray(certificates.iterator())
+    override fun usePlatformBridge(): Boolean = false
+
+    override fun createBridge(options: BridgeOptions): BridgeSession {
+        throw UnsupportedOperationException("Platform bridge is disabled")
     }
 
+    override fun usePlatformShell(): Boolean = false
+
+    override fun checkPlatformShell() {}
+
+    override fun lookupUser(username: String): PlatformUser {
+        throw UnsupportedOperationException("Platform shell is disabled")
+    }
+
+    override fun openShellSession(
+        user: PlatformUser,
+        command: String,
+        environ: StringIterator,
+        term: String,
+        rows: Int,
+        cols: Int,
+    ): ShellSession {
+        throw UnsupportedOperationException("Platform shell is disabled")
+    }
+
+    override fun lookupSFTPServer(): String = ""
+
+    override fun readSystemSSHHostKey(): String = ""
+
+    override fun tailscaleHostname(): String = ""
+
     override fun sendNotification(p1: Notification?) {}
+
+    override fun cancelNotification(identifier: String?, typeID: Int) {}
 
     private fun buildOverrideOptions(
         isGlobalProxy: Boolean,
@@ -724,13 +743,16 @@ internal class LibboxTunRuntime(
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            service.setUnderlyingNetworks(arrayOf(network))
+            // A later default-network callback must not restore an explicit
+            // VpnService network pin. libbox still receives the interface name
+            // and index through updateDefaultInterface below.
+            service.setUnderlyingNetworks(null)
         }
 
         val linkProperties = connectivityManager.getLinkProperties(network) ?: return
         val interfaceName = linkProperties.interfaceName ?: return
         val expectedListener = listener
-        val expectedSignal = readySignal
+        val readinessToken = readinessGate.currentToken()
 
         interfaceUpdateJob = scope.launch {
             val interfaceIndex = resolveInterfaceIndex(interfaceName)
@@ -746,7 +768,7 @@ internal class LibboxTunRuntime(
                 AppLogger.w(TAG, "updateDefaultInterface delivery failed", it)
             }.isSuccess
             if (delivered && interfaceIndex >= 0) {
-                expectedSignal?.complete(Unit)
+                readinessGate.markReady(readinessToken)
             }
         }
     }

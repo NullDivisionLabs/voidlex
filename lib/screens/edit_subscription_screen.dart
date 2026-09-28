@@ -6,6 +6,8 @@ import '../core/vpn_controller.dart';
 import '../l10n/app_localizations.dart';
 import '../theme.dart';
 import 'widgets/orientation_gate.dart';
+import 'widgets/insecure_subscription_dialog.dart';
+import 'widgets/unsaved_changes_dialog.dart';
 
 class EditSubscriptionScreen extends StatefulWidget {
   const EditSubscriptionScreen({
@@ -30,8 +32,29 @@ class _EditSubscriptionScreenState extends State<EditSubscriptionScreen> {
   late String _updateIntervalSelection;
   bool _isSaving = false;
   bool _isDeleting = false;
+  bool _hasUnsavedChanges = false;
 
   bool get _isBusy => _isSaving || _isDeleting;
+
+  void _markDirty() {
+    if (_hasUnsavedChanges || _isBusy) return;
+    setState(() => _hasUnsavedChanges = true);
+  }
+
+  Future<bool> _confirmLeave() async {
+    if (_isBusy) return false;
+    if (!_hasUnsavedChanges) return true;
+    final confirmed = await confirmDiscardUnsavedChanges(context);
+    if (confirmed && mounted) {
+      setState(() => _hasUnsavedChanges = false);
+    }
+    return confirmed;
+  }
+
+  Future<void> _handleBlockedPop() async {
+    if (!await _confirmLeave() || !mounted) return;
+    Navigator.of(context).pop();
+  }
 
   SubscriptionUpdateInterval? get _updateIntervalOverride {
     if (_updateIntervalSelection == _defaultUpdateIntervalSelection) {
@@ -61,15 +84,27 @@ class _EditSubscriptionScreenState extends State<EditSubscriptionScreen> {
     final form = _formKey.currentState;
     if (form == null || !form.validate()) return;
 
+    final normalizedUrl = _urlController.text.trim();
+    final parsedUrl = Uri.tryParse(normalizedUrl);
+    if (normalizedUrl != widget.subscription.url &&
+        parsedUrl?.scheme.toLowerCase() == 'http' &&
+        !await confirmInsecureSubscription(context)) {
+      return;
+    }
+    if (!mounted) return;
+
     setState(() => _isSaving = true);
     final error = await widget.controller.updateSubscription(
       id: widget.subscription.id,
       name: _nameController.text.trim(),
-      url: _urlController.text.trim(),
+      url: normalizedUrl,
       updateIntervalOverride: _updateIntervalOverride,
     );
     if (!mounted) return;
-    setState(() => _isSaving = false);
+    setState(() {
+      _isSaving = false;
+      if (error == null) _hasUnsavedChanges = false;
+    });
 
     if (error != null) {
       _showMessage(error);
@@ -108,6 +143,7 @@ class _EditSubscriptionScreenState extends State<EditSubscriptionScreen> {
     setState(() => _isDeleting = true);
     await widget.controller.deleteSubscription(widget.subscription.id);
     if (!mounted) return;
+    setState(() => _hasUnsavedChanges = false);
     Navigator.of(context).pop(true);
   }
 
@@ -124,114 +160,125 @@ class _EditSubscriptionScreenState extends State<EditSubscriptionScreen> {
 
     return OrientationGate(
       controller: widget.controller,
-      child: Scaffold(
-      body: NestedScrollView(
-        headerSliverBuilder: (context, innerBoxIsScrolled) {
-          return [
-            SliverAppBar(
-              pinned: true,
-              floating: false,
-              snap: false,
-              backgroundColor: theme.scaffoldBackgroundColor,
-              surfaceTintColor: Colors.transparent,
-              leading: IconButton(
-                onPressed: () => Navigator.of(context).maybePop(),
-                icon: const Icon(Icons.arrow_back_rounded),
-              ),
-              title: Text(l.editSubscriptionTitle),
-              actions: [
-                IconButton(
-                  tooltip: l.editSubscriptionDeleteTooltip,
-                  onPressed: _isBusy ? null : _confirmAndDelete,
-                  icon: Icon(
-                    Icons.delete_outline_rounded,
-                    color: _isBusy
-                        ? theme.disabledColor
-                        : theme.colorScheme.error,
-                  ),
-                ),
-                IconButton(
-                  tooltip: l.editSubscriptionSaveTooltip,
-                  onPressed: _isBusy ? null : _save,
-                  icon: const Icon(Icons.save_rounded),
-                ),
-              ],
-            ),
-          ];
+      onExitRequested: _confirmLeave,
+      child: PopScope(
+        canPop: !_hasUnsavedChanges && !_isBusy,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) _handleBlockedPop();
         },
-        body: Form(
-          key: _formKey,
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-            child: _SectionCard(
-              title: l.editSubscriptionSectionTitle,
-              children: [
-                TextFormField(
-                  controller: _nameController,
-                  enabled: !_isBusy,
-                  decoration: InputDecoration(
-                    labelText: l.routingRuleNameLabel,
+        child: Scaffold(
+          body: NestedScrollView(
+            headerSliverBuilder: (context, innerBoxIsScrolled) {
+              return [
+                SliverAppBar(
+                  pinned: true,
+                  floating: false,
+                  snap: false,
+                  backgroundColor: theme.scaffoldBackgroundColor,
+                  surfaceTintColor: Colors.transparent,
+                  leading: IconButton(
+                    onPressed: () => Navigator.of(context).maybePop(),
+                    icon: const Icon(Icons.arrow_back_rounded),
                   ),
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return l.subscriptionNameRequired;
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 14),
-                TextFormField(
-                  controller: _urlController,
-                  enabled: !_isBusy,
-                  keyboardType: TextInputType.url,
-                  style: const TextStyle(
-                    fontFamily: 'monospace',
-                    fontWeight: FontWeight.w500,
-                  ),
-                  decoration: InputDecoration(labelText: l.editServerCopyAsUrl),
-                  validator: (value) {
-                    final raw = value?.trim() ?? '';
-                    final uri = Uri.tryParse(raw);
-                    if (uri == null ||
-                        uri.host.isEmpty ||
-                        (uri.scheme != 'http' && uri.scheme != 'https')) {
-                      return l.subscriptionInvalidUrl;
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 14),
-                DropdownButtonFormField<String>(
-                  initialValue: _updateIntervalSelection,
-                  isExpanded: true,
-                  decoration: InputDecoration(
-                    labelText: l.editSubscriptionAutoUpdateIntervalLabel,
-                  ),
-                  items: [
-                    DropdownMenuItem<String>(
-                      value: _defaultUpdateIntervalSelection,
-                      child: Text(l.subscriptionIntervalDefault),
-                    ),
-                    for (final interval in SubscriptionUpdateInterval.values)
-                      DropdownMenuItem<String>(
-                        value: interval.name,
-                        child: Text(
-                          _subscriptionUpdateIntervalLabel(l, interval),
-                        ),
+                  title: Text(l.editSubscriptionTitle),
+                  actions: [
+                    IconButton(
+                      tooltip: l.editSubscriptionDeleteTooltip,
+                      onPressed: _isBusy ? null : _confirmAndDelete,
+                      icon: Icon(
+                        Icons.delete_outline_rounded,
+                        color: _isBusy
+                            ? theme.disabledColor
+                            : theme.colorScheme.error,
                       ),
+                    ),
+                    IconButton(
+                      tooltip: l.editSubscriptionSaveTooltip,
+                      onPressed: _isBusy ? null : _save,
+                      icon: const Icon(Icons.save_rounded),
+                    ),
                   ],
-                  onChanged: _isBusy
-                      ? null
-                      : (value) {
-                          if (value == null) return;
-                          setState(() => _updateIntervalSelection = value);
-                        },
                 ),
-              ],
+              ];
+            },
+            body: Form(
+              key: _formKey,
+              onChanged: _markDirty,
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+                child: _SectionCard(
+                  title: l.editSubscriptionSectionTitle,
+                  children: [
+                    TextFormField(
+                      controller: _nameController,
+                      enabled: !_isBusy,
+                      decoration: InputDecoration(
+                        labelText: l.routingRuleNameLabel,
+                      ),
+                      validator: (value) {
+                        if (value == null || value.trim().isEmpty) {
+                          return l.subscriptionNameRequired;
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                    TextFormField(
+                      controller: _urlController,
+                      enabled: !_isBusy,
+                      keyboardType: TextInputType.url,
+                      style: const TextStyle(
+                        fontFamily: 'monospace',
+                        fontWeight: FontWeight.w500,
+                      ),
+                      decoration: InputDecoration(
+                        labelText: l.editServerCopyAsUrl,
+                      ),
+                      validator: (value) {
+                        final raw = value?.trim() ?? '';
+                        final uri = Uri.tryParse(raw);
+                        if (uri == null ||
+                            uri.host.isEmpty ||
+                            (uri.scheme != 'http' && uri.scheme != 'https')) {
+                          return l.subscriptionInvalidUrl;
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 14),
+                    DropdownButtonFormField<String>(
+                      initialValue: _updateIntervalSelection,
+                      isExpanded: true,
+                      decoration: InputDecoration(
+                        labelText: l.editSubscriptionAutoUpdateIntervalLabel,
+                      ),
+                      items: [
+                        DropdownMenuItem<String>(
+                          value: _defaultUpdateIntervalSelection,
+                          child: Text(l.subscriptionIntervalDefault),
+                        ),
+                        for (final interval
+                            in SubscriptionUpdateInterval.values)
+                          DropdownMenuItem<String>(
+                            value: interval.name,
+                            child: Text(
+                              _subscriptionUpdateIntervalLabel(l, interval),
+                            ),
+                          ),
+                      ],
+                      onChanged: _isBusy
+                          ? null
+                          : (value) {
+                              if (value == null) return;
+                              setState(() => _updateIntervalSelection = value);
+                            },
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
         ),
-      ),
       ),
     );
   }

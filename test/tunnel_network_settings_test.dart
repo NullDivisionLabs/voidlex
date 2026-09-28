@@ -58,13 +58,23 @@ void main() {
   test('uses requested defaults for mtu and ip mode', () {
     const settings = TunnelNetworkSettings.defaults;
 
-    expect(settings.networkStack, TunnelNetworkStack.system);
+    expect(settings.networkStack, TunnelNetworkStack.gvisor);
     expect(settings.blockUdp, isFalse);
     expect(settings.mtu, 1500);
     expect(settings.ipMode, TunnelIpMode.ipv4);
     expect(settings.xrayTunDnsEnabled, isFalse);
     expect(settings.xrayTunDnsServer, '1.1.1.1');
     expect(settings.hasCustomXrayTunDns, isFalse);
+  });
+
+  test('missing or invalid stored stack falls back to gvisor', () {
+    final missing = TunnelNetworkSettings.decode(jsonEncode({}));
+    final invalid = TunnelNetworkSettings.decode(
+      jsonEncode({'networkStack': 'unsupported'}),
+    );
+
+    expect(missing.networkStack, TunnelNetworkStack.gvisor);
+    expect(invalid.networkStack, TunnelNetworkStack.gvisor);
   });
 
   test('normalizes blank xray TUN DNS to default', () {
