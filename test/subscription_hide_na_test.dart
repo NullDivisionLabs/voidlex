@@ -13,7 +13,8 @@ void main() {
   const stateChannel = MethodChannel('org.voidlex.vpn/state');
 
   setUp(() {
-    SharedPreferences.setMockInitialValues({});
+    // These fixtures represent current URL results, not legacy TCP pings.
+    SharedPreferences.setMockInitialValues({'void.urlProbeResultsVersion': 1});
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(serviceChannel, (_) async => null);
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger

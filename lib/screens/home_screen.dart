@@ -21,6 +21,7 @@ import 'widgets/exit_info_bar.dart';
 import 'widgets/fav_card.dart';
 import 'widgets/global_proxy_pill.dart';
 import 'widgets/node_ping_badge.dart';
+import 'widgets/node_diagnostic_controls.dart';
 import 'widgets/section_header.dart';
 import 'widgets/server_node_tile.dart';
 import 'widgets/status_strip.dart';
@@ -28,7 +29,7 @@ import 'widgets/triangle_hub.dart';
 import 'widgets/void_dock.dart';
 import 'widgets/void_top_bar.dart';
 
-enum _FavoriteMenuAction { move, remove }
+enum _FavoriteMenuAction { move, remove, diagnose }
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({
@@ -238,6 +239,9 @@ class _HomeScreenState extends State<HomeScreen> {
       case ServerMenuAction.remove:
         await _confirmAndRemoveServer(server);
         break;
+      case ServerMenuAction.diagnose:
+        await _diagnoseAlternate(server);
+        break;
     }
   }
 
@@ -307,6 +311,16 @@ class _HomeScreenState extends State<HomeScreen> {
         overlay.size.height - details.globalPosition.dy,
       ),
       items: [
+        if (_controller.nodeDiagnosticMenuEnabled)
+          PopupMenuItem<_FavoriteMenuAction>(
+            value: _FavoriteMenuAction.diagnose,
+            child: Text(
+              _controller.alternateNodeDiagnosticMode.label == 'URL'
+                  ? l.urlDiagnosticTitle
+                  : l.tcpDiagnosticTitle,
+              style: itemStyle,
+            ),
+          ),
         PopupMenuItem<_FavoriteMenuAction>(
           value: _FavoriteMenuAction.move,
           child: Row(
@@ -337,6 +351,9 @@ class _HomeScreenState extends State<HomeScreen> {
       case _FavoriteMenuAction.remove:
         await _removeFavoriteFromFavorites(server);
         break;
+      case _FavoriteMenuAction.diagnose:
+        await _diagnoseAlternate(server);
+        break;
     }
   }
 
@@ -346,6 +363,13 @@ class _HomeScreenState extends State<HomeScreen> {
           subscription.servers.any((server) => server.name == serverName),
     );
   }
+
+  Future<void> _diagnoseAlternate(ServerConfig server) => showServerDiagnostic(
+    context: context,
+    controller: _controller,
+    server: server,
+    mode: _controller.alternateNodeDiagnosticMode,
+  );
 
   Future<void> _assignRoutingPresetToServer(ServerConfig server) async {
     final assigned =
@@ -534,9 +558,11 @@ class _HomeScreenState extends State<HomeScreen> {
     return ValueListenableBuilder<VpnConnectionState>(
       valueListenable: _controller.connectionStateListenable,
       builder: (context, state, _) {
-        return ValueListenableBuilder<String>(
-          valueListenable: _controller.connectionDurationLabelListenable,
-          builder: (context, durationLabel, _) {
+        return ListenableBuilder(
+          listenable: _controller.connectionDurationLabelListenable,
+          builder: (context, _) {
+            final durationLabel =
+                _controller.connectionDurationLabelListenable.value;
             return AnimatedSwitcher(
               duration: const Duration(milliseconds: 260),
               switchInCurve: Curves.easeOutCubic,
@@ -917,13 +943,15 @@ class _HomeScreenState extends State<HomeScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               _SearchButton(onTap: hasNodes ? _openSearch : null),
-              const SizedBox(width: 6),
+              NodeDiagnosticModeSelector(controller: _controller),
               ValueListenableBuilder<bool>(
                 valueListenable: _controller.isScanningLatencyListenable,
                 builder: (context, scanning, _) {
                   return _ScanButton(
                     busy: scanning,
-                    onTap: scanning ? null : _controller.scanManualLatencies,
+                    onTap: scanning
+                        ? _controller.cancelUrlProbes
+                        : _controller.scanManualLatencies,
                   );
                 },
               ),
@@ -1333,10 +1361,13 @@ class _HomeScreenState extends State<HomeScreen> {
             builder: (context, tick, _) {
               final isScanning = _controller.isScanningSubscription(sub.id);
               return VoidIconActionButton(
-                icon: Icons.network_ping_rounded,
-                busy: isScanning,
-                tooltip: l.tooltipScanPing,
-                onTap: isScanning || isRefreshing
+                icon: isScanning
+                    ? Icons.stop_rounded
+                    : Icons.network_ping_rounded,
+                tooltip: isScanning ? l.cancel : l.tooltipScanPing,
+                onTap: isScanning
+                    ? _controller.cancelUrlProbes
+                    : isRefreshing
                     ? null
                     : () => _controller.scanSubscriptionLatencies(sub.id),
               );
@@ -1441,9 +1472,10 @@ class _ScanButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return VoidIconActionButton(
-      icon: Icons.network_ping_rounded,
-      busy: busy,
-      tooltip: AppLocalizations.of(context).tooltipScanPing,
+      icon: busy ? Icons.stop_rounded : Icons.network_ping_rounded,
+      tooltip: busy
+          ? AppLocalizations.of(context).cancel
+          : AppLocalizations.of(context).tooltipScanPing,
       onTap: onTap,
     );
   }

@@ -251,7 +251,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsGroupNodes.
   ///
   /// In en, this message translates to:
-  /// **'Nodes'**
+  /// **'Diagnostics'**
   String get settingsGroupNodes;
 
   /// No description provided for @settingsGroupProfile.
@@ -383,7 +383,7 @@ abstract class AppLocalizations {
   /// No description provided for @applicationSettingsPingTargetTitle.
   ///
   /// In en, this message translates to:
-  /// **'Ping server'**
+  /// **'TCP diagnostic address'**
   String get applicationSettingsPingTargetTitle;
 
   /// No description provided for @applicationSettingsPingTargetDefault.
@@ -395,7 +395,7 @@ abstract class AppLocalizations {
   /// No description provided for @applicationSettingsPingTargetDialogTitle.
   ///
   /// In en, this message translates to:
-  /// **'Ping server'**
+  /// **'TCP diagnostic address'**
   String get applicationSettingsPingTargetDialogTitle;
 
   /// No description provided for @applicationSettingsPingTargetFieldLabel.
@@ -1138,7 +1138,7 @@ abstract class AppLocalizations {
   /// No description provided for @editServerFingerprintHelper.
   ///
   /// In en, this message translates to:
-  /// **'Default: chrome for XHTTP, none otherwise'**
+  /// **'Auto uses the runtime default. Older profiles may reduce ClientHello size; speed and energy savings are not guaranteed.'**
   String get editServerFingerprintHelper;
 
   /// No description provided for @editServerFingerprintAuto.
@@ -2784,6 +2784,48 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'JSON must contain exactly one valid supported server configuration.'**
   String get editServerJsonInvalid;
+
+  /// No description provided for @jsonEditorSyntaxError.
+  ///
+  /// In en, this message translates to:
+  /// **'Line {line}, col {column}: Syntax error ({error})'**
+  String jsonEditorSyntaxError(int line, int column, String error);
+
+  /// No description provided for @jsonEditorValid.
+  ///
+  /// In en, this message translates to:
+  /// **'Valid configuration: {details}'**
+  String jsonEditorValid(String details);
+
+  /// No description provided for @jsonEditorIncomplete.
+  ///
+  /// In en, this message translates to:
+  /// **'Valid JSON syntax, but server configuration is incomplete'**
+  String get jsonEditorIncomplete;
+
+  /// No description provided for @jsonEditorFormatTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Format JSON'**
+  String get jsonEditorFormatTooltip;
+
+  /// No description provided for @jsonEditorWrapTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Toggle line wrap'**
+  String get jsonEditorWrapTooltip;
+
+  /// No description provided for @jsonEditorGoToError.
+  ///
+  /// In en, this message translates to:
+  /// **'Go to error'**
+  String get jsonEditorGoToError;
+
+  /// No description provided for @jsonEditorLinesCount.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{{count} line} other{{count} lines}}'**
+  String jsonEditorLinesCount(int count);
 
   /// No description provided for @settingsHwidLoading.
   ///
@@ -4462,13 +4504,13 @@ abstract class AppLocalizations {
   /// No description provided for @faqQ1.
   ///
   /// In en, this message translates to:
-  /// **'Why can\'t I pick an XHTTP server as the exit node in a two-hop chain?'**
+  /// **'Which servers cannot be used in a two-hop chain (entry → exit)?'**
   String get faqQ1;
 
   /// No description provided for @faqA1.
   ///
   /// In en, this message translates to:
-  /// **'In a two-hop setup the exit node\'s outbound is dialled through the entry via sockopt.dialerProxy. XHTTP is an HTTP/2 transport with its own TLS/REALITY wrapper, and its handshake doesn\'t reach across the entry tunnel cleanly — the connection comes up, but nothing flows. XHTTP servers are therefore hidden in the exit-node picker. Use such a server as the primary (entry) node, and pick a VLESS-TCP / WS / REALITY server as the exit.'**
+  /// **'The two-hop chain is handled by the Xray core via `sockopt.dialerProxy`. This introduces two key limits:\n1. **Hysteria2 and NaiveProxy** cannot be used in a chain at all (neither as entry nor as exit) because they run directly via the libbox engine.\n2. **XHTTP** is not recommended as an exit node: due to HTTP/2 transport specifics, the handshake often fails to complete across the entry tunnel. Use XHTTP as the primary (entry) node, and choose VLESS-TCP, WS, or REALITY for the exit.'**
   String get faqA1;
 
   /// No description provided for @faqQ2.
@@ -4528,7 +4570,7 @@ abstract class AppLocalizations {
   /// No description provided for @faqA6.
   ///
   /// In en, this message translates to:
-  /// **'Some parameters (TUN engine, DNS, stack, MTU, fragmentation, multiplex, …) only apply on the next tunnel start. In tunnel settings there\'s a **«Restart tunnel on settings change»** toggle — with it on, the app re-establishes the connection when you leave the settings screen. Otherwise disconnect and reconnect by hand.'**
+  /// **'Some parameters (TUN engine, network stack, DNS, MTU, fragmentation, multiplex, etc.) only take effect on the next tunnel start. In **«Settings → Application»** there is a **«Restart on changes»** toggle — when enabled, the app automatically reconnects when you leave settings. If it is disabled, disconnect and reconnect manually.'**
   String get faqA6;
 
   /// No description provided for @faqQ7.
@@ -4540,7 +4582,7 @@ abstract class AppLocalizations {
   /// No description provided for @faqA7.
   ///
   /// In en, this message translates to:
-  /// **'HWID is a stable per-device identifier, computed locally (visible in «About»). It is sent in an HTTP header on the subscription request **only when the provider explicitly asks for it** via the subscription URL. Providers use it for «one subscription — N devices» quotas. HWID is not sent anywhere else.'**
+  /// **'HWID is a stable anonymous device identifier computed locally (visible in «About»). It is sent in the `X-HWID` header on subscription requests if **«Send HWID»** is enabled under **«Settings → Subscription provider»**. Some providers require it to enforce device quotas. You can turn off HWID transmission at any time. HWID is never sent anywhere else.'**
   String get faqA7;
 
   /// No description provided for @faqQ8.
@@ -4552,7 +4594,7 @@ abstract class AppLocalizations {
   /// No description provided for @faqA8.
   ///
   /// In en, this message translates to:
-  /// **'The standard build ships `geoip.dat` / `geosite.dat` (~28 MB) inside the APK — rules like `geosite:netflix` work out of the box. The slim build omits those files and downloads them on first launch from «Settings → GeoData». If you don\'t use geo-based routing rules, you can skip the GeoData download entirely.'**
+  /// **'The standard build ships `geoip.dat` and `geosite.dat` (~28 MB) inside the APK — routing rules like `geosite:google` or `geoip:ru` work immediately. The slim build omits them to reduce APK size. You can download the files, configure auto-updates (1, 3, or 7 days), or load custom files from storage in **«Settings → Routing → GeoData files»**. If you do not use geo-based rules, you can skip downloading GeoData entirely.'**
   String get faqA8;
 
   /// No description provided for @faqQ9.
@@ -4582,13 +4624,13 @@ abstract class AppLocalizations {
   /// No description provided for @faqQ11.
   ///
   /// In en, this message translates to:
-  /// **'The ping to the server and the ping via the local proxy differ a lot — what shows what?'**
+  /// **'How do node URL tests, connection latency and TCP diagnostics differ?'**
   String get faqQ11;
 
   /// No description provided for @faqA11.
   ///
   /// In en, this message translates to:
-  /// **'**Endpoint ping** is a plain TCP ping to the server\'s IP:port (how quickly the network reaches it). **Proxy ping** is a real HTTP request through the established proxy connection (includes TLS handshake, reverse proxy, routing). The second is always larger; it reflects how the internet actually feels. A large gap usually means your ISP is throttling the proxy itself, not the network.'**
+  /// **'**Node URL tests** make an HTTP request through that node\'s own outbound after a warm-up. **Connection latency** tests the running tunnel and its entire selected chain. **TCP diagnostics** only test port reachability and do not confirm a working proxy. Choose TCP or URL on the home screen; both tools remain available under Application → Diagnostics in settings. Enabling diagnostics in the node menu adds the opposite test. Standalone checks do not change list latency. The default URL is http://cp.cloudflare.com/ and requires HTTP 204; custom URLs require 2xx. Redirects fail. A failed test can also mean the target website is unavailable.'**
   String get faqA11;
 
   /// No description provided for @faqQ12.
@@ -4600,7 +4642,7 @@ abstract class AppLocalizations {
   /// No description provided for @faqA12.
   ///
   /// In en, this message translates to:
-  /// **'First — the auto-refresh interval (1 hour by default) and the «refresh on launch» toggle. To force it, hit refresh on the subscription page. If the content still doesn\'t change, your provider returned the same node set. If the «protect subscriptions» switch is on, manual edits inside subscription nodes are overwritten on the next refresh.'**
+  /// **'1. Check the auto-refresh interval (by default **6 hours**; configured under «Settings → Subscription provider» or per-subscription) and the «Refresh on launch» toggle.\n2. Force a refresh using the update button on the subscription card.\n3. If the list does not change, your provider is returning the exact same node set.\n4. If «Protect subscriptions» is enabled, manual edits inside subscription nodes will be overwritten during updates.'**
   String get faqA12;
 
   /// No description provided for @faqQ13.
@@ -4672,7 +4714,7 @@ abstract class AppLocalizations {
   /// No description provided for @faqA18.
   ///
   /// In en, this message translates to:
-  /// **'There\'s no dedicated «kill switch» toggle in the UI. If the VPN drops, traffic may leak directly until you reconnect. For hard blocking of unprotected traffic, use Android\'s system **Always-on VPN** in the OS settings — the same screen lets you turn on «Block connections without VPN».'**
+  /// **'Yes. A built-in **«Kill Switch»** toggle is available under **«Settings → Application»**. When active, an unexpected VPN drop immediately blocks all unprotected internet traffic and posts a notification allowing you to restore connectivity or reconnect. Manually disconnecting the tunnel restores normal network access.\nFor strict system-level protection, you can also enable Android\'s native **Always-on VPN** with «Block connections without VPN» via the «Auto-connect on device boot» shortcut.'**
   String get faqA18;
 
   /// No description provided for @faqQ19.
@@ -4698,6 +4740,54 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'**Android TV / Google TV** — yes, a dedicated full-screen UI with D-pad support; the nodes and subscriptions are shared with the mobile version. **iOS / iPadOS** — a full client is in development.'**
   String get faqA20;
+
+  /// No description provided for @faqQ21.
+  ///
+  /// In en, this message translates to:
+  /// **'What is the difference between «Proxy-only» and «VPN tunnel (TUN)» mode?'**
+  String get faqQ21;
+
+  /// No description provided for @faqA21.
+  ///
+  /// In en, this message translates to:
+  /// **'Configured in **«Settings → Tunnel → Run mode»**:\n• **VPN tunnel (TUN)** is the default mode: all device traffic is routed via Android\'s VpnService (key icon in the status bar).\n• **Hide icon (proxy-only)** starts a local SOCKS5/HTTP proxy without creating a system TUN interface. No VPN icon is displayed, and the OS VPN slot remains free for other apps. Traffic is routed through the proxy only from apps configured manually (e.g. Telegram, custom browsers).'**
+  String get faqA21;
+
+  /// No description provided for @faqQ22.
+  ///
+  /// In en, this message translates to:
+  /// **'Are Hysteria2 and NaiveProxy supported, and what are their requirements?'**
+  String get faqQ22;
+
+  /// No description provided for @faqA22.
+  ///
+  /// In en, this message translates to:
+  /// **'Yes, VoidLex supports importing `hy2://` / `hysteria2://` and `naive+https://` / `naive+quic://` links.\nKey requirements:\n1. They require the **libbox** TUN engine (they cannot run with Xray TUN).\n2. They cannot be used in two-hop chains (exit node).\n3. NaiveProxy supports both HTTPS and QUIC transports.'**
+  String get faqA22;
+
+  /// No description provided for @faqQ23.
+  ///
+  /// In en, this message translates to:
+  /// **'Can I share the proxy with other devices over Wi-Fi or hotspot?'**
+  String get faqQ23;
+
+  /// No description provided for @faqA23.
+  ///
+  /// In en, this message translates to:
+  /// **'Yes. In **«Settings → Tunnel → Local proxy»** (and in Proxy-only mode), the proxy can listen on the local network. Devices connected to the same Wi-Fi or your mobile hotspot can use SOCKS5 (`port 10808`) and HTTP (`port 10809`) by targeting your phone\'s IP. For security, enable authentication and configure a username and password under SOCKS5/HTTP credentials.'**
+  String get faqA23;
+
+  /// No description provided for @faqQ24.
+  ///
+  /// In en, this message translates to:
+  /// **'The tunnel disconnects on its own after 10–20 minutes in the background — how to fix it?'**
+  String get faqQ24;
+
+  /// No description provided for @faqA24.
+  ///
+  /// In en, this message translates to:
+  /// **'This is caused by aggressive OS power management on certain Android skins (HyperOS/MIUI, ColorOS, EMUI, OneUI):\n1. In Android app info for VoidLex, disable **«Battery optimisation»** (set to «Unrestricted»).\n2. Enable **«Auto-start»** and allow background activity.\n3. In the recent apps overview, lock VoidLex with the lock icon.\n4. For uninterrupted operation, configure Android\'s native **Always-on VPN** in system network settings.'**
+  String get faqA24;
 
   /// No description provided for @autoConnectOnBootTitle.
   ///
@@ -4896,6 +4986,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Copied to clipboard'**
   String get urlSchemeCopied;
+
+  /// No description provided for @additionalTlsFingerprintsTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Additional TLS fingerprints'**
+  String get additionalTlsFingerprintsTitle;
+
+  /// No description provided for @additionalTlsFingerprintsSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Show Safari 16.0, Chrome 120 and iOS 14. Saved choices remain active when hidden.'**
+  String get additionalTlsFingerprintsSubtitle;
+
+  /// No description provided for @urlProbeTargetTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Node URL test address'**
+  String get urlProbeTargetTitle;
+
+  /// No description provided for @urlProbeTargetHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Requests go through each node. A failed test can also mean the target site is unavailable.'**
+  String get urlProbeTargetHelp;
+
+  /// No description provided for @urlProbeTargetInvalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a full HTTP/HTTPS URL without credentials or a fragment.'**
+  String get urlProbeTargetInvalid;
+
+  /// No description provided for @tcpDiagnosticTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'TCP diagnostic'**
+  String get tcpDiagnosticTitle;
+
+  /// No description provided for @tcpDiagnosticSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Checks only the port, without proxy authorization. Does not change home screen latency.'**
+  String get tcpDiagnosticSubtitle;
+
+  /// No description provided for @nodeDiagnosticModeTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Default node diagnostic'**
+  String get nodeDiagnosticModeTitle;
+
+  /// No description provided for @nodeDiagnosticModeHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose TCP or URL for node latency on the home screen.'**
+  String get nodeDiagnosticModeHelp;
+
+  /// No description provided for @nodeDiagnosticMenuTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Diagnostic in node menu'**
+  String get nodeDiagnosticMenuTitle;
+
+  /// No description provided for @nodeDiagnosticMenuHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'Add the other test to the node menu: URL when TCP is the default, or TCP when URL is the default.'**
+  String get nodeDiagnosticMenuHelp;
+
+  /// No description provided for @urlDiagnosticTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'URL diagnostic'**
+  String get urlDiagnosticTitle;
+
+  /// No description provided for @urlDiagnosticSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Test an individual node through its outbound without changing home screen results.'**
+  String get urlDiagnosticSubtitle;
 }
 
 class _AppLocalizationsDelegate

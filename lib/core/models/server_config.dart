@@ -387,6 +387,24 @@ class ServerConfig {
     return 5100000;
   }
 
+  /// Canonical identity of connection parameters, excluding presentation state.
+  String get connectionKey {
+    final json = toJson()
+      ..remove('name')
+      ..remove('ping')
+      ..remove('isPinned');
+    Object? canonical(Object? value) {
+      if (value is Map) {
+        final keys = value.keys.cast<String>().toList()..sort();
+        return {for (final key in keys) key: canonical(value[key])};
+      }
+      if (value is List) return value.map(canonical).toList();
+      return value;
+    }
+
+    return jsonEncode(canonical(json));
+  }
+
   Map<String, dynamic> toNativeArgs({
     required bool isGlobalProxy,
     required TunEngineMode tunEngineMode,

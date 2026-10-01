@@ -90,7 +90,7 @@ class AppLocalizationsRu extends AppLocalizations {
   String get settingsGroupConnection => 'Подключение';
 
   @override
-  String get settingsGroupNodes => 'Узлы';
+  String get settingsGroupNodes => 'Диагностика';
 
   @override
   String get settingsGroupProfile => 'Профиль';
@@ -164,13 +164,14 @@ class AppLocalizationsRu extends AppLocalizations {
       'Включает info-уровень ядра xray (ошибки dial, Reality-auth, ALPN) и однократный дамп сгенерированной конфигурации при старте. Только для диагностики; чувствительные поля маскируются.';
 
   @override
-  String get applicationSettingsPingTargetTitle => 'Сервер для пинга';
+  String get applicationSettingsPingTargetTitle => 'Адрес диагностики TCP';
 
   @override
   String get applicationSettingsPingTargetDefault => 'Адрес узла';
 
   @override
-  String get applicationSettingsPingTargetDialogTitle => 'Сервер для пинга';
+  String get applicationSettingsPingTargetDialogTitle =>
+      'Адрес диагностики TCP';
 
   @override
   String get applicationSettingsPingTargetFieldLabel => 'Хост или URL';
@@ -590,7 +591,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get editServerFingerprintHelper =>
-      'По умолчанию: chrome для XHTTP, иначе нет';
+      'Auto использует выбор ядра. Старые профили могут уменьшать ClientHello; ускорение и экономия энергии не гарантированы.';
 
   @override
   String get editServerFingerprintAuto => 'Авто (нет)';
@@ -1501,6 +1502,42 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get editServerJsonInvalid =>
       'JSON должен содержать ровно одну корректную конфигурацию поддерживаемого сервера.';
+
+  @override
+  String jsonEditorSyntaxError(int line, int column, String error) {
+    return 'Строка $line, колонка $column: Ошибка синтаксиса ($error)';
+  }
+
+  @override
+  String jsonEditorValid(String details) {
+    return 'Корректная конфигурация: $details';
+  }
+
+  @override
+  String get jsonEditorIncomplete =>
+      'Синтаксис JSON корректен, но конфигурация сервера не полная';
+
+  @override
+  String get jsonEditorFormatTooltip => 'Форматировать JSON';
+
+  @override
+  String get jsonEditorWrapTooltip => 'Перенос строк';
+
+  @override
+  String get jsonEditorGoToError => 'К ошибке';
+
+  @override
+  String jsonEditorLinesCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count строк',
+      many: '$count строк',
+      few: '$count строки',
+      one: '$count строка',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get settingsHwidLoading => 'Загрузка…';
@@ -2467,11 +2504,11 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get faqQ1 =>
-      'Почему сервер с транспортом XHTTP нельзя выбрать как выходную ноду в цепочке (entry → exit)?';
+      'Какие серверы нельзя использовать в двухступенчатой цепочке (entry → exit)?';
 
   @override
   String get faqA1 =>
-      'В двухступенчатой схеме исходящий трафик exit-узла прокидывается через entry через sockopt.dialerProxy. XHTTP — это HTTP/2-транспорт с собственной TLS/REALITY-обвязкой; его handshake не доходит до entry-тоннеля корректно: соединение поднимается, но данные не идут. Поэтому при выборе exit-узла XHTTP-серверы скрыты. Используйте такой сервер как основной (entry), а exit\'ом ставьте VLESS-TCP / WS / REALITY.';
+      'Двухступенчатая цепочка строится ядром Xray через `sockopt.dialerProxy`. Из-за этого действуют ограничения:\n1. **Hysteria2 и NaiveProxy** вообще не поддерживаются в цепочке (ни как входной, ни как выходной узел), так как работают напрямую через движок libbox.\n2. **XHTTP** не рекомендуется ставить выходным узлом (exit): из-за специфики HTTP/2-транспорта рукопожатие может не пройти через entry-туннель. Серверы XHTTP надёжно работают как входной (entry) узел, а на выход лучше ставить VLESS-TCP, WS или REALITY.';
 
   @override
   String get faqQ2 =>
@@ -2509,14 +2546,14 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get faqA6 =>
-      'Часть параметров (движок TUN, DNS, стек, MTU, фрагментация, multiplex и т.д.) применяются только при следующем поднятии туннеля. В настройках туннеля есть переключатель **«Перезапускать туннель при смене настроек»** — с ним приложение само переподнимет соединение, когда вы выйдете из настроек. Иначе — отключите и подключитесь вручную.';
+      'Часть параметров (движок TUN, стек, DNS, MTU, фрагментация, multiplex и др.) применяются только при следующем поднятии туннеля. В **«Настройки → Приложение»** есть переключатель **«Перезапуск при изменениях»** — с ним приложение само переподключит соединение при выходе из настроек. Иначе — отключите и подключите туннель вручную.';
 
   @override
   String get faqQ7 => 'Что такое HWID и зачем подписка его передаёт?';
 
   @override
   String get faqA7 =>
-      'HWID — стабильный идентификатор устройства, вычисляется локально (виден в «О приложении»). Передаётся в HTTP-заголовке запроса к подписке **только если провайдер прямо просит** этого в URL подписки. Нужен провайдерам для лимита «одна подписка — N устройств». Никуда больше HWID не отправляется.';
+      'HWID — стабильный анонимный идентификатор устройства, вычисляемый локально (его можно увидеть в «О приложении»). Он передаётся в заголовке `X-HWID` при запросе подписки, если включена опция **«Отправлять HWID»** в **«Настройки → Провайдер подписки»**. Это нужно некоторым провайдерам для контроля лимита подключённых устройств. Вы можете отключить его отправку в любой момент. Никуда больше HWID не передаётся.';
 
   @override
   String get faqQ8 =>
@@ -2524,7 +2561,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get faqA8 =>
-      'Стандартная сборка несёт `geoip.dat` / `geosite.dat` (~28 МБ) в APK — правила вида `geosite:netflix` работают сразу. Slim-сборка эти файлы не содержит и качает их при первом запуске в «Настройки → GeoData». Если вы не используете geo-правила в маршрутизации — GeoData можно не качать вовсе.';
+      'Стандартная сборка содержит базы `geoip.dat` и `geosite.dat` (~28 МБ) внутри APK — правила маршрутизации вида `geosite:google` или `geoip:ru` работают сразу. Slim-сборка не включает эти файлы для уменьшения размера APK. Загрузить базы, настроить их автообновление (1, 3 или 7 дней) либо выбрать файл с устройства можно в **«Настройки → Маршрутизация → Файлы GeoData»**. Если geo-правила не используются, базы можно не скачивать.';
 
   @override
   String get faqQ9 =>
@@ -2543,19 +2580,19 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get faqQ11 =>
-      'Пинг к серверу и пинг через локальный прокси сильно отличаются — что показывает что?';
+      'Чем отличаются URL-тест ноды, пинг подключения и диагностика TCP?';
 
   @override
   String get faqA11 =>
-      '**Пинг к endpoint** — обычный TCP-пинг до IP:порт сервера (насколько быстро доходит сеть). **Пинг через локальный прокси** — реальный HTTP-запрос через установленное прокси-соединение (включает TLS-handshake, реверс-прокси, маршрутизацию). Второй всегда больше; именно он отражает «как ощущается интернет». Большая разница — провайдер режет сам прокси, не сеть.';
+      '**URL-тест ноды** выполняет HTTP-запрос через её собственный outbound после прогрева. **Пинг подключения** проверяет действующий туннель и всю выбранную цепочку. **Диагностика TCP** проверяет только доступность порта и не подтверждает работу прокси. На главном экране можно выбрать TCP или URL; оба инструмента всегда доступны в настройках «Приложение → Диагностика». Переключатель диагностики в меню ноды добавляет проверку противоположного типа. Разовые проверки не меняют пинг в списке. По умолчанию URL-тест обращается к http://cp.cloudflare.com/ и ожидает HTTP 204; для своего адреса — 2xx. Перенаправления считаются ошибкой. Неудача также может означать недоступность целевого сайта.';
 
   @override
   String get faqQ12 =>
-      'Подписка не обновляется или обновилась, но списка не изменилось — что проверить?';
+      'Подписка не обновляется или обновилась, но список не изменился — что проверить?';
 
   @override
   String get faqA12 =>
-      'Сначала — интервал автообновления (по умолчанию час) и тумблер «обновлять при запуске». Принудительно — кнопкой обновления на странице подписки. Если содержимое не меняется — провайдер вернул тот же набор узлов. Если включена защита от изменений, ручные правки в узлах подписки игнорируются при следующем обновлении.';
+      '1. Проверьте интервал автообновления (по умолчанию **6 часов**; настраивается в «Настройки → Провайдер подписки» или индивидуально в карточке подписки) и тумблер «Обновлять при запуске».\n2. Обновите вручную кнопкой на карточке подписки.\n3. Если состав серверов не меняется, значит провайдер возвращает прежний список.\n4. Если включена «Защита подписок», локальные правки внутри узлов подписки перезаписываются при обновлении.';
 
   @override
   String get faqQ13 =>
@@ -2600,7 +2637,7 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get faqA18 =>
-      'Отдельного переключателя «kill switch» в UI нет. При обрыве VPN трафик может пойти напрямую, пока вы не подключитесь снова. Для жёсткой блокировки трафика без VPN используйте системный **Always-on VPN** Android в настройках самой системы — там же можно включить «Блокировать соединения без VPN».';
+      'Да. В **«Настройки → Приложение»** доступен встроенный переключатель **«Kill Switch»**. При его включении неожиданный обрыв VPN моментально блокирует весь незащищённый трафик устройства и отображает служебное уведомление для восстановления сети или переподключения. Ручное отключение туннеля пользователем восстанавливает сеть штатно.\nДля максимальной защиты на системном уровне Android также можно включить системный **Always-on VPN** («Блокировать подключения без VPN») через пункт «Автоподключение при загрузке устройства».';
 
   @override
   String get faqQ19 => 'Куда пишутся данные и логи — это безопасно?';
@@ -2615,6 +2652,38 @@ class AppLocalizationsRu extends AppLocalizations {
   @override
   String get faqA20 =>
       '**Android TV / Google TV** — да, отдельный полноэкранный интерфейс с поддержкой пульта (D-pad), общие с мобильной версией узлы и подписки. **iOS / iPadOS** — полноценный клиент в разработке.';
+
+  @override
+  String get faqQ21 =>
+      'Чем отличается режим «Только прокси» от «VPN-туннель (TUN)»?';
+
+  @override
+  String get faqA21 =>
+      'Режим выбирается в **«Настройки → Туннель → Режим работы»**:\n• **VPN-туннель (TUN)** — стандартный режим: весь трафик устройства перехватывается через системный VpnService (значок ключа в статусной строке).\n• **Скрыть значок (proxy-only)** — запускает локальный прокси без создания виртуального сетевого интерфейса Android. Значок VPN отсутствует, а системный VPN-слот остаётся свободным для других приложений. Трафик через туннель направляется только из тех программ, где прокси настроен вручную (Telegram, браузер и т.д.).';
+
+  @override
+  String get faqQ22 =>
+      'Поддерживаются ли протоколы Hysteria2 и NaiveProxy и как их настроить?';
+
+  @override
+  String get faqA22 =>
+      'Да, VoidLex поддерживает импорт ссылок `hy2://` / `hysteria2://` и `naive+https://` / `naive+quic://`.\nОсобенности работы:\n1. Для них требуется TUN-движок **libbox** (с Xray TUN они не работают).\n2. Они не поддерживают двухступенчатую цепочку (Exit-узел).\n3. В NaiveProxy поддерживаются режимы HTTPS и QUIC.';
+
+  @override
+  String get faqQ23 =>
+      'Можно ли раздать прокси на другие устройства через точку доступа или Wi-Fi?';
+
+  @override
+  String get faqA23 =>
+      'Да. В **«Настройки → Туннель → Локальный прокси»** (а также в режиме Proxy-only) можно включить раздачу прокси в локальную сеть. Устройства в одной Wi-Fi сети или подключённые к вашей точке доступа могут использовать SOCKS5 (`порт 10808`) и HTTP (`порт 10809`), указав IP-адрес вашего телефона. Для защиты обязательно включите аутентификацию и задайте логин и пароль в учетных данных SOCKS5/HTTP.';
+
+  @override
+  String get faqQ24 =>
+      'Туннель выключается в фоне через 10–20 минут — как исправить?';
+
+  @override
+  String get faqA24 =>
+      'Причиной является агрессивное управление питанием в ряде оболочек Android (HyperOS/MIUI, ColorOS, EMUI, OneUI):\n1. В свойствах приложения VoidLex отключите **«Оптимизацию батареи»** (выберите «Без ограничений»).\n2. Разрешите **«Автозапуск»** и работу в фоновом режиме.\n3. В меню запущенных приложений закрепите карточку VoidLex «замочком».\n4. Для гарантии постоянной работы используйте системный **Always-on VPN** в настройках сети Android.';
 
   @override
   String get autoConnectOnBootTitle =>
@@ -2727,4 +2796,50 @@ class AppLocalizationsRu extends AppLocalizations {
 
   @override
   String get urlSchemeCopied => 'Скопировано в буфер';
+
+  @override
+  String get additionalTlsFingerprintsTitle => 'Дополнительные TLS-отпечатки';
+
+  @override
+  String get additionalTlsFingerprintsSubtitle =>
+      'Показывать Safari 16.0, Chrome 120 и iOS 14. Сохранённый выбор работает и после отключения.';
+
+  @override
+  String get urlProbeTargetTitle => 'Адрес URL-теста нод';
+
+  @override
+  String get urlProbeTargetHelp =>
+      'Запрос проходит через каждую ноду. Ошибка теста также может означать недоступность выбранного сайта.';
+
+  @override
+  String get urlProbeTargetInvalid =>
+      'Введите полный HTTP/HTTPS URL без логина, пароля и фрагмента.';
+
+  @override
+  String get tcpDiagnosticTitle => 'Диагностика TCP';
+
+  @override
+  String get tcpDiagnosticSubtitle =>
+      'Проверяет только порт, без авторизации прокси. Не меняет пинг на главном экране.';
+
+  @override
+  String get nodeDiagnosticModeTitle => 'Диагностика нод по умолчанию';
+
+  @override
+  String get nodeDiagnosticModeHelp =>
+      'Выбор TCP или URL для пинга нод на главном экране.';
+
+  @override
+  String get nodeDiagnosticMenuTitle => 'Диагностика в меню ноды';
+
+  @override
+  String get nodeDiagnosticMenuHelp =>
+      'Добавить другую проверку в меню ноды: URL при выборе TCP по умолчанию, или TCP при выборе URL.';
+
+  @override
+  String get urlDiagnosticTitle => 'Диагностика URL';
+
+  @override
+  String get urlDiagnosticSubtitle =>
+      'Проверить отдельную ноду через её outbound, не меняя результаты на главном экране.';
 }

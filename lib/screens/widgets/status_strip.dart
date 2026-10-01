@@ -108,7 +108,7 @@ class _StatusStripState extends State<StatusStrip>
                   ),
                 ),
                 const SizedBox(width: 8),
-                Flexible(
+                Expanded(
                   child: Text(
                     widget.label,
                     maxLines: 1,
@@ -121,7 +121,7 @@ class _StatusStripState extends State<StatusStrip>
                     ),
                   ),
                 ),
-                const Spacer(),
+                const SizedBox(width: 8),
                 if (widget.right != null)
                   Text(
                     widget.right!,

@@ -318,6 +318,28 @@ internal object TunToSocksConfigBuilder {
         }
     }
 
+    /** A standalone proxy with no TUN, direct bypass, or shared runtime ports. */
+    internal fun buildProbe(server: ServerConfig, port: Int): String = JSONObject().apply {
+        put("log", JSONObject().put("level", "error"))
+        put("inbounds", JSONArray().put(JSONObject().apply {
+            put("type", "http")
+            put("tag", "url-probe")
+            put("listen", "127.0.0.1")
+            put("listen_port", port)
+        }))
+        put("outbounds", JSONArray().put(buildDirectProxyOutbound(server)))
+        put("route", JSONObject().apply {
+            put("final", PROXY_OUTBOUND_TAG)
+            put("auto_detect_interface", true)
+            put("default_domain_resolver", DNS_LOCAL_TAG)
+        })
+        // Endpoint DNS uses the underlying network. All HTTP payload dials use proxy.
+        put("dns", JSONObject().apply {
+            put("servers", JSONArray().put(JSONObject().put("type", "local").put("tag", DNS_LOCAL_TAG)))
+            put("final", DNS_LOCAL_TAG)
+        })
+    }.toString()
+
     private fun parseJsonObject(raw: String): JSONObject? {
         return try {
             JSONObject(raw)

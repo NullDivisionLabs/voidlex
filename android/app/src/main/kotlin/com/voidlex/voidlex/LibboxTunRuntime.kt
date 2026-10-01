@@ -48,6 +48,7 @@ import java.net.NetworkInterface
 internal class LibboxTunRuntime(
     private val service: VpnService,
     private val scope: CoroutineScope,
+    private val probeMode: Boolean = false,
     private val onStopRequested: (Int) -> Unit,
 ) : PlatformInterface {
     companion object {
@@ -128,6 +129,31 @@ internal class LibboxTunRuntime(
     private val localResolver = LibboxLocalDnsTransport(::requireUnderlyingNetwork)
 
     fun failureReason(): String? = lastFailureReason
+
+    /** Only used in the separate :probe process; never opens a VPN interface. */
+    fun startProbe(configJson: String, directory: java.io.File): Boolean {
+        check(probeMode)
+        stop()
+        activeGeneration = 1
+        readinessGate.reset()
+        return runCatching {
+            check(directory.isDirectory || directory.mkdirs())
+            Libbox.setup(SetupOptions().apply {
+                basePath = directory.absolutePath
+                workingPath = directory.absolutePath
+                tempPath = directory.absolutePath
+            })
+            refreshUnderlyingNetwork()
+            val server = Libbox.newCommandServer(commandHandler, this)
+            commandServer = server
+            server.start()
+            server.startOrReloadService(configJson, OverrideOptions())
+            true
+        }.onFailure {
+            lastFailureReason = "Probe core failed to start"
+            stop()
+        }.getOrDefault(false)
+    }
 
     // Suspends until libbox has been told the underlying interface (i.e.
     // packets can actually flow), or [timeoutMs] elapses. Returns true on
@@ -217,6 +243,7 @@ internal class LibboxTunRuntime(
     }
 
     override fun openTun(options: TunOptions): Int {
+        check(!probeMode) { "URL probes cannot open a TUN" }
         val granted = runBlocking {
             withTimeoutOrNull(VPN_PERMISSION_WAIT_MS) {
                 while (VpnService.prepare(service) != null) {
@@ -545,7 +572,7 @@ internal class LibboxTunRuntime(
         interfaceUpdateJob?.cancel()
         interfaceUpdateJob = null
         underlyingNetwork = null
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        if (!probeMode && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             runCatching {
                 service.setUnderlyingNetworks(null)
             }.onFailure {
@@ -734,7 +761,7 @@ internal class LibboxTunRuntime(
         interfaceUpdateJob = null
 
         if (network == null) {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (!probeMode && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 service.setUnderlyingNetworks(null)
             }
             logDefaultInterfaceUpdate("Default interface update: none")
@@ -742,7 +769,7 @@ internal class LibboxTunRuntime(
             return
         }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+        if (!probeMode && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             // A later default-network callback must not restore an explicit
             // VpnService network pin. libbox still receives the interface name
             // and index through updateDefaultInterface below.

@@ -420,7 +420,10 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
   }
 
   void _onScan() {
-    if (_controller.isScanningLatency) return;
+    if (_controller.isScanningLatency) {
+      unawaited(_controller.cancelUrlProbes());
+      return;
+    }
     unawaited(_controller.scanLatencies(force: true));
   }
 
@@ -676,8 +679,8 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
         Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            ValueListenableBuilder<int>(
-              valueListenable: _controller.latencyScanTickListenable,
+            ValueListenableBuilder<String>(
+              valueListenable: _controller.activeConnectionPingListenable,
               builder: (context, tick, child) {
                 return TvTopStrip(
                   connectionState: _controller.connectionState,
@@ -782,8 +785,8 @@ class _TvHomeScreenState extends State<TvHomeScreen> {
     if (_controller.connectionState != VpnConnectionState.connected) {
       return null;
     }
-    final raw = _controller.selectedServer?.ping;
-    if (raw == null) return null;
+    final raw = _controller.activeConnectionPing;
+    if (!RegExp(r'^\d+ ms$').hasMatch(raw)) return null;
     final digits = RegExp(r'\d+').firstMatch(raw)?.group(0);
     return int.tryParse(digits ?? '');
   }

@@ -46,6 +46,7 @@
         android:name=".VoidLexApplication"
         android:icon="@mipmap/ic_launcher"
         android:banner="@drawable/tv_banner"
+        android:usesCleartextTraffic="true"
         android:allowBackup="false"
         android:fullBackupContent="false"
         android:dataExtractionRules="@xml/data_extraction_rules">
@@ -91,6 +92,10 @@
             android:name="flutterEmbedding"
             android:value="2" />
         <!-- VPN Service Definition -->
+        <service
+            android:name=".UrlProbeService"
+            android:process=":probe"
+            android:exported="false" />
         <service
             android:name=".VoidVpnService"
             android:permission="android.permission.BIND_VPN_SERVICE"

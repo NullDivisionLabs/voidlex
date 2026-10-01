@@ -37,6 +37,10 @@ class ServerRepositorySnapshot {
     required this.startHomeWidgetsCollapsed,
     required this.autoSortServersByPing,
     required this.latencyProbeTarget,
+    this.additionalTlsFingerprintsEnabled = false,
+    this.urlProbeUrl = UrlProbeTarget.defaultUrl,
+    this.nodeDiagnosticMode = NodeDiagnosticMode.url,
+    this.nodeDiagnosticMenuEnabled = false,
     required this.favoritesSectionCollapsed,
     required this.favoriteServerNames,
     required this.collapsedSubscriptionIds,
@@ -76,6 +80,10 @@ class ServerRepositorySnapshot {
   final bool startHomeWidgetsCollapsed;
   final bool autoSortServersByPing;
   final LatencyProbeTarget latencyProbeTarget;
+  final bool additionalTlsFingerprintsEnabled;
+  final String urlProbeUrl;
+  final NodeDiagnosticMode nodeDiagnosticMode;
+  final bool nodeDiagnosticMenuEnabled;
   final bool favoritesSectionCollapsed;
   final List<String> favoriteServerNames;
   final List<String> collapsedSubscriptionIds;
@@ -120,6 +128,11 @@ class ServerRepository {
   static const _kStartHomeWidgetsCollapsed = 'void.startHomeWidgetsCollapsed';
   static const _kLegacyHideGlobalProxyButton = 'void.hideGlobalProxyButton';
   static const _kAutoSortServersByPing = 'void.autoSortServersByPing';
+  static const _kAdditionalTlsFingerprints = 'void.additionalTlsFingerprints';
+  static const _kUrlProbeUrl = 'void.urlProbeUrl';
+  static const _kNodeDiagnosticMode = 'void.nodeDiagnosticMode';
+  static const _kNodeDiagnosticMenuEnabled = 'void.nodeDiagnosticMenuEnabled';
+  static const _kUrlProbeResultsVersion = 'void.urlProbeResultsVersion';
   static const _kLatencyProbeTarget = 'void.latencyProbeTarget';
   static const _kFavoritesSectionCollapsed = 'void.favoritesSectionCollapsed';
   static const _kFavoriteServerNames = 'void.favoriteServerNames';
@@ -285,6 +298,16 @@ class ServerRepository {
       startHomeWidgetsCollapsed:
           _prefs.getBool(_kStartHomeWidgetsCollapsed) ?? false,
       autoSortServersByPing: _prefs.getBool(_kAutoSortServersByPing) ?? false,
+      additionalTlsFingerprintsEnabled:
+          _prefs.getBool(_kAdditionalTlsFingerprints) ?? false,
+      nodeDiagnosticMode: NodeDiagnosticMode.parse(
+        _prefs.getString(_kNodeDiagnosticMode),
+      ),
+      nodeDiagnosticMenuEnabled:
+          _prefs.getBool(_kNodeDiagnosticMenuEnabled) ?? false,
+      urlProbeUrl:
+          UrlProbeTarget.normalize(_prefs.getString(_kUrlProbeUrl)) ??
+          UrlProbeTarget.defaultUrl,
       latencyProbeTarget: LatencyProbeTarget.decode(
         _prefs.getString(_kLatencyProbeTarget),
       ),
@@ -404,6 +427,29 @@ class ServerRepository {
 
   Future<void> saveAutoSortServersByPing(bool value) async {
     await _prefs.setBool(_kAutoSortServersByPing, value);
+  }
+
+  Future<void> saveAdditionalTlsFingerprintsEnabled(bool value) async {
+    await _prefs.setBool(_kAdditionalTlsFingerprints, value);
+  }
+
+  Future<void> saveUrlProbeUrl(String value) async {
+    final normalized = UrlProbeTarget.normalize(value);
+    if (normalized == null) throw ArgumentError.value(value, 'url');
+    await _prefs.setString(_kUrlProbeUrl, normalized);
+  }
+
+  Future<void> saveNodeDiagnosticMode(NodeDiagnosticMode value) async {
+    await _prefs.setString(_kNodeDiagnosticMode, value.name);
+  }
+
+  Future<void> saveNodeDiagnosticMenuEnabled(bool value) async {
+    await _prefs.setBool(_kNodeDiagnosticMenuEnabled, value);
+  }
+
+  bool get hasUrlProbeResults => _prefs.getInt(_kUrlProbeResultsVersion) == 1;
+  Future<void> markUrlProbeResults() async {
+    await _prefs.setInt(_kUrlProbeResultsVersion, 1);
   }
 
   Future<void> saveLatencyProbeTarget(LatencyProbeTarget target) async {

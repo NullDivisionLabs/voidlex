@@ -41,7 +41,7 @@
   "themeSection": "Theme",
   "settingsGroupInterface": "Interface",
   "settingsGroupConnection": "Connection",
-  "settingsGroupNodes": "Nodes",
+  "settingsGroupNodes": "Diagnostics",
   "settingsGroupProfile": "Profile",
   "settingsGroupAdvanced": "Advanced",
   "themeLight": "Light",
@@ -63,9 +63,9 @@
   "keepAwakeSubtitle": "Hold a partial wake lock while connected. Uses more battery.",
   "verboseXrayLogsTitle": "Verbose Xray logs",
   "verboseXrayLogsSubtitle": "Capture xray-core info-level errors (dial failures, Reality auth, ALPN) and dump the generated config once at startup. Use only for diagnostics; sensitive fields are masked.",
-  "applicationSettingsPingTargetTitle": "Ping server",
+  "applicationSettingsPingTargetTitle": "TCP diagnostic address",
   "applicationSettingsPingTargetDefault": "Node address",
-  "applicationSettingsPingTargetDialogTitle": "Ping server",
+  "applicationSettingsPingTargetDialogTitle": "TCP diagnostic address",
   "applicationSettingsPingTargetFieldLabel": "Host or URL",
   "applicationSettingsPingTargetHint": "example.com:443",
   "applicationSettingsPingTargetInvalid": "Enter a host, URL, or host:port.",
@@ -238,7 +238,7 @@
   "editServerSectionTransport": "Transport",
   "editServerSectionTls": "TLS / Reality",
   "editServerFingerprintLabel": "uTLS fingerprint",
-  "editServerFingerprintHelper": "Default: chrome for XHTTP, none otherwise",
+  "editServerFingerprintHelper": "Auto uses the runtime default. Older profiles may reduce ClientHello size; speed and energy savings are not guaranteed.",
   "editServerFingerprintAuto": "Auto (none)",
   "editServerXhttpSubheading": "XHTTP tuning",
   "editServerXhttpModeLabel": "Mode",
@@ -619,6 +619,30 @@
   "editServerJsonEditorLabel": "Voidlex server JSON",
   "editServerJsonEditorHelper": "Edit one supported server configuration. Saving applies the JSON to this server.",
   "editServerJsonInvalid": "JSON must contain exactly one valid supported server configuration.",
+  "jsonEditorSyntaxError": "Line {line}, col {column}: Syntax error ({error})",
+  "@jsonEditorSyntaxError": {
+    "placeholders": {
+      "line": { "type": "int" },
+      "column": { "type": "int" },
+      "error": { "type": "String" }
+    }
+  },
+  "jsonEditorValid": "Valid configuration: {details}",
+  "@jsonEditorValid": {
+    "placeholders": {
+      "details": { "type": "String" }
+    }
+  },
+  "jsonEditorIncomplete": "Valid JSON syntax, but server configuration is incomplete",
+  "jsonEditorFormatTooltip": "Format JSON",
+  "jsonEditorWrapTooltip": "Toggle line wrap",
+  "jsonEditorGoToError": "Go to error",
+  "jsonEditorLinesCount": "{count, plural, one{{count} line} other{{count} lines}}",
+  "@jsonEditorLinesCount": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
   "settingsHwidLoading": "Loading…",
   "settingsHwidUnavailable": "Unavailable",
   "providerSettingsTitle": "Provider settings",
@@ -1003,8 +1027,8 @@
   "faqSubtitle": "Common questions",
   "faqHint": "Tap a question to expand the answer.",
 
-  "faqQ1": "Why can't I pick an XHTTP server as the exit node in a two-hop chain?",
-  "faqA1": "In a two-hop setup the exit node's outbound is dialled through the entry via sockopt.dialerProxy. XHTTP is an HTTP/2 transport with its own TLS/REALITY wrapper, and its handshake doesn't reach across the entry tunnel cleanly — the connection comes up, but nothing flows. XHTTP servers are therefore hidden in the exit-node picker. Use such a server as the primary (entry) node, and pick a VLESS-TCP / WS / REALITY server as the exit.",
+  "faqQ1": "Which servers cannot be used in a two-hop chain (entry → exit)?",
+  "faqA1": "The two-hop chain is handled by the Xray core via `sockopt.dialerProxy`. This introduces two key limits:\n1. **Hysteria2 and NaiveProxy** cannot be used in a chain at all (neither as entry nor as exit) because they run directly via the libbox engine.\n2. **XHTTP** is not recommended as an exit node: due to HTTP/2 transport specifics, the handshake often fails to complete across the entry tunnel. Use XHTTP as the primary (entry) node, and choose VLESS-TCP, WS, or REALITY for the exit.",
 
   "faqQ2": "What's the difference between the libbox and Xray TUN engines?",
   "faqA2": "**libbox** (sing-box) is the default — stable, plays well with the system, and easier on the battery. **Xray TUN** is experimental: it pushes packets straight through the Xray core. Use it only if you need Xray-specific behaviour or if libbox misbehaves on your device. Leave it on libbox unless you have a reason.",
@@ -1019,13 +1043,13 @@
   "faqA5": "A two-hop setup: the **entry** node is the one you connect to with the main button; the **exit** is a separate server the traffic egresses through (entry → exit). Useful when you want to separate «where you knock» from «where you appear on the internet». Entry and exit must be different servers — otherwise the chain collapses into an ordinary single-hop connection.",
 
   "faqQ6": "I changed tunnel settings, but they didn't take effect — why?",
-  "faqA6": "Some parameters (TUN engine, DNS, stack, MTU, fragmentation, multiplex, …) only apply on the next tunnel start. In tunnel settings there's a **«Restart tunnel on settings change»** toggle — with it on, the app re-establishes the connection when you leave the settings screen. Otherwise disconnect and reconnect by hand.",
+  "faqA6": "Some parameters (TUN engine, network stack, DNS, MTU, fragmentation, multiplex, etc.) only take effect on the next tunnel start. In **«Settings → Application»** there is a **«Restart on changes»** toggle — when enabled, the app automatically reconnects when you leave settings. If it is disabled, disconnect and reconnect manually.",
 
   "faqQ7": "What is HWID and why does my subscription send it?",
-  "faqA7": "HWID is a stable per-device identifier, computed locally (visible in «About»). It is sent in an HTTP header on the subscription request **only when the provider explicitly asks for it** via the subscription URL. Providers use it for «one subscription — N devices» quotas. HWID is not sent anywhere else.",
+  "faqA7": "HWID is a stable anonymous device identifier computed locally (visible in «About»). It is sent in the `X-HWID` header on subscription requests if **«Send HWID»** is enabled under **«Settings → Subscription provider»**. Some providers require it to enforce device quotas. You can turn off HWID transmission at any time. HWID is never sent anywhere else.",
 
   "faqQ8": "What's the slim build, and do I have to download GeoData?",
-  "faqA8": "The standard build ships `geoip.dat` / `geosite.dat` (~28 MB) inside the APK — rules like `geosite:netflix` work out of the box. The slim build omits those files and downloads them on first launch from «Settings → GeoData». If you don't use geo-based routing rules, you can skip the GeoData download entirely.",
+  "faqA8": "The standard build ships `geoip.dat` and `geosite.dat` (~28 MB) inside the APK — routing rules like `geosite:google` or `geoip:ru` work immediately. The slim build omits them to reduce APK size. You can download the files, configure auto-updates (1, 3, or 7 days), or load custom files from storage in **«Settings → Routing → GeoData files»**. If you do not use geo-based rules, you can skip downloading GeoData entirely.",
 
   "faqQ9": "Per-app routing doesn't apply to Push / Play Services / system apps — is that normal?",
   "faqA9": "Yes. Android refuses to route some system processes through a VPN (parts of Google Mobile Services, push, system updates). This is a `VpnService` platform limit, not the app — it can't be worked around without root. Their traffic will bypass the tunnel even when whitelisted.",
@@ -1033,11 +1057,11 @@
   "faqQ10": "Network stack: system / gVisor / mixed — which one?",
   "faqA10": "**gVisor** is the default on Android. It handles TUN traffic in user space and works reliably with libbox 1.14.\n**system** uses the platform kernel stack and should only be selected on environments where that TUN path is known to work.\n**mixed** uses gVisor for TCP and system for UDP.",
 
-  "faqQ11": "The ping to the server and the ping via the local proxy differ a lot — what shows what?",
-  "faqA11": "**Endpoint ping** is a plain TCP ping to the server's IP:port (how quickly the network reaches it). **Proxy ping** is a real HTTP request through the established proxy connection (includes TLS handshake, reverse proxy, routing). The second is always larger; it reflects how the internet actually feels. A large gap usually means your ISP is throttling the proxy itself, not the network.",
+  "faqQ11": "How do node URL tests, connection latency and TCP diagnostics differ?",
+  "faqA11": "**Node URL tests** make an HTTP request through that node's own outbound after a warm-up. **Connection latency** tests the running tunnel and its entire selected chain. **TCP diagnostics** only test port reachability and do not confirm a working proxy. Choose TCP or URL on the home screen; both tools remain available under Application → Diagnostics in settings. Enabling diagnostics in the node menu adds the opposite test. Standalone checks do not change list latency. The default URL is http://cp.cloudflare.com/ and requires HTTP 204; custom URLs require 2xx. Redirects fail. A failed test can also mean the target website is unavailable.",
 
   "faqQ12": "My subscription doesn't update, or updates but the node list doesn't change — what should I check?",
-  "faqA12": "First — the auto-refresh interval (1 hour by default) and the «refresh on launch» toggle. To force it, hit refresh on the subscription page. If the content still doesn't change, your provider returned the same node set. If the «protect subscriptions» switch is on, manual edits inside subscription nodes are overwritten on the next refresh.",
+  "faqA12": "1. Check the auto-refresh interval (by default **6 hours**; configured under «Settings → Subscription provider» or per-subscription) and the «Refresh on launch» toggle.\n2. Force a refresh using the update button on the subscription card.\n3. If the list does not change, your provider is returning the exact same node set.\n4. If «Protect subscriptions» is enabled, manual edits inside subscription nodes will be overwritten during updates.",
 
   "faqQ13": "Calls / games / streaming are slow over the VPN — what can I try?",
   "faqA13": "Most of those apps run over UDP / QUIC. Check:\n1. Stack — try **mixed** (gVisor for TCP, system for UDP).\n2. **Multiplex → QUIC** — set `passthrough` or `reject`; `allow` wraps QUIC over mux and adds latency.\n3. If your protocol is Hysteria2, the carrier itself is UDP — make sure your ISP doesn't throttle UDP traffic to the server.",
@@ -1055,13 +1079,25 @@
   "faqA17": "Yes — while the tunnel is up the app listens on **SOCKS5** `127.0.0.1:10808` and **HTTP** `127.0.0.1:10809`. By default the username and password are regenerated every session. To pin your own, go to **Settings → Tunnel → SOCKS5 credentials** — flip the switch and enter (or generate) a fixed pair.",
 
   "faqQ18": "Is there a built-in kill switch?",
-  "faqA18": "There's no dedicated «kill switch» toggle in the UI. If the VPN drops, traffic may leak directly until you reconnect. For hard blocking of unprotected traffic, use Android's system **Always-on VPN** in the OS settings — the same screen lets you turn on «Block connections without VPN».",
+  "faqA18": "Yes. A built-in **«Kill Switch»** toggle is available under **«Settings → Application»**. When active, an unexpected VPN drop immediately blocks all unprotected internet traffic and posts a notification allowing you to restore connectivity or reconnect. Manually disconnecting the tunnel restores normal network access.\nFor strict system-level protection, you can also enable Android's native **Always-on VPN** with «Block connections without VPN» via the «Auto-connect on device boot» shortcut.",
 
   "faqQ19": "Where are my data and logs stored — is that safe?",
   "faqA19": "Nodes, subscriptions, presets, and the journal are all local on the device; nothing leaves it except subscription requests and the traffic going through your chosen server. The journal can be cleared from «Settings → Journal». In verbose mode the log will contain sensitive fields (UUIDs, hosts, keys) — **don't publish verbose dumps as-is.** The app itself is not an anonymiser; the privacy level depends on your servers and your rules.",
 
   "faqQ20": "Is there TV and iOS support?",
   "faqA20": "**Android TV / Google TV** — yes, a dedicated full-screen UI with D-pad support; the nodes and subscriptions are shared with the mobile version. **iOS / iPadOS** — a full client is in development.",
+
+  "faqQ21": "What is the difference between «Proxy-only» and «VPN tunnel (TUN)» mode?",
+  "faqA21": "Configured in **«Settings → Tunnel → Run mode»**:\n• **VPN tunnel (TUN)** is the default mode: all device traffic is routed via Android's VpnService (key icon in the status bar).\n• **Hide icon (proxy-only)** starts a local SOCKS5/HTTP proxy without creating a system TUN interface. No VPN icon is displayed, and the OS VPN slot remains free for other apps. Traffic is routed through the proxy only from apps configured manually (e.g. Telegram, custom browsers).",
+
+  "faqQ22": "Are Hysteria2 and NaiveProxy supported, and what are their requirements?",
+  "faqA22": "Yes, VoidLex supports importing `hy2://` / `hysteria2://` and `naive+https://` / `naive+quic://` links.\nKey requirements:\n1. They require the **libbox** TUN engine (they cannot run with Xray TUN).\n2. They cannot be used in two-hop chains (exit node).\n3. NaiveProxy supports both HTTPS and QUIC transports.",
+
+  "faqQ23": "Can I share the proxy with other devices over Wi-Fi or hotspot?",
+  "faqA23": "Yes. In **«Settings → Tunnel → Local proxy»** (and in Proxy-only mode), the proxy can listen on the local network. Devices connected to the same Wi-Fi or your mobile hotspot can use SOCKS5 (`port 10808`) and HTTP (`port 10809`) by targeting your phone's IP. For security, enable authentication and configure a username and password under SOCKS5/HTTP credentials.",
+
+  "faqQ24": "The tunnel disconnects on its own after 10–20 minutes in the background — how to fix it?",
+  "faqA24": "This is caused by aggressive OS power management on certain Android skins (HyperOS/MIUI, ColorOS, EMUI, OneUI):\n1. In Android app info for VoidLex, disable **«Battery optimisation»** (set to «Unrestricted»).\n2. Enable **«Auto-start»** and allow background activity.\n3. In the recent apps overview, lock VoidLex with the lock icon.\n4. For uninterrupted operation, configure Android's native **Always-on VPN** in system network settings.",
 
   "autoConnectOnBootTitle": "Auto-connect on device boot",
   "autoConnectOnBootSubtitle": "Open the system \"Always-on VPN\" settings page — enable «Always-on VPN» + «Block connections without VPN» so the tunnel comes up at boot.",
@@ -1095,5 +1131,18 @@
   "urlSchemesRestartSection": "RESTART CONNECTION",
   "urlSchemesImportSection": "ADD CONFIGURATION",
   "urlSchemesImportRulesetSection": "IMPORT RULESET",
-  "urlSchemeCopied": "Copied to clipboard"
+  "urlSchemeCopied": "Copied to clipboard",
+  "additionalTlsFingerprintsTitle": "Additional TLS fingerprints",
+  "additionalTlsFingerprintsSubtitle": "Show Safari 16.0, Chrome 120 and iOS 14. Saved choices remain active when hidden.",
+  "urlProbeTargetTitle": "Node URL test address",
+  "urlProbeTargetHelp": "Requests go through each node. A failed test can also mean the target site is unavailable.",
+  "urlProbeTargetInvalid": "Enter a full HTTP/HTTPS URL without credentials or a fragment.",
+  "tcpDiagnosticTitle": "TCP diagnostic",
+  "tcpDiagnosticSubtitle": "Checks only the port, without proxy authorization. Does not change home screen latency.",
+  "nodeDiagnosticModeTitle": "Default node diagnostic",
+  "nodeDiagnosticModeHelp": "Choose TCP or URL for node latency on the home screen.",
+  "nodeDiagnosticMenuTitle": "Diagnostic in node menu",
+  "nodeDiagnosticMenuHelp": "Add the other test to the node menu: URL when TCP is the default, or TCP when URL is the default.",
+  "urlDiagnosticTitle": "URL diagnostic",
+  "urlDiagnosticSubtitle": "Test an individual node through its outbound without changing home screen results."
 }

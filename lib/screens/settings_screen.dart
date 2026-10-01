@@ -43,6 +43,7 @@ import 'tv/widgets/tv_settings_focus.dart';
 import 'widgets/bottom_dock.dart';
 import 'widgets/geo_data_auto_update_menu.dart';
 import 'widgets/selected_popup_menu_item.dart';
+import 'widgets/node_diagnostic_controls.dart';
 import 'widgets/void_dock.dart';
 
 part 'settings/log_journal_screen.dart';

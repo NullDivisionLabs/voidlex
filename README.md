@@ -2,6 +2,7 @@
 
 **Development branches:** `main` — standard; `codex/alpha-xdrive` — experimental xdrive integration.
 See [project versions and folder layout](docs/PROJECT_VERSIONS.md) for release boundaries, build commands, and alpha limitations.
+See [1.1.8-beta release notes](docs/RELEASE_NOTES_1.1.8-beta.md) for changes since 1.1.2-beta.
 
 [English](#english) · [Русский](#russian)
 
@@ -21,7 +22,7 @@ Void//Lex is a full VPN client with its own UI — not a thin shell over a stati
 
 On Android it uses the system `VpnService`: traffic (all apps or a selected subset, depending on policy) goes through a local TUN, then into the Xray/libbox core with your routing rules.
 
-**Shipped version:** 1.1.7-beta+1 · **Xray-core:** 26.7.28 · **libbox (sing-box):** 1.14.0
+**Shipped version:** 1.1.8-beta+1 · **Xray-core:** 26.7.28 · **libbox (sing-box):** 1.14.0
 
 ### Features
 
@@ -125,7 +126,7 @@ Void//Lex — полноценный VPN-клиент с собственным 
 
 На Android используется системный `VpnService`: весь трафик (или выбранные приложения — по политике) проходит через локальный TUN, затем в ядро Xray/libbox с вашими правилами маршрутизации.
 
-**Версия в сборке:** 1.1.7-beta+1 · **Xray-core:** 26.7.28 · **libbox (sing-box):** 1.14.0
+**Версия в сборке:** 1.1.8-beta+1 · **Xray-core:** 26.7.28 · **libbox (sing-box):** 1.14.0
 
 ### Возможности
 

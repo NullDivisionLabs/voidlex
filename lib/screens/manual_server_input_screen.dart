@@ -1,9 +1,14 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import '../l10n/app_localizations.dart';
 import '../core/models/server_config.dart';
+import '../core/server_importer.dart';
 import '../core/vpn_controller.dart';
+import '../core/tls_fingerprints.dart';
 import '../theme.dart';
+import 'widgets/lined_json_editor.dart';
 import 'widgets/orientation_gate.dart';
 import 'widgets/protocol_selector.dart';
 import 'widgets/server_advanced_fields.dart';
@@ -49,6 +54,7 @@ class _ManualServerInputScreenState extends State<ManualServerInputScreen> {
   late final TextEditingController _seqKeyController;
   late final TextEditingController _xhttpMaxPostController;
   late final TextEditingController _xhttpMinIntervalController;
+  late final TextEditingController _jsonController;
 
   ServerProtocol _protocol = ServerProtocol.vless;
   VlessTransport _transport = VlessTransport.tcp;
@@ -68,7 +74,10 @@ class _ManualServerInputScreenState extends State<ManualServerInputScreen> {
   bool _naiveQuic = false;
   String _naiveQuicCongestionControl = '';
   ServerAdvancedSettings _advanced = const ServerAdvancedSettings();
+  ServerConfig? _draft;
   bool _isSaving = false;
+  bool _isJsonMode = false;
+  String? _jsonError;
   bool _credentialsObscured = true;
   bool _hasUnsavedChanges = false;
 
@@ -91,22 +100,6 @@ class _ManualServerInputScreenState extends State<ManualServerInputScreen> {
     if (!await _confirmLeave() || !mounted) return;
     Navigator.of(context).pop();
   }
-
-  /// Mirror of [EditServerScreen._fingerprintOptions]; see there for the
-  /// rationale on which fingerprints are listed.
-  static const _fingerprintOptions = <String>[
-    '',
-    'chrome',
-    'firefox',
-    'safari',
-    'ios',
-    'android',
-    'edge',
-    '360',
-    'qq',
-    'random',
-    'randomized',
-  ];
 
   @override
   void initState() {
@@ -131,6 +124,7 @@ class _ManualServerInputScreenState extends State<ManualServerInputScreen> {
     _seqKeyController = TextEditingController();
     _xhttpMaxPostController = TextEditingController();
     _xhttpMinIntervalController = TextEditingController();
+    _jsonController = TextEditingController();
   }
 
   @override
@@ -155,14 +149,13 @@ class _ManualServerInputScreenState extends State<ManualServerInputScreen> {
     _seqKeyController.dispose();
     _xhttpMaxPostController.dispose();
     _xhttpMinIntervalController.dispose();
+    _jsonController.dispose();
     super.dispose();
   }
 
   Future<void> _save() async {
-    final form = _formKey.currentState;
-    if (form == null || !form.validate()) return;
-
-    final server = _serverFromFields();
+    final server = _currentEditedServer();
+    if (server == null) return;
 
     setState(() => _isSaving = true);
     final error = await widget.controller.addServer(server);
@@ -178,6 +171,209 @@ class _ManualServerInputScreenState extends State<ManualServerInputScreen> {
     }
 
     Navigator.of(context).pop(true);
+  }
+
+  ServerConfig? _currentEditedServer() {
+    if (_isJsonMode) return _serverFromJsonEditor();
+    final form = _formKey.currentState;
+    if (form == null || !form.validate()) return null;
+    return _preserveDraftFields(_serverFromFields());
+  }
+
+  ServerConfig? _serverFromJsonEditor() {
+    final result = const ServerImporter().parse(_jsonController.text);
+    if (!result.isOk || result.configs.length != 1) {
+      setState(() {
+        _jsonError = AppLocalizations.of(context).editServerJsonInvalid;
+      });
+      return null;
+    }
+    return result.configs.single;
+  }
+
+  void _loadServerIntoFields(ServerConfig server) {
+    _draft = server;
+    _aliasController.text = server.name;
+    _addressController.text = server.address;
+    _portController.text = server.port.toString();
+    _uuidController.text = server.uuid;
+    _pathController.text = server.transportPath;
+    _serviceNameController.text = server.transportServiceName;
+    _hostController.text = server.transportHost;
+    _sniController.text = server.sni;
+    _alpnController.text = server.alpn;
+    _shortIdController.text = server.realityShortId;
+    _publicKeyController.text = server.realityPublicKey;
+    _naiveUsernameController.text = server.naiveUsername;
+    _naivePasswordController.text = server.naivePassword;
+    _xPaddingBytesController.text = server.xPaddingBytes;
+    _xPaddingKeyController.text = server.xPaddingKey;
+    _xPaddingHeaderController.text = server.xPaddingHeader;
+    _sessionIDKeyController.text = server.sessionIDKey;
+    _seqKeyController.text = server.seqKey;
+    _xhttpMaxPostController.text = server.xhttpMaxPostBytes;
+    _xhttpMinIntervalController.text = server.xhttpMinPostInterval;
+    _protocol = server.serverProtocol;
+    _transport = server.transport;
+    _security = server.security;
+    _xhttpMode = server.transportMode.trim().toLowerCase();
+    _xPaddingObfsMode = server.xPaddingObfsMode;
+    _xPaddingPlacement = server.xPaddingPlacement;
+    _xPaddingMethod = server.xPaddingMethod;
+    _sessionIDPlacement = server.sessionIDPlacement;
+    _seqPlacement = server.seqPlacement;
+    _fingerprint = server.fingerprint.trim();
+    _tlsInsecure = server.tlsInsecure;
+    _naiveQuic = server.naiveQuic;
+    _naiveQuicCongestionControl = server.naiveQuicCongestionControl;
+    _advanced = ServerAdvancedSettings.fromServer(server);
+  }
+
+  void _toggleJsonMode() {
+    if (_isSaving) return;
+    if (_isJsonMode) {
+      final server = _serverFromJsonEditor();
+      if (server == null) return;
+      setState(() {
+        _loadServerIntoFields(server);
+        _isJsonMode = false;
+        _jsonError = null;
+      });
+      return;
+    }
+
+    final server = _preserveDraftFields(_serverFromFieldsSafe());
+    setState(() {
+      _jsonController.text = _editableJsonFor(server);
+      _isJsonMode = true;
+      _jsonError = null;
+    });
+  }
+
+  ServerConfig _preserveDraftFields(ServerConfig server) {
+    final draft = _draft;
+    if (draft == null) return server;
+    final isXhttp =
+        server.serverProtocol == ServerProtocol.vless &&
+        server.transport == VlessTransport.xhttp;
+    final isHysteria2 = server.serverProtocol == ServerProtocol.hysteria2;
+    // These supported JSON fields have no corresponding form controls.
+    return server.copyWith(
+      xhttpRawSettings: isXhttp ? draft.xhttpRawSettings : const {},
+      xhttpRawExtra: isXhttp ? draft.xhttpRawExtra : const {},
+      hysteria2RawOutbound: isHysteria2 ? draft.hysteria2RawOutbound : const {},
+      hysteria2RawObfs: isHysteria2 ? draft.hysteria2RawObfs : const {},
+      hysteria2RawTls: isHysteria2 ? draft.hysteria2RawTls : const {},
+    );
+  }
+
+  ServerConfig _serverFromFieldsSafe() {
+    final port = int.tryParse(_portController.text.trim()) ?? 443;
+    final alias = _aliasController.text.trim();
+    final address = _addressController.text.trim();
+    final uuid = _uuidController.text.trim();
+    return ServerConfig(
+      name: alias.isEmpty ? 'New Server' : alias,
+      address: address.isEmpty ? '127.0.0.1' : address,
+      port: port,
+      uuid: uuid.isEmpty ? '00000000-0000-0000-0000-000000000000' : uuid,
+      serverProtocol: _protocol,
+      transport: _transport,
+      security: _security,
+      transportPath: _pathController.text.trim(),
+      transportServiceName: _serviceNameController.text.trim(),
+      transportHost: _hostController.text.trim(),
+      transportMode: _xhttpMode,
+      xPaddingObfsMode: _xPaddingObfsMode,
+      xPaddingPlacement: _xPaddingPlacement,
+      xPaddingKey: _xPaddingKeyController.text.trim(),
+      xPaddingHeader: _xPaddingHeaderController.text.trim(),
+      xPaddingMethod: _xPaddingMethod,
+      xPaddingBytes: _xPaddingBytesController.text.trim(),
+      sessionIDPlacement: _sessionIDPlacement,
+      sessionIDKey: _sessionIDKeyController.text.trim(),
+      seqPlacement: _seqPlacement,
+      seqKey: _seqKeyController.text.trim(),
+      xhttpMaxPostBytes: _xhttpMaxPostController.text.trim(),
+      xhttpMinPostInterval: _xhttpMinIntervalController.text.trim(),
+      sni: _sniController.text.trim(),
+      alpn: _alpnController.text.trim(),
+      tlsInsecure: _tlsInsecure,
+      flow: _advanced.flow,
+      vlessEncryption: _advanced.vlessEncryption,
+      fingerprint: _fingerprint.trim(),
+      realityShortId: _shortIdController.text.trim(),
+      realityPublicKey: _publicKeyController.text.trim(),
+      realitySpiderX: _security == VlessSecurity.reality
+          ? _advanced.realitySpiderX
+          : '',
+      realityMldsa65Verify: _security == VlessSecurity.reality
+          ? _advanced.realityMldsa65Verify
+          : '',
+      naiveUsername: _naiveUsernameController.text.trim(),
+      naivePassword: _naivePasswordController.text,
+      naiveQuic: _naiveQuic,
+      naiveQuicCongestionControl: _naiveQuic ? _naiveQuicCongestionControl : '',
+      naiveInsecureConcurrency: _advanced.naiveInsecureConcurrency,
+      naiveExtraHeaders: _advanced.naiveExtraHeaders,
+      naiveUdpOverTcp: _advanced.naiveUdpOverTcp,
+      naiveUdpOverTcpVersion: _advanced.naiveUdpOverTcp
+          ? _advanced.naiveUdpOverTcpVersion
+          : 0,
+      hysteria2ObfsType: _advanced.hysteria2ObfsType,
+      hysteria2ObfsPassword: _advanced.hysteria2ObfsPassword,
+      hysteria2ObfsMinPacketSize: _advanced.hysteria2ObfsMinPacketSize,
+      hysteria2ObfsMaxPacketSize: _advanced.hysteria2ObfsMaxPacketSize,
+      hysteria2HopPorts: _advanced.hysteria2HopPorts,
+      hysteria2HopInterval: _advanced.hysteria2HopInterval,
+      hysteria2HopIntervalMax: _advanced.hysteria2HopIntervalMax,
+      hysteria2UpMbps: _advanced.hysteria2UpMbps,
+      hysteria2DownMbps: _advanced.hysteria2DownMbps,
+      hysteria2Network: _advanced.hysteria2Network,
+      hysteria2BbrProfile: _advanced.hysteria2BbrProfile,
+    );
+  }
+
+  String _editableJsonFor(ServerConfig server) {
+    final json = Map<String, dynamic>.of(server.toJson())
+      ..remove('isPinned')
+      ..remove('ping');
+    return const JsonEncoder.withIndent('  ').convert(json);
+  }
+
+  Widget _buildJsonEditor(ThemeData theme, AppLocalizations l) {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Text(
+              l.editServerJsonEditorHelper,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          LinedJsonEditor(
+            controller: _jsonController,
+            enabled: !_isSaving,
+            externalError: _jsonError,
+            onChanged: (_) {
+              if (_jsonError == null) {
+                _markDirty();
+                return;
+              }
+              setState(() {
+                _jsonError = null;
+                _hasUnsavedChanges = true;
+              });
+            },
+          ),
+        ],
+      ),
+    );
   }
 
   bool get _isHysteria2 => _protocol == ServerProtocol.hysteria2;
@@ -326,9 +522,27 @@ class _ManualServerInputScreenState extends State<ManualServerInputScreen> {
                   snap: false,
                   backgroundColor: theme.scaffoldBackgroundColor,
                   surfaceTintColor: Colors.transparent,
-                  leading: IconButton(
-                    onPressed: () => Navigator.of(context).maybePop(),
-                    icon: const Icon(Icons.arrow_back_rounded),
+                  leadingWidth: 104,
+                  titleSpacing: 0,
+                  leading: Row(
+                    children: [
+                      IconButton(
+                        onPressed: () => Navigator.of(context).maybePop(),
+                        icon: const Icon(Icons.arrow_back_rounded),
+                      ),
+                      IconButton(
+                        key: const ValueKey('manual-server-json-toggle'),
+                        tooltip: _isJsonMode
+                            ? l.editServerShowForm
+                            : l.editServerShowJson,
+                        onPressed: _isSaving ? null : _toggleJsonMode,
+                        icon: Icon(
+                          _isJsonMode
+                              ? Icons.view_list_rounded
+                              : Icons.data_object_rounded,
+                        ),
+                      ),
+                    ],
                   ),
                   title: Text(l.addServerTitle),
                   actions: [
@@ -348,224 +562,229 @@ class _ManualServerInputScreenState extends State<ManualServerInputScreen> {
                 ),
               ];
             },
-            body: Form(
-              key: _formKey,
-              onChanged: _markDirty,
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    ProtocolSelector(
-                      protocols: _supportedProtocols,
-                      selected: _protocol,
-                      enabled: !_isSaving,
-                      onSelected: _onProtocolChanged,
-                    ),
-                    const SizedBox(height: 16),
-                    _SectionCard(
-                      title: l.editServerSectionPrimary,
-                      children: [
-                        _buildTextField(
-                          controller: _aliasController,
-                          label: l.editServerAliasLabel,
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return l.editServerAliasRequired;
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 14),
-                        _buildTextField(
-                          controller: _addressController,
-                          label: l.editServerAddressLabel,
-                          mono: true,
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return l.editServerAddressRequired;
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 14),
-                        _buildTextField(
-                          controller: _portController,
-                          label: l.editServerPortLabel,
-                          keyboardType: TextInputType.number,
-                          mono: true,
-                          validator: (value) {
-                            if (value == null || value.trim().isEmpty) {
-                              return l.editServerPortRequired;
-                            }
-                            final port = int.tryParse(value.trim());
-                            if (port == null || port < 1 || port > 65535) {
-                              return l.editServerPortInvalid;
-                            }
-                            return null;
-                          },
-                        ),
-                        const SizedBox(height: 14),
-                        if (_isNaive) ...[
-                          _buildTextField(
-                            controller: _naiveUsernameController,
-                            label: l.editServerNaiveUsernameLabel,
-                            mono: true,
+            body: _isJsonMode
+                ? _buildJsonEditor(theme, l)
+                : Form(
+                    key: _formKey,
+                    onChanged: _markDirty,
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          ProtocolSelector(
+                            protocols: _supportedProtocols,
+                            selected: _protocol,
+                            enabled: !_isSaving,
+                            onSelected: _onProtocolChanged,
                           ),
-                          const SizedBox(height: 14),
-                          _buildTextField(
-                            controller: _naivePasswordController,
-                            label: l.editServerNaivePasswordLabel,
-                            mono: true,
-                            secret: true,
+                          const SizedBox(height: 16),
+                          _SectionCard(
+                            title: l.editServerSectionPrimary,
+                            children: [
+                              _buildTextField(
+                                controller: _aliasController,
+                                label: l.editServerAliasLabel,
+                                validator: (value) {
+                                  if (value == null || value.trim().isEmpty) {
+                                    return l.editServerAliasRequired;
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 14),
+                              _buildTextField(
+                                controller: _addressController,
+                                label: l.editServerAddressLabel,
+                                mono: true,
+                                validator: (value) {
+                                  if (value == null || value.trim().isEmpty) {
+                                    return l.editServerAddressRequired;
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 14),
+                              _buildTextField(
+                                controller: _portController,
+                                label: l.editServerPortLabel,
+                                keyboardType: TextInputType.number,
+                                mono: true,
+                                validator: (value) {
+                                  if (value == null || value.trim().isEmpty) {
+                                    return l.editServerPortRequired;
+                                  }
+                                  final port = int.tryParse(value.trim());
+                                  if (port == null ||
+                                      port < 1 ||
+                                      port > 65535) {
+                                    return l.editServerPortInvalid;
+                                  }
+                                  return null;
+                                },
+                              ),
+                              const SizedBox(height: 14),
+                              if (_isNaive) ...[
+                                _buildTextField(
+                                  controller: _naiveUsernameController,
+                                  label: l.editServerNaiveUsernameLabel,
+                                  mono: true,
+                                ),
+                                const SizedBox(height: 14),
+                                _buildTextField(
+                                  controller: _naivePasswordController,
+                                  label: l.editServerNaivePasswordLabel,
+                                  mono: true,
+                                  secret: true,
+                                ),
+                              ] else
+                                _buildTextField(
+                                  controller: _uuidController,
+                                  label: _isHysteria2
+                                      ? l.editServerPasswordLabel
+                                      : l.editServerUuidLabel,
+                                  mono: true,
+                                  secret: _isHysteria2,
+                                  validator: (value) {
+                                    if (value == null || value.trim().isEmpty) {
+                                      return _isHysteria2
+                                          ? l.editServerPasswordRequired
+                                          : l.editServerUuidRequired;
+                                    }
+                                    return null;
+                                  },
+                                ),
+                              if (_isVless) ...[
+                                const SizedBox(height: 14),
+                                _buildTransportField(),
+                                const SizedBox(height: 14),
+                                _buildSecurityField(),
+                              ],
+                            ],
                           ),
-                        ] else
-                          _buildTextField(
-                            controller: _uuidController,
-                            label: _isHysteria2
-                                ? l.editServerPasswordLabel
-                                : l.editServerUuidLabel,
-                            mono: true,
-                            secret: _isHysteria2,
-                            validator: (value) {
-                              if (value == null || value.trim().isEmpty) {
-                                return _isHysteria2
-                                    ? l.editServerPasswordRequired
-                                    : l.editServerUuidRequired;
-                              }
-                              return null;
+                          if (_isVless) ...[
+                            const SizedBox(height: 16),
+                            _SectionCard(
+                              title: l.editServerSectionTransport,
+                              children: [
+                                if (_transport == VlessTransport.ws ||
+                                    _transport == VlessTransport.http ||
+                                    _transport == VlessTransport.httpupgrade ||
+                                    _transport == VlessTransport.xhttp) ...[
+                                  _buildTextField(
+                                    controller: _pathController,
+                                    label: l.editServerPathLabel,
+                                    mono: true,
+                                  ),
+                                  const SizedBox(height: 14),
+                                  _buildTextField(
+                                    controller: _hostController,
+                                    label: l.editServerHostLabel,
+                                    mono: true,
+                                  ),
+                                ],
+                                if (_transport == VlessTransport.grpc)
+                                  _buildTextField(
+                                    controller: _serviceNameController,
+                                    label: l.editServerServiceNameLabel,
+                                    mono: true,
+                                  ),
+                                if (_transport == VlessTransport.tcp)
+                                  _buildTextField(
+                                    controller: _hostController,
+                                    label: l.editServerHostLabel,
+                                    mono: true,
+                                  ),
+                                if (_transport == VlessTransport.xhttp) ...[
+                                  const SizedBox(height: 18),
+                                  _buildXhttpFields(),
+                                ],
+                              ],
+                            ),
+                          ],
+                          const SizedBox(height: 16),
+                          _SectionCard(
+                            title: l.editServerSectionTls,
+                            children: [
+                              _buildTextField(
+                                controller: _sniController,
+                                label: l.editServerSniLabel,
+                                mono: true,
+                              ),
+                              if (_isNaive) ...[
+                                const SizedBox(height: 14),
+                                _buildNaiveModeField(),
+                                if (_naiveQuic) ...[
+                                  const SizedBox(height: 14),
+                                  _buildNaiveCongestionControlField(),
+                                ],
+                                const SizedBox(height: 14),
+                                SwitchListTile.adaptive(
+                                  value: _tlsInsecure,
+                                  onChanged: _isSaving
+                                      ? null
+                                      : (value) => setState(() {
+                                          _tlsInsecure = value;
+                                          _hasUnsavedChanges = true;
+                                        }),
+                                  title: Text(l.editServerAllowInsecureLabel),
+                                  contentPadding: EdgeInsets.zero,
+                                ),
+                              ] else ...[
+                                const SizedBox(height: 14),
+                                _buildTextField(
+                                  controller: _alpnController,
+                                  label: l.editServerAlpnLabel,
+                                  mono: true,
+                                ),
+                                const SizedBox(height: 14),
+                                _buildFingerprintField(),
+                                const SizedBox(height: 14),
+                                SwitchListTile.adaptive(
+                                  value: _tlsInsecure,
+                                  onChanged: _isSaving
+                                      ? null
+                                      : (value) => setState(() {
+                                          _tlsInsecure = value;
+                                          _hasUnsavedChanges = true;
+                                        }),
+                                  title: Text(l.editServerAllowInsecureLabel),
+                                  contentPadding: EdgeInsets.zero,
+                                ),
+                              ],
+                              if (_isVless &&
+                                  _security == VlessSecurity.reality) ...[
+                                const SizedBox(height: 14),
+                                _buildTextField(
+                                  controller: _shortIdController,
+                                  label: l.editServerShortIdLabel,
+                                  mono: true,
+                                ),
+                                const SizedBox(height: 14),
+                                _buildTextField(
+                                  controller: _publicKeyController,
+                                  label: l.editServerPublicKeyLabel,
+                                  mono: true,
+                                ),
+                              ],
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          ServerAdvancedFields(
+                            protocol: _protocol,
+                            security: _security,
+                            enabled: !_isSaving,
+                            initial: _advanced,
+                            onChanged: (value) {
+                              _advanced = value;
+                              _markDirty();
                             },
                           ),
-                        if (_isVless) ...[
-                          const SizedBox(height: 14),
-                          _buildTransportField(),
-                          const SizedBox(height: 14),
-                          _buildSecurityField(),
-                        ],
-                      ],
-                    ),
-                    if (_isVless) ...[
-                      const SizedBox(height: 16),
-                      _SectionCard(
-                        title: l.editServerSectionTransport,
-                        children: [
-                          if (_transport == VlessTransport.ws ||
-                              _transport == VlessTransport.http ||
-                              _transport == VlessTransport.httpupgrade ||
-                              _transport == VlessTransport.xhttp) ...[
-                            _buildTextField(
-                              controller: _pathController,
-                              label: l.editServerPathLabel,
-                              mono: true,
-                            ),
-                            const SizedBox(height: 14),
-                            _buildTextField(
-                              controller: _hostController,
-                              label: l.editServerHostLabel,
-                              mono: true,
-                            ),
-                          ],
-                          if (_transport == VlessTransport.grpc)
-                            _buildTextField(
-                              controller: _serviceNameController,
-                              label: l.editServerServiceNameLabel,
-                              mono: true,
-                            ),
-                          if (_transport == VlessTransport.tcp)
-                            _buildTextField(
-                              controller: _hostController,
-                              label: l.editServerHostLabel,
-                              mono: true,
-                            ),
-                          if (_transport == VlessTransport.xhttp) ...[
-                            const SizedBox(height: 18),
-                            _buildXhttpFields(),
-                          ],
+                          const SizedBox(height: 16),
                         ],
                       ),
-                    ],
-                    const SizedBox(height: 16),
-                    _SectionCard(
-                      title: l.editServerSectionTls,
-                      children: [
-                        _buildTextField(
-                          controller: _sniController,
-                          label: l.editServerSniLabel,
-                          mono: true,
-                        ),
-                        if (_isNaive) ...[
-                          const SizedBox(height: 14),
-                          _buildNaiveModeField(),
-                          if (_naiveQuic) ...[
-                            const SizedBox(height: 14),
-                            _buildNaiveCongestionControlField(),
-                          ],
-                          const SizedBox(height: 14),
-                          SwitchListTile.adaptive(
-                            value: _tlsInsecure,
-                            onChanged: _isSaving
-                                ? null
-                                : (value) => setState(() {
-                                    _tlsInsecure = value;
-                                    _hasUnsavedChanges = true;
-                                  }),
-                            title: Text(l.editServerAllowInsecureLabel),
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                        ] else ...[
-                          const SizedBox(height: 14),
-                          _buildTextField(
-                            controller: _alpnController,
-                            label: l.editServerAlpnLabel,
-                            mono: true,
-                          ),
-                          const SizedBox(height: 14),
-                          _buildFingerprintField(),
-                          const SizedBox(height: 14),
-                          SwitchListTile.adaptive(
-                            value: _tlsInsecure,
-                            onChanged: _isSaving
-                                ? null
-                                : (value) => setState(() {
-                                    _tlsInsecure = value;
-                                    _hasUnsavedChanges = true;
-                                  }),
-                            title: Text(l.editServerAllowInsecureLabel),
-                            contentPadding: EdgeInsets.zero,
-                          ),
-                        ],
-                        if (_isVless && _security == VlessSecurity.reality) ...[
-                          const SizedBox(height: 14),
-                          _buildTextField(
-                            controller: _shortIdController,
-                            label: l.editServerShortIdLabel,
-                            mono: true,
-                          ),
-                          const SizedBox(height: 14),
-                          _buildTextField(
-                            controller: _publicKeyController,
-                            label: l.editServerPublicKeyLabel,
-                            mono: true,
-                          ),
-                        ],
-                      ],
                     ),
-                    const SizedBox(height: 16),
-                    ServerAdvancedFields(
-                      protocol: _protocol,
-                      security: _security,
-                      enabled: !_isSaving,
-                      initial: _advanced,
-                      onChanged: (value) {
-                        _advanced = value;
-                        _markDirty();
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                ),
-              ),
-            ),
+                  ),
           ),
         ),
       ),
@@ -603,17 +822,26 @@ class _ManualServerInputScreenState extends State<ManualServerInputScreen> {
         labelText: l.editServerFingerprintLabel,
         helperText: l.editServerFingerprintHelper,
       ),
-      items: _fingerprintOptions
-          .map(
-            (fp) => DropdownMenuItem<String>(
-              value: fp,
-              child: Text(
-                fp.isEmpty ? l.editServerFingerprintAuto : fp,
-                style: TextStyle(fontFamily: fp.isEmpty ? null : 'monospace'),
-              ),
-            ),
-          )
-          .toList(),
+      items:
+          TlsFingerprints.options(
+                additionalEnabled:
+                    widget.controller.additionalTlsFingerprintsEnabled,
+                current: _fingerprint,
+              )
+              .map(
+                (fp) => DropdownMenuItem<String>(
+                  value: fp,
+                  child: Text(
+                    fp.isEmpty
+                        ? l.editServerFingerprintAuto
+                        : TlsFingerprints.label(fp),
+                    style: TextStyle(
+                      fontFamily: fp.isEmpty ? null : 'monospace',
+                    ),
+                  ),
+                ),
+              )
+              .toList(),
       onChanged: _isSaving
           ? null
           : (value) {
@@ -823,25 +1051,28 @@ class _SectionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final t = VoidTokens.of(context);
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: t.surface,
+    return Material(
+      color: t.surface,
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: t.border),
+        side: BorderSide(color: t.border),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            title,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          ...children,
-        ],
+            const SizedBox(height: 16),
+            ...children,
+          ],
+        ),
       ),
     );
   }

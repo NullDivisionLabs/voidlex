@@ -111,7 +111,7 @@ class VpnController extends ChangeNotifier {
   // on flaky networks), we retry once after this backoff.
   static const Duration _ipLookupRetryBackoff = Duration(seconds: 2);
   static const int _ipLookupAttempts = 2;
-  static const int _latencyScanConcurrency = 4;
+  static const int _latencyScanConcurrency = 2;
   static const Duration _pingBatchInterval = Duration(milliseconds: 300);
   // Auto-triggered full scans (launch, resume from tray) are throttled to
   // this interval. Manual UI taps bypass the cooldown via `force: true`.
@@ -248,6 +248,17 @@ class VpnController extends ChangeNotifier {
   bool _showExitNodeInfoBar = true;
   bool _startHomeWidgetsCollapsed = false;
   bool _autoSortServersByPing = false;
+  bool _additionalTlsFingerprintsEnabled = false;
+  String _urlProbeUrl = UrlProbeTarget.defaultUrl;
+  NodeDiagnosticMode _nodeDiagnosticMode = NodeDiagnosticMode.url;
+  bool _nodeDiagnosticMenuEnabled = false;
+  int _urlProbeGeneration = 0;
+  int _urlProbeRequestId = 0;
+  bool _urlProbesDisposed = false;
+  final Map<String, String> _urlProbeDetails = {};
+  final Map<String, int> _nodeProbeRevisions = {};
+  final ValueNotifier<String> _activeConnectionPing = ValueNotifier('--');
+  String? _activeConnectionProbeDetail;
   LatencyProbeTarget _latencyProbeTarget = LatencyProbeTarget.serverEndpoint;
   bool _favoritesSectionCollapsed = false;
   final List<String> _favoriteServerNames = [];
@@ -494,6 +505,18 @@ class VpnController extends ChangeNotifier {
   bool get showExitNodeInfoBar => _showExitNodeInfoBar;
   bool get startHomeWidgetsCollapsed => _startHomeWidgetsCollapsed;
   bool get autoSortServersByPing => _autoSortServersByPing;
+  bool get additionalTlsFingerprintsEnabled =>
+      _additionalTlsFingerprintsEnabled;
+  String get urlProbeUrl => _urlProbeUrl;
+  NodeDiagnosticMode get nodeDiagnosticMode => _nodeDiagnosticMode;
+  bool get nodeDiagnosticMenuEnabled => _nodeDiagnosticMenuEnabled;
+  NodeDiagnosticMode get alternateNodeDiagnosticMode =>
+      _nodeDiagnosticMode.alternate;
+  ValueListenable<String> get activeConnectionPingListenable =>
+      _activeConnectionPing;
+  String get activeConnectionPing => _activeConnectionPing.value;
+  String? get activeConnectionProbeDetail => _activeConnectionProbeDetail;
+  String? urlProbeDetailFor(String name) => _urlProbeDetails[name];
   LatencyProbeTarget get latencyProbeTarget => _latencyProbeTarget;
   bool get favoritesSectionCollapsed => _favoritesSectionCollapsed;
   bool isSubscriptionCollapsed(String id) =>
@@ -917,6 +940,17 @@ class VpnController extends ChangeNotifier {
       _servers.addAll(defaultDevServers());
     }
 
+    // Old stored pings measured TCP reachability and must not appear as URL results.
+    if (!_repository.hasUrlProbeResults) {
+      for (final server in _allServerList()) {
+        _updateServerPing(server.name, '--', notify: false);
+      }
+      _flushPingBuffer(notify: false);
+      await _persistServers();
+      await _persistSubscriptions();
+      await _repository.markUrlProbeResults();
+    }
+
     final storedSelectedName = snapshot.selectedName;
     _selectedName = storedSelectedName != null
         ? _canonicalServerName(storedSelectedName) ??
@@ -943,6 +977,11 @@ class VpnController extends ChangeNotifier {
     _startHomeWidgetsCollapsed = snapshot.startHomeWidgetsCollapsed;
     _autoSortServersByPing = snapshot.autoSortServersByPing;
     _latencyProbeTarget = snapshot.latencyProbeTarget;
+    _additionalTlsFingerprintsEnabled =
+        snapshot.additionalTlsFingerprintsEnabled;
+    _urlProbeUrl = snapshot.urlProbeUrl;
+    _nodeDiagnosticMode = snapshot.nodeDiagnosticMode;
+    _nodeDiagnosticMenuEnabled = snapshot.nodeDiagnosticMenuEnabled;
     _favoritesSectionCollapsed = snapshot.favoritesSectionCollapsed;
     final favoriteOrderChanged = _syncFavoriteServerNames();
     final collapsedSubscriptionIdsChanged = _syncCollapsedSubscriptionIds();
@@ -1942,8 +1981,26 @@ class VpnController extends ChangeNotifier {
 
     final affectsActiveConnection =
         _hasRestartableNativeSession &&
-        _serverNameEquals(_selectedName, originalName);
-    final persistedServer = updatedServer.copyWith(name: normalizedName);
+        (_serverNameEquals(_selectedName, originalName) ||
+            _serverNameEquals(_exitNodeName, originalName));
+    final original = manualIndex >= 0
+        ? _servers[manualIndex]
+        : _subscriptions[subscriptionIndex].servers[subscriptionServerIndex];
+    final connectionChanged =
+        original.connectionKey != updatedServer.connectionKey;
+    final persistedServer = updatedServer.copyWith(
+      name: normalizedName,
+      ping: connectionChanged ? '--' : original.ping,
+    );
+    if (connectionChanged || originalName != normalizedName) {
+      _nodeProbeRevisions[original.name] =
+          (_nodeProbeRevisions[original.name] ?? 0) + 1;
+      _pingBuffer.remove(original.name);
+      _urlProbeDetails.remove(original.name);
+      _urlProbeDetails.remove(normalizedName);
+      _publishPing(original.name, persistedServer.ping);
+      _publishPing(normalizedName, persistedServer.ping);
+    }
     if (manualIndex >= 0) {
       _servers[manualIndex] = persistedServer;
     } else {
@@ -2482,6 +2539,7 @@ class VpnController extends ChangeNotifier {
     final normalized = settings.normalized();
     if (_tunnelFragmentSettings.hasSameConfiguration(normalized)) return;
     _tunnelFragmentSettings = normalized;
+    await _invalidateUrlProbeResults();
     await _repository.saveTunnelFragmentSettings(normalized);
     notifyListeners();
     _markNetworkSettingsRestartPending();
@@ -2491,6 +2549,7 @@ class VpnController extends ChangeNotifier {
     final normalized = settings.normalized();
     if (_multiplexSettings.hasSameConfiguration(normalized)) return;
     _multiplexSettings = normalized;
+    await _invalidateUrlProbeResults();
     await _repository.saveMultiplexSettings(normalized);
     notifyListeners();
     _markNetworkSettingsRestartPending();
@@ -2500,6 +2559,7 @@ class VpnController extends ChangeNotifier {
     final normalized = settings.normalized();
     if (_tunnelNetworkSettings.hasSameConfiguration(normalized)) return;
     _tunnelNetworkSettings = normalized;
+    await _invalidateUrlProbeResults();
     await _repository.saveTunnelNetworkSettings(normalized);
     notifyListeners();
     _markNetworkSettingsRestartPending();
@@ -2582,6 +2642,7 @@ class VpnController extends ChangeNotifier {
     final normalized = settings.normalized();
     if (_connectionPolicy.hasSameConfiguration(normalized)) return;
     _connectionPolicy = normalized;
+    await _invalidateUrlProbeResults();
     await _repository.saveConnectionPolicy(normalized);
     notifyListeners();
     _markNetworkSettingsRestartPending();
@@ -2658,9 +2719,128 @@ class VpnController extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> setAdditionalTlsFingerprintsEnabled(bool value) async {
+    await _repository.saveAdditionalTlsFingerprintsEnabled(value);
+    _additionalTlsFingerprintsEnabled = value;
+    notifyListeners();
+  }
+
+  Future<void> setUrlProbeUrl(String value) async {
+    final normalized = UrlProbeTarget.normalize(value);
+    if (normalized == null) throw ArgumentError.value(value, 'url');
+    if (normalized == _urlProbeUrl) return;
+    await _repository.saveUrlProbeUrl(normalized);
+    _urlProbeUrl = normalized;
+    await _invalidateUrlProbeResults(
+      clearNodeResults: _nodeDiagnosticMode == NodeDiagnosticMode.url,
+    );
+    _activeConnectionPing.value = '--';
+    _activeConnectionProbeDetail = null;
+    notifyListeners();
+    if (isConnected) unawaited(_refreshActiveServerPing(_runtimeGeneration));
+  }
+
+  Future<void> setNodeDiagnosticMode(NodeDiagnosticMode value) async {
+    if (_nodeDiagnosticMode == value) return;
+    _nodeDiagnosticMode = value;
+    await _invalidateUrlProbeResults(clearActiveResult: false);
+    await _repository.saveNodeDiagnosticMode(value);
+    _lastFullScanTime = null;
+    notifyListeners();
+  }
+
+  Future<void> setNodeDiagnosticMenuEnabled(bool value) async {
+    if (_nodeDiagnosticMenuEnabled == value) return;
+    _nodeDiagnosticMenuEnabled = value;
+    await _repository.saveNodeDiagnosticMenuEnabled(value);
+    notifyListeners();
+  }
+
+  Future<void> _invalidateUrlProbeResults({
+    bool clearNodeResults = true,
+    bool clearActiveResult = true,
+  }) async {
+    await cancelUrlProbes();
+    if (clearActiveResult) {
+      _activeConnectionPing.value = '--';
+      _activeConnectionProbeDetail = null;
+    }
+    if (!clearNodeResults) return;
+    for (final server in _allServerList()) {
+      _updateServerPing(server.name, '--', notify: false);
+    }
+    _urlProbeDetails.clear();
+    _flushPingBuffer(notify: true);
+    await _persistServers();
+    await _persistSubscriptions();
+  }
+
+  Future<void> cancelUrlProbes() async {
+    _urlProbeGeneration++;
+    if (!_urlProbesDisposed) {
+      _clearPendingUrlPings();
+      if (_activeConnectionPing.value == '...') {
+        _activeConnectionPing.value = '--';
+      }
+    }
+    try {
+      await _methodChannel.invokeMethod<void>('cancelUrlProbes');
+    } catch (_) {
+      /* Cancellation also works on platforms without Android. */
+    }
+  }
+
+  /// An explicit TCP diagnostic never overwrites the default list measurement.
+  Future<String> diagnoseServerTcp(ServerConfig server) =>
+      _latencyProbe.measure(server, target: _latencyProbeTarget);
+
+  /// An explicit URL diagnostic never overwrites the default list measurement.
+  Future<UrlProbeResult> diagnoseServerUrl(ServerConfig server) async {
+    final generation = _urlProbeGeneration;
+    final revision = _nodeProbeRevisions[server.name] ?? 0;
+    final args = _urlProbeArgs(server);
+    final result = await _runUrlProbe(args);
+    if (_urlProbesDisposed ||
+        generation != _urlProbeGeneration ||
+        revision != (_nodeProbeRevisions[server.name] ?? 0)) {
+      return const UrlProbeResult('cancelled');
+    }
+    final current = _serverConfigForName(server.name);
+    if (current == null ||
+        jsonEncode(_urlProbeArgs(current)) != jsonEncode(args)) {
+      return const UrlProbeResult('cancelled');
+    }
+    return result;
+  }
+
+  Future<UrlProbeResult> _runUrlProbe(Map<String, dynamic> args) async {
+    final requestId =
+        '${DateTime.now().microsecondsSinceEpoch}-${++_urlProbeRequestId}';
+    try {
+      final raw = await _methodChannel
+          .invokeMapMethod<String, dynamic>('probeServerUrl', {
+            ...args,
+            'requestId': requestId,
+          })
+          .timeout(const Duration(seconds: 46));
+      return raw?['requestId'] != requestId
+          ? const UrlProbeResult('error', detail: 'Invalid probe request ID')
+          : UrlProbeResult.fromMap(raw);
+    } on MissingPluginException {
+      return const UrlProbeResult('unsupported');
+    } on TimeoutException {
+      return const UrlProbeResult('error', detail: 'Probe service timed out');
+    } catch (_) {
+      return const UrlProbeResult('error', detail: 'Probe service failed');
+    }
+  }
+
   Future<void> setLatencyProbeTarget(LatencyProbeTarget target) async {
     if (_latencyProbeTarget.hasSameConfiguration(target)) return;
     _latencyProbeTarget = target;
+    if (_nodeDiagnosticMode == NodeDiagnosticMode.tcp) {
+      await _invalidateUrlProbeResults(clearActiveResult: false);
+    }
     await _repository.saveLatencyProbeTarget(target);
     notifyListeners();
   }
@@ -3001,6 +3181,7 @@ class VpnController extends ChangeNotifier {
     }
     final shouldReconnect = _hasRestartableNativeSession;
     _tunEngineMode = mode;
+    await _invalidateUrlProbeResults();
     await _repository.saveTunEngineMode(mode);
     notifyListeners();
 
@@ -3379,9 +3560,17 @@ class VpnController extends ChangeNotifier {
         .map((server) {
           final previous = previousByName[server.name];
           if (previous == null) return server;
+          final changed = server.connectionKey != previous.connectionKey;
+          if (changed) {
+            _nodeProbeRevisions[previous.name] =
+                (_nodeProbeRevisions[previous.name] ?? 0) + 1;
+            _pingBuffer.remove(previous.name);
+            _urlProbeDetails.remove(previous.name);
+            _publishPing(previous.name, '--');
+          }
           return server.copyWith(
             isPinned: previous.isPinned,
-            ping: previous.ping,
+            ping: changed ? '--' : previous.ping,
           );
         })
         .toList(growable: false);
@@ -4141,8 +4330,8 @@ class VpnController extends ChangeNotifier {
             _acceptConnectedEvent = false;
             _suppressNextDisconnectedEvent = false;
             _lastError = null;
-            _markConnected();
             _setState(VpnConnectionState.connected);
+            _markConnected();
             break;
           case 'disconnected':
             // Anything waiting on native teardown (the restart path) should
@@ -4299,23 +4488,28 @@ class VpnController extends ChangeNotifier {
     _flushPingBuffer(notify: false);
     _latencyScanTick.value++;
 
+    final generation = _urlProbeGeneration;
     try {
       await _scanLatencySnapshot(snapshot);
     } finally {
-      _flushPingBuffer(notify: false);
-      _activePingScanCount = 0;
-      _setIsScanningLatency(false);
-      _lastFullScanTime = DateTime.now();
-      if (_autoSortServersByPing) {
-        _sortServersByPingInPlace();
+      if (!_urlProbesDisposed) {
+        _flushPingBuffer(notify: false);
+        _activePingScanCount = 0;
+        _setIsScanningLatency(false);
+        if (generation == _urlProbeGeneration) {
+          _lastFullScanTime = DateTime.now();
+        }
+        if (_autoSortServersByPing) {
+          _sortServersByPingInPlace();
+        }
+        // Persist measured pings so they survive a restart even when
+        // auto-sort is off. Without this the on-disk JSON would still
+        // contain the pre-scan values.
+        await _persistServers();
+        await _persistSubscriptions();
+        _latencyScanTick.value++;
+        notifyListeners();
       }
-      // Persist measured pings so they survive a restart even when
-      // auto-sort is off. Without this the on-disk JSON would still
-      // contain the pre-scan values.
-      await _persistServers();
-      await _persistSubscriptions();
-      _latencyScanTick.value++;
-      notifyListeners();
     }
   }
 
@@ -4347,15 +4541,17 @@ class VpnController extends ChangeNotifier {
     try {
       await _scanLatencySnapshot(snapshot);
     } finally {
-      _flushPingBuffer(notify: false);
-      _activePingScanCount = 0;
-      _setIsScanningLatency(false);
-      if (_autoSortServersByPing) {
-        _sortManualServersByPingInPlace();
+      if (!_urlProbesDisposed) {
+        _flushPingBuffer(notify: false);
+        _activePingScanCount = 0;
+        _setIsScanningLatency(false);
+        if (_autoSortServersByPing) {
+          _sortManualServersByPingInPlace();
+        }
+        await _persistServers();
+        _latencyScanTick.value++;
+        notifyListeners();
       }
-      await _persistServers();
-      _latencyScanTick.value++;
-      notifyListeners();
     }
   }
 
@@ -4369,6 +4565,7 @@ class VpnController extends ChangeNotifier {
     if (snapshot.isEmpty) return;
 
     _scanningSubscriptionIds.add(id);
+    _setIsScanningLatency(true);
     _touchSubscriptionScanUi();
     _activePingScanCount = snapshot.length;
     for (final server in snapshot) {
@@ -4379,37 +4576,104 @@ class VpnController extends ChangeNotifier {
 
     try {
       await _scanLatencySnapshot(snapshot);
-      _flushPingBuffer(notify: false);
-      if (_autoSortServersByPing) {
-        _sortSubscriptionByPingInPlace(id);
+      if (!_urlProbesDisposed) {
+        _flushPingBuffer(notify: false);
+        if (_autoSortServersByPing) {
+          _sortSubscriptionByPingInPlace(id);
+        }
+        await _persistSubscriptions();
       }
-      await _persistSubscriptions();
     } finally {
-      _flushPingBuffer(notify: false);
-      _activePingScanCount = 0;
-      _scanningSubscriptionIds.remove(id);
-      _touchSubscriptionScanUi();
-      _latencyScanTick.value++;
-      notifyListeners();
+      if (!_urlProbesDisposed) {
+        _flushPingBuffer(notify: false);
+        _activePingScanCount = 0;
+        _scanningSubscriptionIds.remove(id);
+        _setIsScanningLatency(false);
+        _touchSubscriptionScanUi();
+        _latencyScanTick.value++;
+        notifyListeners();
+      }
     }
   }
 
+  Map<String, dynamic> _urlProbeArgs(ServerConfig server) {
+    final args = server.toNativeArgs(
+      isGlobalProxy: true,
+      tunEngineMode: _tunEngineMode,
+    );
+    args.addAll(_tunnelFragmentSettings.toNativeArgs());
+    args.addAll(_multiplexSettings.toNativeArgs());
+    args.addAll(_tunnelNetworkSettings.toNativeArgs());
+    args.addAll(_connectionPolicy.toNativeArgs());
+    args['url'] = _urlProbeUrl;
+    return args;
+  }
+
+  String _nodeDiagnosticConfiguration(
+    ServerConfig server,
+    NodeDiagnosticMode mode,
+  ) => mode == NodeDiagnosticMode.url
+      ? jsonEncode(_urlProbeArgs(server))
+      : jsonEncode({
+          'node': server.connectionKey,
+          'target': _latencyProbeTarget.encode(),
+        });
+
   Future<void> _scanLatencySnapshot(List<ServerConfig> snapshot) async {
+    final generation = _urlProbeGeneration;
+    final mode = _nodeDiagnosticMode;
     final target = _latencyProbeTarget;
     var nextIndex = 0;
     Future<void> worker() async {
-      while (true) {
-        final index = nextIndex;
+      while (!_urlProbesDisposed && generation == _urlProbeGeneration) {
+        final index = nextIndex++;
         if (index >= snapshot.length) return;
-        nextIndex++;
         final server = snapshot[index];
-        final ping = await _measureServerLatency(server, target: target);
-        _updateServerPing(server.name, ping);
+        final revision = _nodeProbeRevisions[server.name] ?? 0;
+        final configuration = _nodeDiagnosticConfiguration(server, mode);
+        final String ping;
+        final String detail;
+        if (mode == NodeDiagnosticMode.tcp) {
+          ping = await _latencyProbe.measure(server, target: target);
+          detail =
+              '${target.usesServerEndpoint ? '${server.address}:${server.port}' : target.encode()} · $ping';
+        } else {
+          final result = await _runUrlProbe(_urlProbeArgs(server));
+          ping = result.label;
+          detail = result.detail ?? result.status;
+        }
+        if (_urlProbesDisposed ||
+            generation != _urlProbeGeneration ||
+            mode != _nodeDiagnosticMode) {
+          return;
+        }
+        final current = _serverConfigForName(server.name);
+        if (current == null ||
+            (_nodeProbeRevisions[server.name] ?? 0) != revision ||
+            _nodeDiagnosticConfiguration(current, mode) != configuration) {
+          continue;
+        }
+        _urlProbeDetails[current.name] = detail;
+        _updateServerPing(current.name, ping);
       }
     }
 
-    final workerCount = min(_latencyScanConcurrency, snapshot.length);
-    await Future.wait(List.generate(workerCount, (_) => worker()));
+    await Future.wait(
+      List.generate(
+        min(_latencyScanConcurrency, snapshot.length),
+        (_) => worker(),
+      ),
+    );
+    if (!_urlProbesDisposed) _clearPendingUrlPings();
+  }
+
+  void _clearPendingUrlPings() {
+    for (final server in _allServerList()) {
+      if (pingForServer(server.name) == '...') {
+        _updateServerPing(server.name, '--', notify: false);
+      }
+    }
+    _flushPingBuffer(notify: true);
   }
 
   void _sortServersByPingInPlace() {
@@ -4463,45 +4727,25 @@ class VpnController extends ChangeNotifier {
   }
 
   Future<void> _refreshActiveServerPing(int generation) async {
-    final server = selectedServer;
-    if (server == null) return;
-    final target = _latencyProbeTarget;
-    _updateServerPing(server.name, '...');
-    final ping = await _measureServerLatency(
-      server,
-      target: target,
-      preferRuntimeProxy: true,
+    if (!isConnected || selectedServer == null || _urlProbesDisposed) return;
+    final url = _urlProbeUrl;
+    final probeGeneration = _urlProbeGeneration;
+    _activeConnectionPing.value = '...';
+    final result = await _latencyProbe.measureRuntimeUrl(
+      proxyHost: _externalIpProxyHost,
+      proxyPort: _externalIpProxyPort,
+      proxyUser: _activeProxyUser,
+      proxyPassword: _activeProxyPassword,
+      url: Uri.parse(url),
     );
-    if (generation != _runtimeGeneration) return;
-    _updateServerPing(server.name, ping);
-    _flushPingBuffer(notify: true);
-    await _persistServers();
-    await _persistSubscriptions();
-  }
-
-  Future<String> _measureServerLatency(
-    ServerConfig server, {
-    required LatencyProbeTarget target,
-    bool preferRuntimeProxy = false,
-  }) async {
-    if (preferRuntimeProxy &&
-        Platform.isAndroid &&
-        isConnected &&
-        target.usesServerEndpoint &&
-        _serverNameEquals(server.name, selectedServer?.name ?? '')) {
-      final useHttpProxyAuth =
-          _httpProxyAuthEnabled &&
-          (_activeProxyUser?.isNotEmpty ?? false) &&
-          (_activeProxyPassword?.isNotEmpty ?? false);
-      final runtimePing = await _latencyProbe.measureViaHttpProxy(
-        proxyHost: _externalIpProxyHost,
-        proxyPort: _externalIpProxyPort,
-        proxyUser: useHttpProxyAuth ? _activeProxyUser : null,
-        proxyPassword: useHttpProxyAuth ? _activeProxyPassword : null,
-      );
-      if (runtimePing != null) return runtimePing;
+    if (_urlProbesDisposed ||
+        generation != _runtimeGeneration ||
+        probeGeneration != _urlProbeGeneration ||
+        !isConnected) {
+      return;
     }
-    return _latencyProbe.measure(server, target: target);
+    _activeConnectionProbeDetail = result.detail;
+    _activeConnectionPing.value = result.label;
   }
 
   void _startConnectionTicker() {
@@ -4514,6 +4758,8 @@ class VpnController extends ChangeNotifier {
   }
 
   void _resetConnectionRuntime() {
+    _activeConnectionPing.value = '--';
+    _activeConnectionProbeDetail = null;
     _runtimeGeneration++;
     _connectionTicker?.cancel();
     _connectionTicker = null;
@@ -4789,6 +5035,9 @@ class VpnController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _urlProbesDisposed = true;
+    unawaited(cancelUrlProbes());
+    _activeConnectionPing.dispose();
     _cancelConnectTimeout();
     _cancelDisconnectTimeout();
     _connectionTicker?.cancel();

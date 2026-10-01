@@ -221,6 +221,25 @@ void main() {
 
     expect(changedCenter.dx, initialCenter.dx);
   });
+
+  testWidgets('status strip timer stays pinned when status changes', (
+    tester,
+  ) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.binding.setSurfaceSize(const Size(390, 120));
+
+    await tester.pumpWidget(_statusStripApp('00:00:01', label: 'OFF'));
+    final initialRight = tester.getRect(find.text('00:00:01')).right;
+
+    for (final label in ['CONNECTING', 'SECURE', 'RECONNECTING NETWORK']) {
+      await tester.pumpWidget(_statusStripApp('00:00:01', label: label));
+      expect(tester.getRect(find.text('00:00:01')).right, initialRight);
+      expect(tester.takeException(), isNull);
+    }
+
+    await tester.pumpWidget(_statusStripApp('— : —', label: 'OFF'));
+    expect(tester.getRect(find.text('— : —')).right, initialRight);
+  });
 }
 
 Future<VpnController> _buildController({
@@ -256,7 +275,7 @@ Widget _widgetApp(Widget child) {
   );
 }
 
-Widget _statusStripApp(String right) {
+Widget _statusStripApp(String right, {String label = 'SECURE'}) {
   return MaterialApp(
     theme: AppTheme.lightTheme,
     home: Scaffold(
@@ -265,7 +284,7 @@ Widget _statusStripApp(String right) {
         child: SizedBox(
           width: 390,
           child: StatusStrip(
-            label: 'SECURE',
+            label: label,
             tone: StatusTone.ok,
             right: right,
             trailing: const SizedBox(

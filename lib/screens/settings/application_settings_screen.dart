@@ -615,6 +615,83 @@ class _ApplicationSettingsScreenState
     (scope?.onPreferenceChanged ?? widget.onLocalePreferenceChanged)(selected);
   }
 
+  Future<void> _showUrlProbeDialog() async {
+    final selected = await showDialog<String>(
+      context: context,
+      builder: (context) =>
+          _UrlProbeTargetDialog(initialUrl: widget.controller.urlProbeUrl),
+    );
+    if (selected == null || !mounted) return;
+    await widget.controller.setUrlProbeUrl(selected);
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _showTcpDiagnostic() =>
+      _showNodeDiagnostic(NodeDiagnosticMode.tcp);
+
+  Future<void> _showNodeDiagnostic(NodeDiagnosticMode mode) async {
+    final l = AppLocalizations.of(context);
+    final server = await showDialog<String>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: Text(
+          mode == NodeDiagnosticMode.url
+              ? l.urlDiagnosticTitle
+              : l.tcpDiagnosticTitle,
+        ),
+        children: [
+          for (final node in widget.controller.servers)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(context, node.name),
+              child: Text(node.name),
+            ),
+        ],
+      ),
+    );
+    if (server == null || !mounted) return;
+    final node = widget.controller.servers
+        .where((node) => node.name == server)
+        .firstOrNull;
+    if (node == null) return;
+    await showServerDiagnostic(
+      context: context,
+      controller: widget.controller,
+      server: node,
+      mode: mode,
+    );
+  }
+
+  Future<void> _showNodeDiagnosticModeDialog() async {
+    final l = AppLocalizations.of(context);
+    final mode = await showDialog<NodeDiagnosticMode>(
+      context: context,
+      builder: (context) => SimpleDialog(
+        title: Text(l.nodeDiagnosticModeTitle),
+        children: [
+          for (final value in NodeDiagnosticMode.values)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(context, value),
+              child: Row(
+                children: [
+                  Expanded(child: Text(value.label)),
+                  if (widget.controller.nodeDiagnosticMode == value)
+                    const Icon(Icons.check_rounded),
+                ],
+              ),
+            ),
+        ],
+      ),
+    );
+    if (mode == null || !mounted) return;
+    await widget.controller.setNodeDiagnosticMode(mode);
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _setNodeDiagnosticMenuEnabled(bool value) async {
+    await widget.controller.setNodeDiagnosticMenuEnabled(value);
+    if (mounted) setState(() {});
+  }
+
   Future<void> _showLatencyProbeTargetDialog() async {
     final selected = await showDialog<LatencyProbeTarget>(
       context: context,
@@ -1003,6 +1080,20 @@ class _ApplicationSettingsScreenState
             onChanged: _setShowExitNodeInfoBar,
           ),
         ),
+      if (!useTvChrome)
+        _row(
+          useTvChrome: false,
+          icon: Icons.more_horiz_rounded,
+          title: l.nodeDiagnosticMenuTitle,
+          subtitle: l.nodeDiagnosticMenuHelp,
+          onTap: () => _setNodeDiagnosticMenuEnabled(
+            !widget.controller.nodeDiagnosticMenuEnabled,
+          ),
+          trailing: Switch(
+            value: widget.controller.nodeDiagnosticMenuEnabled,
+            onChanged: _setNodeDiagnosticMenuEnabled,
+          ),
+        ),
     ];
     final connectionRows = <Widget>[
       _row(
@@ -1021,7 +1112,8 @@ class _ApplicationSettingsScreenState
         icon: Icons.link_outlined,
         title: l.allowDeepLinkVpnAutomationTitle,
         subtitle: l.allowDeepLinkVpnAutomationSubtitle,
-        onTap: () => _setAllowDeepLinkVpnAutomation(!_allowDeepLinkVpnAutomation),
+        onTap: () =>
+            _setAllowDeepLinkVpnAutomation(!_allowDeepLinkVpnAutomation),
         trailing: Switch(
           value: _allowDeepLinkVpnAutomation,
           onChanged: _setAllowDeepLinkVpnAutomation,
@@ -1076,7 +1168,15 @@ class _ApplicationSettingsScreenState
         ),
       ),
     ];
-    final nodeRows = <Widget>[
+    final diagnosticRows = <Widget>[
+      _row(
+        useTvChrome: useTvChrome,
+        icon: Icons.network_ping_rounded,
+        title: l.nodeDiagnosticModeTitle,
+        subtitle: l.nodeDiagnosticModeHelp,
+        onTap: _showNodeDiagnosticModeDialog,
+        trailing: NodeDiagnosticModeSelector(controller: widget.controller),
+      ),
       _row(
         useTvChrome: useTvChrome,
         icon: Icons.sort_rounded,
@@ -1094,7 +1194,31 @@ class _ApplicationSettingsScreenState
         title: l.applicationSettingsPingTargetTitle,
         subtitle: _latencyProbeTargetLabel(l),
         onTap: _showLatencyProbeTargetDialog,
-        trailing: const Icon(Icons.expand_more_rounded),
+        trailing: const Icon(Icons.edit_rounded),
+      ),
+      _row(
+        useTvChrome: useTvChrome,
+        icon: Icons.http_rounded,
+        title: l.urlProbeTargetTitle,
+        subtitle: widget.controller.urlProbeUrl,
+        onTap: _showUrlProbeDialog,
+        trailing: const Icon(Icons.edit_rounded),
+      ),
+      _row(
+        useTvChrome: useTvChrome,
+        icon: Icons.cable_rounded,
+        title: l.tcpDiagnosticTitle,
+        subtitle: l.tcpDiagnosticSubtitle,
+        onTap: _showTcpDiagnostic,
+        trailing: const Icon(Icons.chevron_right_rounded),
+      ),
+      _row(
+        useTvChrome: useTvChrome,
+        icon: Icons.http_rounded,
+        title: l.urlDiagnosticTitle,
+        subtitle: l.urlDiagnosticSubtitle,
+        onTap: () => _showNodeDiagnostic(NodeDiagnosticMode.url),
+        trailing: const Icon(Icons.chevron_right_rounded),
       ),
     ];
     final profileRows = <Widget>[
@@ -1210,7 +1334,7 @@ class _ApplicationSettingsScreenState
       ..._settingsGroup(
         useTvChrome: useTvChrome,
         label: l.settingsGroupNodes,
-        rows: nodeRows,
+        rows: diagnosticRows,
       ),
       ..._settingsGroup(
         useTvChrome: useTvChrome,
@@ -1236,6 +1360,64 @@ class _LogSettingsSelection {
   final Set<AppLogLevel> levels;
   final AppLogRetention retention;
   final bool verboseXrayLogs;
+}
+
+class _UrlProbeTargetDialog extends StatefulWidget {
+  const _UrlProbeTargetDialog({required this.initialUrl});
+  final String initialUrl;
+  @override
+  State<_UrlProbeTargetDialog> createState() => _UrlProbeTargetDialogState();
+}
+
+class _UrlProbeTargetDialogState extends State<_UrlProbeTargetDialog> {
+  final formKey = GlobalKey<FormState>();
+  late final controller = TextEditingController(text: widget.initialUrl);
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  void submit() {
+    if (formKey.currentState?.validate() != true) return;
+    Navigator.pop(context, UrlProbeTarget.normalize(controller.text));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final l = AppLocalizations.of(context);
+    return AlertDialog(
+      title: Text(l.urlProbeTargetTitle),
+      content: Form(
+        key: formKey,
+        child: TextFormField(
+          controller: controller,
+          autofocus: true,
+          autocorrect: false,
+          keyboardType: TextInputType.url,
+          decoration: InputDecoration(
+            hintText: UrlProbeTarget.defaultUrl,
+            helperText: l.urlProbeTargetHelp,
+          ),
+          validator: (value) => UrlProbeTarget.normalize(value) == null
+              ? l.urlProbeTargetInvalid
+              : null,
+          onFieldSubmitted: (_) => submit(),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(l.cancel),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, UrlProbeTarget.defaultUrl),
+          child: Text(l.applicationSettingsPingTargetReset),
+        ),
+        FilledButton(onPressed: submit, child: Text(l.save)),
+      ],
+    );
+  }
 }
 
 class _LatencyProbeTargetDialog extends StatefulWidget {

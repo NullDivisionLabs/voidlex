@@ -90,7 +90,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settingsGroupConnection => 'Connection';
 
   @override
-  String get settingsGroupNodes => 'Nodes';
+  String get settingsGroupNodes => 'Diagnostics';
 
   @override
   String get settingsGroupProfile => 'Profile';
@@ -161,13 +161,14 @@ class AppLocalizationsEn extends AppLocalizations {
       'Capture xray-core info-level errors (dial failures, Reality auth, ALPN) and dump the generated config once at startup. Use only for diagnostics; sensitive fields are masked.';
 
   @override
-  String get applicationSettingsPingTargetTitle => 'Ping server';
+  String get applicationSettingsPingTargetTitle => 'TCP diagnostic address';
 
   @override
   String get applicationSettingsPingTargetDefault => 'Node address';
 
   @override
-  String get applicationSettingsPingTargetDialogTitle => 'Ping server';
+  String get applicationSettingsPingTargetDialogTitle =>
+      'TCP diagnostic address';
 
   @override
   String get applicationSettingsPingTargetFieldLabel => 'Host or URL';
@@ -585,7 +586,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get editServerFingerprintHelper =>
-      'Default: chrome for XHTTP, none otherwise';
+      'Auto uses the runtime default. Older profiles may reduce ClientHello size; speed and energy savings are not guaranteed.';
 
   @override
   String get editServerFingerprintAuto => 'Auto (none)';
@@ -1491,6 +1492,40 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get editServerJsonInvalid =>
       'JSON must contain exactly one valid supported server configuration.';
+
+  @override
+  String jsonEditorSyntaxError(int line, int column, String error) {
+    return 'Line $line, col $column: Syntax error ($error)';
+  }
+
+  @override
+  String jsonEditorValid(String details) {
+    return 'Valid configuration: $details';
+  }
+
+  @override
+  String get jsonEditorIncomplete =>
+      'Valid JSON syntax, but server configuration is incomplete';
+
+  @override
+  String get jsonEditorFormatTooltip => 'Format JSON';
+
+  @override
+  String get jsonEditorWrapTooltip => 'Toggle line wrap';
+
+  @override
+  String get jsonEditorGoToError => 'Go to error';
+
+  @override
+  String jsonEditorLinesCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count lines',
+      one: '$count line',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get settingsHwidLoading => 'Loading…';
@@ -2449,11 +2484,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get faqQ1 =>
-      'Why can\'t I pick an XHTTP server as the exit node in a two-hop chain?';
+      'Which servers cannot be used in a two-hop chain (entry → exit)?';
 
   @override
   String get faqA1 =>
-      'In a two-hop setup the exit node\'s outbound is dialled through the entry via sockopt.dialerProxy. XHTTP is an HTTP/2 transport with its own TLS/REALITY wrapper, and its handshake doesn\'t reach across the entry tunnel cleanly — the connection comes up, but nothing flows. XHTTP servers are therefore hidden in the exit-node picker. Use such a server as the primary (entry) node, and pick a VLESS-TCP / WS / REALITY server as the exit.';
+      'The two-hop chain is handled by the Xray core via `sockopt.dialerProxy`. This introduces two key limits:\n1. **Hysteria2 and NaiveProxy** cannot be used in a chain at all (neither as entry nor as exit) because they run directly via the libbox engine.\n2. **XHTTP** is not recommended as an exit node: due to HTTP/2 transport specifics, the handshake often fails to complete across the entry tunnel. Use XHTTP as the primary (entry) node, and choose VLESS-TCP, WS, or REALITY for the exit.';
 
   @override
   String get faqQ2 =>
@@ -2490,14 +2525,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get faqA6 =>
-      'Some parameters (TUN engine, DNS, stack, MTU, fragmentation, multiplex, …) only apply on the next tunnel start. In tunnel settings there\'s a **«Restart tunnel on settings change»** toggle — with it on, the app re-establishes the connection when you leave the settings screen. Otherwise disconnect and reconnect by hand.';
+      'Some parameters (TUN engine, network stack, DNS, MTU, fragmentation, multiplex, etc.) only take effect on the next tunnel start. In **«Settings → Application»** there is a **«Restart on changes»** toggle — when enabled, the app automatically reconnects when you leave settings. If it is disabled, disconnect and reconnect manually.';
 
   @override
   String get faqQ7 => 'What is HWID and why does my subscription send it?';
 
   @override
   String get faqA7 =>
-      'HWID is a stable per-device identifier, computed locally (visible in «About»). It is sent in an HTTP header on the subscription request **only when the provider explicitly asks for it** via the subscription URL. Providers use it for «one subscription — N devices» quotas. HWID is not sent anywhere else.';
+      'HWID is a stable anonymous device identifier computed locally (visible in «About»). It is sent in the `X-HWID` header on subscription requests if **«Send HWID»** is enabled under **«Settings → Subscription provider»**. Some providers require it to enforce device quotas. You can turn off HWID transmission at any time. HWID is never sent anywhere else.';
 
   @override
   String get faqQ8 =>
@@ -2505,7 +2540,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get faqA8 =>
-      'The standard build ships `geoip.dat` / `geosite.dat` (~28 MB) inside the APK — rules like `geosite:netflix` work out of the box. The slim build omits those files and downloads them on first launch from «Settings → GeoData». If you don\'t use geo-based routing rules, you can skip the GeoData download entirely.';
+      'The standard build ships `geoip.dat` and `geosite.dat` (~28 MB) inside the APK — routing rules like `geosite:google` or `geoip:ru` work immediately. The slim build omits them to reduce APK size. You can download the files, configure auto-updates (1, 3, or 7 days), or load custom files from storage in **«Settings → Routing → GeoData files»**. If you do not use geo-based rules, you can skip downloading GeoData entirely.';
 
   @override
   String get faqQ9 =>
@@ -2524,11 +2559,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get faqQ11 =>
-      'The ping to the server and the ping via the local proxy differ a lot — what shows what?';
+      'How do node URL tests, connection latency and TCP diagnostics differ?';
 
   @override
   String get faqA11 =>
-      '**Endpoint ping** is a plain TCP ping to the server\'s IP:port (how quickly the network reaches it). **Proxy ping** is a real HTTP request through the established proxy connection (includes TLS handshake, reverse proxy, routing). The second is always larger; it reflects how the internet actually feels. A large gap usually means your ISP is throttling the proxy itself, not the network.';
+      '**Node URL tests** make an HTTP request through that node\'s own outbound after a warm-up. **Connection latency** tests the running tunnel and its entire selected chain. **TCP diagnostics** only test port reachability and do not confirm a working proxy. Choose TCP or URL on the home screen; both tools remain available under Application → Diagnostics in settings. Enabling diagnostics in the node menu adds the opposite test. Standalone checks do not change list latency. The default URL is http://cp.cloudflare.com/ and requires HTTP 204; custom URLs require 2xx. Redirects fail. A failed test can also mean the target website is unavailable.';
 
   @override
   String get faqQ12 =>
@@ -2536,7 +2571,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get faqA12 =>
-      'First — the auto-refresh interval (1 hour by default) and the «refresh on launch» toggle. To force it, hit refresh on the subscription page. If the content still doesn\'t change, your provider returned the same node set. If the «protect subscriptions» switch is on, manual edits inside subscription nodes are overwritten on the next refresh.';
+      '1. Check the auto-refresh interval (by default **6 hours**; configured under «Settings → Subscription provider» or per-subscription) and the «Refresh on launch» toggle.\n2. Force a refresh using the update button on the subscription card.\n3. If the list does not change, your provider is returning the exact same node set.\n4. If «Protect subscriptions» is enabled, manual edits inside subscription nodes will be overwritten during updates.';
 
   @override
   String get faqQ13 =>
@@ -2581,7 +2616,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get faqA18 =>
-      'There\'s no dedicated «kill switch» toggle in the UI. If the VPN drops, traffic may leak directly until you reconnect. For hard blocking of unprotected traffic, use Android\'s system **Always-on VPN** in the OS settings — the same screen lets you turn on «Block connections without VPN».';
+      'Yes. A built-in **«Kill Switch»** toggle is available under **«Settings → Application»**. When active, an unexpected VPN drop immediately blocks all unprotected internet traffic and posts a notification allowing you to restore connectivity or reconnect. Manually disconnecting the tunnel restores normal network access.\nFor strict system-level protection, you can also enable Android\'s native **Always-on VPN** with «Block connections without VPN» via the «Auto-connect on device boot» shortcut.';
 
   @override
   String get faqQ19 => 'Where are my data and logs stored — is that safe?';
@@ -2596,6 +2631,38 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get faqA20 =>
       '**Android TV / Google TV** — yes, a dedicated full-screen UI with D-pad support; the nodes and subscriptions are shared with the mobile version. **iOS / iPadOS** — a full client is in development.';
+
+  @override
+  String get faqQ21 =>
+      'What is the difference between «Proxy-only» and «VPN tunnel (TUN)» mode?';
+
+  @override
+  String get faqA21 =>
+      'Configured in **«Settings → Tunnel → Run mode»**:\n• **VPN tunnel (TUN)** is the default mode: all device traffic is routed via Android\'s VpnService (key icon in the status bar).\n• **Hide icon (proxy-only)** starts a local SOCKS5/HTTP proxy without creating a system TUN interface. No VPN icon is displayed, and the OS VPN slot remains free for other apps. Traffic is routed through the proxy only from apps configured manually (e.g. Telegram, custom browsers).';
+
+  @override
+  String get faqQ22 =>
+      'Are Hysteria2 and NaiveProxy supported, and what are their requirements?';
+
+  @override
+  String get faqA22 =>
+      'Yes, VoidLex supports importing `hy2://` / `hysteria2://` and `naive+https://` / `naive+quic://` links.\nKey requirements:\n1. They require the **libbox** TUN engine (they cannot run with Xray TUN).\n2. They cannot be used in two-hop chains (exit node).\n3. NaiveProxy supports both HTTPS and QUIC transports.';
+
+  @override
+  String get faqQ23 =>
+      'Can I share the proxy with other devices over Wi-Fi or hotspot?';
+
+  @override
+  String get faqA23 =>
+      'Yes. In **«Settings → Tunnel → Local proxy»** (and in Proxy-only mode), the proxy can listen on the local network. Devices connected to the same Wi-Fi or your mobile hotspot can use SOCKS5 (`port 10808`) and HTTP (`port 10809`) by targeting your phone\'s IP. For security, enable authentication and configure a username and password under SOCKS5/HTTP credentials.';
+
+  @override
+  String get faqQ24 =>
+      'The tunnel disconnects on its own after 10–20 minutes in the background — how to fix it?';
+
+  @override
+  String get faqA24 =>
+      'This is caused by aggressive OS power management on certain Android skins (HyperOS/MIUI, ColorOS, EMUI, OneUI):\n1. In Android app info for VoidLex, disable **«Battery optimisation»** (set to «Unrestricted»).\n2. Enable **«Auto-start»** and allow background activity.\n3. In the recent apps overview, lock VoidLex with the lock icon.\n4. For uninterrupted operation, configure Android\'s native **Always-on VPN** in system network settings.';
 
   @override
   String get autoConnectOnBootTitle => 'Auto-connect on device boot';
@@ -2707,4 +2774,50 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get urlSchemeCopied => 'Copied to clipboard';
+
+  @override
+  String get additionalTlsFingerprintsTitle => 'Additional TLS fingerprints';
+
+  @override
+  String get additionalTlsFingerprintsSubtitle =>
+      'Show Safari 16.0, Chrome 120 and iOS 14. Saved choices remain active when hidden.';
+
+  @override
+  String get urlProbeTargetTitle => 'Node URL test address';
+
+  @override
+  String get urlProbeTargetHelp =>
+      'Requests go through each node. A failed test can also mean the target site is unavailable.';
+
+  @override
+  String get urlProbeTargetInvalid =>
+      'Enter a full HTTP/HTTPS URL without credentials or a fragment.';
+
+  @override
+  String get tcpDiagnosticTitle => 'TCP diagnostic';
+
+  @override
+  String get tcpDiagnosticSubtitle =>
+      'Checks only the port, without proxy authorization. Does not change home screen latency.';
+
+  @override
+  String get nodeDiagnosticModeTitle => 'Default node diagnostic';
+
+  @override
+  String get nodeDiagnosticModeHelp =>
+      'Choose TCP or URL for node latency on the home screen.';
+
+  @override
+  String get nodeDiagnosticMenuTitle => 'Diagnostic in node menu';
+
+  @override
+  String get nodeDiagnosticMenuHelp =>
+      'Add the other test to the node menu: URL when TCP is the default, or TCP when URL is the default.';
+
+  @override
+  String get urlDiagnosticTitle => 'URL diagnostic';
+
+  @override
+  String get urlDiagnosticSubtitle =>
+      'Test an individual node through its outbound without changing home screen results.';
 }

@@ -3,6 +3,67 @@ import 'dart:io';
 
 import 'models/server_config.dart';
 
+enum NodeDiagnosticMode {
+  url,
+  tcp;
+
+  String get label => name.toUpperCase();
+  NodeDiagnosticMode get alternate => this == url ? tcp : url;
+  static NodeDiagnosticMode parse(String? value) => value == 'tcp' ? tcp : url;
+}
+
+abstract final class UrlProbeTarget {
+  static const defaultUrl = 'http://cp.cloudflare.com/';
+
+  static String? normalize(String? raw) {
+    final uri = Uri.tryParse((raw ?? '').trim());
+    if (uri == null ||
+        !const ['http', 'https'].contains(uri.scheme) ||
+        uri.host.isEmpty ||
+        uri.host.contains(RegExp(r'\s')) ||
+        uri.userInfo.isNotEmpty ||
+        uri.hasFragment ||
+        uri.port < 1 ||
+        uri.port > 65535) {
+      return null;
+    }
+    return uri.replace(path: uri.path.isEmpty ? '/' : uri.path).toString();
+  }
+
+  static bool accepts(Uri url, int status) =>
+      normalize(url.toString()) == defaultUrl
+      ? status == 204
+      : status >= 200 && status < 300;
+}
+
+class UrlProbeResult {
+  const UrlProbeResult(this.status, {this.latencyMs, this.detail});
+  final String status;
+  final int? latencyMs;
+  final String? detail;
+
+  factory UrlProbeResult.fromMap(Map<String, dynamic>? map) {
+    final status = map?['status'] as String? ?? 'error';
+    final latency = (map?['latencyMs'] as num?)?.toInt();
+    if (status == 'ok' && (latency == null || latency < 0)) {
+      return const UrlProbeResult('error', detail: 'Invalid latency result');
+    }
+    return UrlProbeResult(
+      status,
+      latencyMs: latency,
+      detail: map?['detail'] as String?,
+    );
+  }
+
+  String get label => switch (status) {
+    'ok' => '$latencyMs ms',
+    'timeout' => '>3s',
+    'unsupported' => 'N/A',
+    'cancelled' => '--',
+    _ => 'ERR',
+  };
+}
+
 class LatencyProbeTarget {
   const LatencyProbeTarget._({this.host, this.port});
 
@@ -129,9 +190,48 @@ class ServerLatencyProbe {
   final Duration perAddressTimeout;
   final Duration totalTimeout;
 
-  static final Uri _runtimeProbeUrl = Uri.parse(
-    'https://www.gstatic.com/generate_204',
-  );
+  Future<UrlProbeResult> measureRuntimeUrl({
+    required String proxyHost,
+    required int proxyPort,
+    String? proxyUser,
+    String? proxyPassword,
+    required Uri url,
+  }) async {
+    final client = HttpClient()
+      ..connectionTimeout = const Duration(seconds: 3)
+      ..findProxy = (_) => 'PROXY $proxyHost:$proxyPort';
+    if ((proxyUser?.isNotEmpty ?? false) &&
+        (proxyPassword?.isNotEmpty ?? false)) {
+      client.addProxyCredentials(
+        proxyHost,
+        proxyPort,
+        '',
+        HttpClientBasicCredentials(proxyUser!, proxyPassword!),
+      );
+    }
+    final watch = Stopwatch()..start();
+    try {
+      await (() async {
+        final request = await client.getUrl(url);
+        request.followRedirects = false;
+        request.headers.set(HttpHeaders.cacheControlHeader, 'no-cache');
+        final response = await request.close();
+        if (!UrlProbeTarget.accepts(url, response.statusCode)) {
+          throw HttpException('HTTP ${response.statusCode}');
+        }
+        await response.drain<void>();
+      })().timeout(const Duration(seconds: 3));
+      return UrlProbeResult('ok', latencyMs: watch.elapsedMilliseconds);
+    } on TimeoutException {
+      return const UrlProbeResult('timeout', detail: 'URL request timed out');
+    } on HttpException catch (error) {
+      return UrlProbeResult('error', detail: error.message);
+    } catch (_) {
+      return const UrlProbeResult('error', detail: 'URL request failed');
+    } finally {
+      client.close(force: true);
+    }
+  }
 
   Future<String> measure(
     ServerConfig server, {
@@ -199,54 +299,6 @@ class ServerLatencyProbe {
       return '>5s';
     } catch (_) {
       return 'ERR';
-    }
-  }
-
-  Future<String?> measureViaHttpProxy({
-    required String proxyHost,
-    required int proxyPort,
-    String? proxyUser,
-    String? proxyPassword,
-    Uri? url,
-  }) async {
-    final stopwatch = Stopwatch()..start();
-    HttpClient? client;
-    try {
-      client = HttpClient()
-        ..connectionTimeout = perAddressTimeout
-        ..findProxy = (_) => 'PROXY $proxyHost:$proxyPort';
-
-      final user = proxyUser ?? '';
-      final password = proxyPassword ?? '';
-      if (user.isNotEmpty && password.isNotEmpty) {
-        client.addProxyCredentials(
-          proxyHost,
-          proxyPort,
-          '',
-          HttpClientBasicCredentials(user, password),
-        );
-      }
-
-      final request = await client
-          .getUrl(url ?? _runtimeProbeUrl)
-          .timeout(totalTimeout);
-      request.followRedirects = false;
-      request.maxRedirects = 0;
-      request.headers.set(HttpHeaders.cacheControlHeader, 'no-cache');
-      final response = await request.close().timeout(totalTimeout);
-      final statusCode = response.statusCode;
-      if (statusCode >= 200 && statusCode < 400) {
-        return '${stopwatch.elapsedMilliseconds} ms';
-      }
-      return 'ERR';
-    } on TimeoutException catch (_) {
-      return '>5s';
-    } on SocketException catch (_) {
-      return null;
-    } catch (_) {
-      return null;
-    } finally {
-      client?.close(force: true);
     }
   }
 }

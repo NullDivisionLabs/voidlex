@@ -43,23 +43,27 @@ class NodePingBadge extends StatelessWidget {
         final label = NodePingTone.shortLabel(raw);
         final t = VoidTokens.of(context);
         final color = tone.colorIn(t);
-        return switch (style) {
-          NodePingBadgeStyle.row => _RowPing(
-            label: label,
-            color: color,
-            showMs: _digitRegex.hasMatch(label),
-          ),
-          NodePingBadgeStyle.fav => Text(
-            label,
-            style: VoidType.mono(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
+        return Tooltip(
+          message:
+              '${controller.nodeDiagnosticMode.label} · ${controller.urlProbeDetailFor(serverName) ?? raw}',
+          child: switch (style) {
+            NodePingBadgeStyle.row => _RowPing(
+              label: label,
               color: color,
-              fontFeatures: const [FontFeature.tabularFigures()],
+              showMs: _digitRegex.hasMatch(label),
             ),
-          ),
-          NodePingBadgeStyle.tv => _TvPing(label: label, color: color),
-        };
+            NodePingBadgeStyle.fav => Text(
+              label,
+              style: VoidType.mono(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: color,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+            NodePingBadgeStyle.tv => _TvPing(label: label, color: color),
+          },
+        );
       },
     );
   }

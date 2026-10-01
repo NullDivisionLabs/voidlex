@@ -53,6 +53,7 @@ internal object XrayConfigBuilder {
         leadingRoutingRules: JSONArray = JSONArray(),
         trailingRoutingRules: JSONArray = JSONArray(),
         dns: JSONObject? = null,
+        includeRuntimeInbounds: Boolean = true,
     ): String {
         val bridgeEntry = resolveBridgeEntry(config)
         val proxySelectedAppRoutingActive =
@@ -64,7 +65,7 @@ internal object XrayConfigBuilder {
             if (dns != null) {
                 put("dns", dns)
             }
-            put("inbounds", buildRuntimeInbounds(config, inbounds))
+            put("inbounds", if (includeRuntimeInbounds) buildRuntimeInbounds(config, inbounds) else inbounds)
             require(!usesDirectLibbox(config)) {
                 "${config.protocol} must not reach XrayConfigBuilder; route it through libbox instead."
             }

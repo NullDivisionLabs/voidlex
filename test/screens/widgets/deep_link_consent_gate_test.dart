@@ -23,6 +23,13 @@ void main() {
         .setMockMethodCallHandler(serviceChannel, (_) async => null);
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(stateChannel, (_) async => null);
+    for (final name in ['speed', 'geodata_progress']) {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+            MethodChannel('org.voidlex.vpn/$name'),
+            (_) async => null,
+          );
+    }
   });
 
   tearDown(() {
@@ -30,6 +37,13 @@ void main() {
         .setMockMethodCallHandler(serviceChannel, null);
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(stateChannel, null);
+    for (final name in ['speed', 'geodata_progress']) {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+            MethodChannel('org.voidlex.vpn/$name'),
+            null,
+          );
+    }
   });
 
   testWidgets('shows consent that was pending before the UI mounted', (
@@ -41,7 +55,7 @@ void main() {
       deepLinkChannel: _InitialDeepLinkChannel(initialLink),
     );
     addTearDown(controller.dispose);
-    await controller.bootstrap();
+    await tester.runAsync(controller.bootstrap);
     expect(controller.pendingDeepLink, isNotNull);
 
     await tester.pumpWidget(

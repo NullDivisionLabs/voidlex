@@ -647,6 +647,11 @@ class _TunnelSettingsScreenState extends State<_TunnelSettingsScreen> {
               l: l,
               useTvChrome: useTvChrome,
             ),
+            _additionalTlsFingerprintsCard(
+              theme: theme,
+              l: l,
+              useTvChrome: useTvChrome,
+            ),
             _ConnectionPolicyCard(
               policy: widget.controller.connectionPolicy,
               onIdleChanged: (value) => _updateConnectionPolicy(
@@ -916,6 +921,26 @@ class _TunnelSettingsScreenState extends State<_TunnelSettingsScreen> {
           width: 96,
           child: useTvChrome ? tvDpadEscapeTextField(field) : field,
         ),
+      ),
+    ]);
+  }
+
+  Widget _additionalTlsFingerprintsCard({
+    required ThemeData theme,
+    required AppLocalizations l,
+    required bool useTvChrome,
+  }) {
+    return _settingsCard(theme, [
+      _CompactToggleRow(
+        icon: Icons.fingerprint_rounded,
+        title: l.additionalTlsFingerprintsTitle,
+        description: l.additionalTlsFingerprintsSubtitle,
+        value: widget.controller.additionalTlsFingerprintsEnabled,
+        onChanged: (value) async {
+          await widget.controller.setAdditionalTlsFingerprintsEnabled(value);
+          if (mounted) setState(() {});
+        },
+        tvFocusable: useTvChrome,
       ),
     ]);
   }

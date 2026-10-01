@@ -4,6 +4,7 @@ import 'package:flutter_slidable/flutter_slidable.dart';
 
 import '../../core/models/server_config.dart';
 import '../../core/vpn_controller.dart';
+import '../../core/server_latency_probe.dart';
 import '../../l10n/app_localizations.dart';
 import '../../theme.dart';
 import 'node_ping_badge.dart';
@@ -19,6 +20,7 @@ enum ServerMenuAction {
   assignRoutingPreset,
   share,
   remove,
+  diagnose,
 }
 
 /// One row in the server list. Wraps [NodeRow] in a horizontal swipe frame
@@ -108,6 +110,7 @@ class ServerNodeTile extends StatelessWidget {
         preset: hasPreset ? presetName : null,
         onTap: onTap,
         trailing: _NodeMenuButton(
+          controller: controller,
           isPinned: server.isPinned,
           isExit: isExitNode,
           hasPreset: hasPreset,
@@ -327,6 +330,7 @@ class _SwipeActionButton extends StatelessWidget {
 
 class _NodeMenuButton extends StatelessWidget {
   const _NodeMenuButton({
+    required this.controller,
     required this.isPinned,
     required this.isExit,
     required this.hasPreset,
@@ -335,6 +339,7 @@ class _NodeMenuButton extends StatelessWidget {
   });
 
   final bool isPinned;
+  final VpnController controller;
   final bool isExit;
   final bool hasPreset;
   final bool hideEdit;
@@ -362,6 +367,16 @@ class _NodeMenuButton extends StatelessWidget {
       onSelected: onSelected,
       icon: Icon(Icons.more_horiz_rounded, color: t.fg2, size: 16),
       itemBuilder: (_) => <PopupMenuEntry<ServerMenuAction>>[
+        if (controller.nodeDiagnosticMenuEnabled)
+          PopupMenuItem<ServerMenuAction>(
+            value: ServerMenuAction.diagnose,
+            child: Text(
+              controller.alternateNodeDiagnosticMode == NodeDiagnosticMode.url
+                  ? l.urlDiagnosticTitle
+                  : l.tcpDiagnosticTitle,
+              style: itemStyle,
+            ),
+          ),
         if (!hideEdit) ...[
           PopupMenuItem<ServerMenuAction>(
             value: ServerMenuAction.edit,

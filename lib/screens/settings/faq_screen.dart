@@ -1,7 +1,7 @@
 part of '../settings_screen.dart';
 
 /// FAQ screen, reachable from the About block in Settings. Pure presentation:
-/// pulls all 20 Q/A pairs from [AppLocalizations] and renders them as
+/// pulls all 24 Q/A pairs from [AppLocalizations] and renders them as
 /// independently-toggleable cards styled to match the rest of the settings
 /// surfaces (mono section labels, sans body, hairline borders on
 /// [VoidTokens.surface]).
@@ -145,6 +145,10 @@ class _FaqScreenState extends State<_FaqScreen> {
       (l.faqQ18, l.faqA18),
       (l.faqQ19, l.faqA19),
       (l.faqQ20, l.faqA20),
+      (l.faqQ21, l.faqA21),
+      (l.faqQ22, l.faqA22),
+      (l.faqQ23, l.faqA23),
+      (l.faqQ24, l.faqA24),
     ];
   }
 }

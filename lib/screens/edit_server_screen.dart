@@ -9,7 +9,9 @@ import '../core/server_config_exporter.dart';
 import '../core/server_importer.dart';
 import '../core/models/server_config.dart';
 import '../core/vpn_controller.dart';
+import '../core/tls_fingerprints.dart';
 import '../theme.dart';
+import 'widgets/lined_json_editor.dart';
 import 'widgets/orientation_gate.dart';
 import 'widgets/protocol_selector.dart';
 import 'widgets/server_advanced_fields.dart';
@@ -78,6 +80,7 @@ class _EditServerScreenState extends State<EditServerScreen> {
   // uTLS fingerprint. Empty = "Auto". Imported values outside the known list
   // are preserved as-is via [_extendedFingerprintOptions].
   late String _fingerprint;
+  late ServerConfig _draft;
   late bool _tlsInsecure;
   late bool _naiveQuic;
   late String _naiveQuicCongestionControl;
@@ -139,6 +142,7 @@ class _EditServerScreenState extends State<EditServerScreen> {
   }
 
   void _loadServerIntoFields(ServerConfig server) {
+    _draft = server;
     _aliasController.text = server.name;
     _addressController.text = server.address;
     _portController.text = server.port.toString();
@@ -179,35 +183,6 @@ class _EditServerScreenState extends State<EditServerScreen> {
   /// Blank means that Xray applies its stock transport behaviour.
   static String _normalizeXhttpMode(String raw) {
     return raw.trim().toLowerCase();
-  }
-
-  /// Known uTLS fingerprints the xray-core runtime accepts (see
-  /// xtls/xray-core/transport/internet/tls/utls.go). Empty = "Auto".
-  /// 360 / qq are kept in the list for completeness — the embedded
-  /// libxray.so supports them — but they're unusual outside CN traffic.
-  static const _fingerprintOptions = <String>[
-    '',
-    'chrome',
-    'firefox',
-    'safari',
-    'ios',
-    'android',
-    'edge',
-    '360',
-    'qq',
-    'random',
-    'randomized',
-  ];
-
-  /// Returns the fingerprint dropdown list with [current] appended when
-  /// it's a non-standard imported value, so the dropdown can render it
-  /// without losing the underlying string on first save.
-  static List<String> _extendedFingerprintOptions(String current) {
-    final trimmed = current.trim();
-    if (trimmed.isEmpty || _fingerprintOptions.contains(trimmed)) {
-      return _fingerprintOptions;
-    }
-    return [..._fingerprintOptions, trimmed];
   }
 
   @override
@@ -429,7 +404,7 @@ class _EditServerScreenState extends State<EditServerScreen> {
   ServerConfig _serverFromFields() {
     final port = int.parse(_portController.text.trim());
     if (_isHysteria2) {
-      return widget.server.copyWith(
+      return _draft.copyWith(
         name: _aliasController.text.trim(),
         address: _addressController.text.trim(),
         port: port,
@@ -489,7 +464,7 @@ class _EditServerScreenState extends State<EditServerScreen> {
       );
     }
     if (_isNaive) {
-      return widget.server.copyWith(
+      return _draft.copyWith(
         name: _aliasController.text.trim(),
         address: _addressController.text.trim(),
         port: port,
@@ -550,7 +525,7 @@ class _EditServerScreenState extends State<EditServerScreen> {
     }
 
     final isXhttp = _transport == VlessTransport.xhttp;
-    return widget.server.copyWith(
+    return _draft.copyWith(
       name: _aliasController.text.trim(),
       address: _addressController.text.trim(),
       port: port,
@@ -993,37 +968,34 @@ class _EditServerScreenState extends State<EditServerScreen> {
   Widget _buildJsonEditor(ThemeData theme, AppLocalizations l) {
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-      child: TextField(
-        key: const ValueKey('edit-server-json-editor'),
-        controller: _jsonController,
-        enabled: !_isBusy,
-        minLines: 24,
-        maxLines: null,
-        keyboardType: TextInputType.multiline,
-        autocorrect: false,
-        enableSuggestions: false,
-        smartDashesType: SmartDashesType.disabled,
-        smartQuotesType: SmartQuotesType.disabled,
-        style: theme.textTheme.bodyMedium?.copyWith(
-          fontFamily: 'monospace',
-          height: 1.45,
-        ),
-        decoration: InputDecoration(
-          labelText: l.editServerJsonEditorLabel,
-          helperText: l.editServerJsonEditorHelper,
-          errorText: _jsonError,
-          alignLabelWithHint: true,
-        ),
-        onChanged: (_) {
-          if (_jsonError == null) {
-            _markDirty();
-            return;
-          }
-          setState(() {
-            _jsonError = null;
-            _hasUnsavedChanges = true;
-          });
-        },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Text(
+              l.editServerJsonEditorHelper,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+          LinedJsonEditor(
+            controller: _jsonController,
+            enabled: !_isBusy,
+            externalError: _jsonError,
+            onChanged: (_) {
+              if (_jsonError == null) {
+                _markDirty();
+                return;
+              }
+              setState(() {
+                _jsonError = null;
+                _hasUnsavedChanges = true;
+              });
+            },
+          ),
+        ],
       ),
     );
   }
@@ -1052,7 +1024,10 @@ class _EditServerScreenState extends State<EditServerScreen> {
 
   Widget _buildFingerprintField() {
     final l = AppLocalizations.of(context);
-    final options = _extendedFingerprintOptions(_fingerprint);
+    final options = TlsFingerprints.options(
+      additionalEnabled: widget.controller.additionalTlsFingerprintsEnabled,
+      current: _fingerprint,
+    );
     return DropdownButtonFormField<String>(
       initialValue: _fingerprint,
       decoration: InputDecoration(
@@ -1064,7 +1039,9 @@ class _EditServerScreenState extends State<EditServerScreen> {
             (fp) => DropdownMenuItem<String>(
               value: fp,
               child: Text(
-                fp.isEmpty ? l.editServerFingerprintAuto : fp,
+                fp.isEmpty
+                    ? l.editServerFingerprintAuto
+                    : TlsFingerprints.label(fp),
                 style: TextStyle(fontFamily: fp.isEmpty ? null : 'monospace'),
               ),
             ),

@@ -55,6 +55,33 @@ class MainActivity: FlutterActivity() {
     private var pendingExportProfileContent: String? = null
     private var pendingGeoDataKind: String? = null
     private var notificationPermissionResult: MethodChannel.Result? = null
+    private val urlProbeClient by lazy { UrlProbeClient(applicationContext) }
+
+    override fun onDestroy() {
+        urlProbeClient.close()
+        super.onDestroy()
+    }
+
+    private fun handleProbeServerUrl(args: Map<*, *>?, result: MethodChannel.Result) {
+        val id = args?.get("requestId") as? String
+        val url = args?.get("url") as? String
+        if (id.isNullOrBlank() || url == null || !UrlProbeHttp.validUrl(url)) {
+            result.error("invalid_probe", "Request ID and HTTP/HTTPS URL required", null)
+            return
+        }
+        val config = Intent()
+        // Reuse exactly the same field mapping as startVpn/startProxy.
+        putServerExtras(config, args)
+        args.forEach { (key, value) ->
+            if (key is String) when (value) {
+                is Boolean -> config.putExtra(key, value)
+                is Int -> config.putExtra(key, value)
+                is Long -> config.putExtra(key, value.toInt())
+                is String -> config.putExtra(key, value)
+            }
+        }
+        urlProbeClient.probe(id, url, config.extras ?: android.os.Bundle(), result)
+    }
 
     override fun configureFlutterEngine(@NonNull flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -95,6 +122,8 @@ class MainActivity: FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler {
             call, result ->
             when (call.method) {
+                "probeServerUrl" -> handleProbeServerUrl(call.arguments as? Map<*, *>, result)
+                "cancelUrlProbes" -> { urlProbeClient.cancelAll(); result.success(null) }
                 "prepareVpn" -> handlePrepareVpn(result)
                 "startVpn" -> handleStartVpn(call.arguments as? Map<*, *>, result)
                 "stopVpn" -> handleStopVpn(result)
